@@ -54,7 +54,7 @@ export default async function CustomersPage() {
                     { l: "Outstanding", v: formatUsd(c.outstanding) },
                     { l: "Credit", v: formatUsd(c.credit) },
                   ].map((s) => (
-                    <div key={s.l} className="rounded-xl bg-white/[0.03] px-2 py-2.5">
+                    <div key={s.l} className="rounded-xl bg-veil/[0.03] px-2 py-2.5">
                       <p className="text-[11px] text-fg-3">{s.l}</p>
                       <p className="tabular mt-0.5 font-display text-sm font-semibold">{s.v}</p>
                     </div>

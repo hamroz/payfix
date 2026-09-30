@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 export function Stepper({ steps, current, complete = false }: { steps: string[]; current: number; complete?: boolean }) {
   return (
     <div className="relative">
-      <div className="absolute left-3 right-3 top-3 h-px bg-white/10" />
+      <div className="absolute left-3 right-3 top-3 h-px bg-veil/10" />
       <motion.div
         className="absolute left-3 top-3 h-px bg-[linear-gradient(90deg,#6366F1,#A78BFA,#5EF2C2)]"
         initial={{ width: 0 }}
@@ -26,7 +26,7 @@ export function Stepper({ steps, current, complete = false }: { steps: string[];
                 animate={{ scale: active ? 1.08 : 1 }}
                 className={cn(
                   "relative grid size-6 place-items-center rounded-full border text-[10px] font-semibold",
-                  done ? "border-transparent bg-[linear-gradient(135deg,#6366F1,#A78BFA)] text-white" : active ? "border-violet bg-ink-900 text-violet" : "border-white/15 bg-ink-900 text-fg-3",
+                  done ? "border-transparent bg-[linear-gradient(135deg,#6366F1,#A78BFA)] text-white" : active ? "border-violet bg-ink-900 text-violet" : "border-veil/15 bg-ink-900 text-fg-3",
                 )}
               >
                 {active && <span className="absolute inset-0 animate-pulse-ring rounded-full border border-violet" />}

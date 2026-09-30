@@ -24,7 +24,7 @@ const accountLabel: Record<Account, string> = {
 const accountTone: Record<Account, string> = {
   external: "text-fg-3",
   unresolved: "text-amber",
-  invoice: "text-[#A5B4FC]",
+  invoice: "text-periwinkle",
   credit: "text-violet",
   refund_pending: "text-cyan",
   refunded: "text-mint",
@@ -73,7 +73,7 @@ export default async function LedgerPage() {
               <Card className="p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] text-fg-2">{e.kind}</span>
+                    <span className="rounded-md bg-veil/[0.06] px-2 py-0.5 font-mono text-[11px] text-fg-2">{e.kind}</span>
                     <span className="text-sm text-fg">{e.memo}</span>
                   </div>
                   <span className="text-xs text-fg-3">{formatDateTime(e.createdAt)}</span>
@@ -82,7 +82,7 @@ export default async function LedgerPage() {
                   {e.postings.map((p, i) => {
                     const amt = BigInt(p.amount);
                     return (
-                      <div key={i} className="flex items-center justify-between rounded-lg bg-white/[0.025] px-3 py-1.5 text-[13px]">
+                      <div key={i} className="flex items-center justify-between rounded-lg bg-veil/[0.025] px-3 py-1.5 text-[13px]">
                         <span className={cn(accountTone[p.account])}>
                           {accountLabel[p.account]}
                           {p.invoiceNumber ? ` · ${p.invoiceNumber}` : ""}

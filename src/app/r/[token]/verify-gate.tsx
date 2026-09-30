@@ -32,7 +32,7 @@ export function VerifyGate({ token, businessName, customerName }: { token: strin
               <p className="text-xs uppercase tracking-[0.14em] text-violet">{businessName}</p>
               <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight">Hi {customerName.split(" ")[0]}, let’s settle the extra payment</h1>
               <p className="mt-2 text-sm text-fg-2">First, confirm it’s you. We’ll email a 6-digit code to the address {businessName} has on file.</p>
-              <div className="mt-5 flex items-start gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 text-[13px] text-fg-3">
+              <div className="mt-5 flex items-start gap-3 rounded-2xl border border-veil/[0.07] bg-veil/[0.03] p-3.5 text-[13px] text-fg-3">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-mint" />
                 Knowing a transaction or holding this link doesn’t entitle anyone to a refund. Only you, verified, can propose where the money goes.
               </div>
