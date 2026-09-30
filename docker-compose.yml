@@ -1,0 +1,46 @@
+# PayFix runs as its own compose project ("payfix"): its own network, volumes, and
+# container names, so it can't collide with other local stacks.
+#   App:      http://localhost:3300   (override with PAYFIX_PORT)
+#   Postgres: 127.0.0.1:55432         (override with PAYFIX_DB_PORT; local only)
+name: payfix
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: payfix
+      POSTGRES_PASSWORD: payfix
+      POSTGRES_DB: payfix
+    ports:
+      - "127.0.0.1:${PAYFIX_DB_PORT:-55432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payfix -d payfix"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    build: .
+    # Solana settings and demo keys written by `npm run setup:devnet`. Optional:
+    # without them the app runs on the simulated chain.
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgres://payfix:payfix@db:5432/payfix
+      APP_URL: ${PAYFIX_APP_URL:-http://localhost:3300}
+    ports:
+      - "${PAYFIX_PORT:-3300}:3000"
+    volumes:
+      - appdata:/app/.data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  appdata:
