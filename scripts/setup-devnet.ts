@@ -139,7 +139,11 @@ async function main() {
   }
 
   writeEnv(env);
-  console.log(`\nDone. Wrote ${ENV_FILE}. Start the app with: npm run dev\n`);
+  console.log(
+    `\nDone. Wrote ${ENV_FILE}.\n` +
+      `  Docker:     docker compose down -v && npm run docker:up   (fresh demo data on devnet)\n` +
+      `  Local dev:  restart npm run dev\n`,
+  );
 }
 
 main().catch((err) => {
