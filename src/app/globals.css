@@ -111,6 +111,9 @@
 @layer base {
   html {
     background: var(--color-ink-900);
+    /* Always reserve the scrollbar's width so centered layouts don't shift
+       between pages that scroll and pages that don't. */
+    scrollbar-gutter: stable;
   }
   body {
     background: var(--color-ink-900);
