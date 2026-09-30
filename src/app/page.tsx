@@ -21,6 +21,9 @@ const guarantees = [
   { icon: FileCheck2, title: "Every dollar explained", body: "A double-entry ledger in exact token units. Received always equals applied + credit + refunded + pending + unresolved." },
 ];
 
+// The network badge reflects runtime config, so don't bake it in at build time.
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   const { SOLANA_CLUSTER } = env();
   return (

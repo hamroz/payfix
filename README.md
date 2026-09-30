@@ -18,20 +18,34 @@ PayFix is a payment-resolution app for small agencies that accept USDC on Solana
 
 **$1,100 received = $1,000 applied to A + $60 applied to B + $40 refunded.** Both sides get the same receipt.
 
-## Quick start
+## Quick start (Docker)
 
 ```bash
-npm install
-npm run dev
+docker compose up -d --build        # or: npm run docker:up
 ```
 
-Open http://localhost:3000 and click **Open the demo workspace**. Everything else is in the app:
+Open **http://localhost:3300** and click **Open the demo workspace**.
 
-- Sign in as `owner@lumen.test`. Sign-in codes and resolution links appear in the **Demo inbox** (bottom left), because demo mode doesn't send real email.
+PayFix runs as its own compose project (`payfix`) with its own network and volumes: the app on **:3300** and Postgres on **127.0.0.1:55432** (local only). It won't collide with other stacks. Change the ports with `PAYFIX_PORT` / `PAYFIX_DB_PORT` if you need to. Stop it with `docker compose down`; add `-v` to also wipe its data.
+
+In the app:
+
+- Sign in as `owner@lumen.test`. Sign-in codes and resolution links appear in the **Demo inbox** (bottom left) and in `docker compose logs app`, because demo mode doesn't send real email.
 - The **Guided demo** card on the overview walks through the scenario and ticks itself off from real state.
 - Payments use the **demo customer wallet**, and refunds are signed by the **demo merchant wallet**, so no browser extension is needed.
 
-With no configuration, PayFix runs on a **simulated chain** (clearly labeled in the UI) and an embedded Postgres (PGlite) stored in `.data/`. Nothing to install, nothing leaves your machine.
+With no `.env.local`, PayFix runs on a **simulated chain** (clearly labeled in the UI), so nothing touches a real network.
+
+### Local development with hot reload
+
+```bash
+npm install
+npm run db:up                        # Postgres only, in Docker, on 127.0.0.1:55432
+echo 'DATABASE_URL=postgres://payfix:payfix@127.0.0.1:55432/payfix' >> .env.local
+npm run dev                          # http://localhost:3000
+```
+
+Without `DATABASE_URL`, `npm run dev` falls back to an embedded Postgres (PGlite) in `.data/pglite`. It allows **one process at a time**, so don't run two dev servers on it. Prefer the Docker Postgres.
 
 ### Running on Solana devnet
 
@@ -41,7 +55,7 @@ npm run setup:devnet
 
 This creates three devnet keypairs (treasury/mint authority, demo merchant, demo customer), a 6-decimal **test-token mint**, and funds the demo wallets, then writes everything to `.env.local`. The public devnet faucet is rate limited. If the airdrop fails, the script prints the treasury address to fund at https://faucet.solana.com; after that, run the script again.
 
-Restart `npm run dev`. The app now:
+Then restart: `npm run docker:up` for Docker (the container reads `.env.local`), or restart `npm run dev`. The app now:
 
 - verifies real transfers on devnet, with Solana Explorer links for every transaction;
 - lets customers pay with **Phantom/Solflare** (browser wallet or Solana Pay QR) as well as the demo wallet;
@@ -57,9 +71,11 @@ To use your own Phantom as the customer from the start, run `npm run setup:devne
 | `npm test` | Unit tests plus the end-to-end demo scenario against in-memory Postgres and a simulated chain |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |
 | `npm run build` | Production build |
+| `npm run docker:up` / `docker:down` / `docker:logs` | Build and run, stop, or tail the Docker stack |
+| `npm run db:up` | Start only the Postgres container |
 | `npm run db:generate` | Generate a migration after editing `src/lib/db/schema.ts` (migrations apply automatically at startup) |
 
-Set `DATABASE_URL` to use a real Postgres, such as Neon for a Vercel deployment. Leave it empty for PGlite.
+For deployment, set `DATABASE_URL` to a hosted Postgres (for example Neon on Vercel). Migrations run automatically on first connection.
 
 ## How it works
 

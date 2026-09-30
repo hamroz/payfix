@@ -19,9 +19,9 @@
   --color-amber: #fbbf24;
   --color-rose: #fb7185;
 
-  --font-display: var(--font-sora), ui-sans-serif, system-ui;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui;
-  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-display: "Sora Variable", ui-sans-serif, system-ui;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
   --animate-drift: drift 22s ease-in-out infinite alternate;
   --animate-drift-slow: drift 34s ease-in-out infinite alternate-reverse;

@@ -36,7 +36,8 @@ export async function setSessionCookie(kind: SessionKind, token: string, expires
   (await cookies()).set(COOKIES[kind], token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Secure cookies only over https, so the Docker/LAN http setup can still sign in.
+    secure: env().APP_URL.startsWith("https://"),
     path: "/",
     expires,
   });

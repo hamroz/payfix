@@ -6,7 +6,8 @@ Read README.md first. It explains the product, the demo scenario, and where each
 
 ## Commands
 
-- `npm run dev`: app on :3000. With no `.env.local` mint it runs on the simulated chain with PGlite in `.data/`.
+- `docker compose up -d --build`: app on :3300 plus Postgres on 127.0.0.1:55432 (compose project `payfix`; never reuse ports 3100/5432/6379/7700/8100/9000, which belong to the user's other stacks).
+- `npm run dev`: app on :3000. Point `DATABASE_URL` at the Docker Postgres. The PGlite fallback in `.data/` is single-process only.
 - `npm test`: vitest, including `src/lib/server/flow.test.ts`, the whole demo scenario offline. Run it after any change to `src/lib/{domain,server,solana}`.
 - `npm run typecheck`, `npm run lint`, `npm run build`.
 - Schema change: edit `src/lib/db/schema.ts`, then `npm run db:generate`. Migrations apply on first DB use.
