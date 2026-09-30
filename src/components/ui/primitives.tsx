@@ -11,9 +11,9 @@ const variants: Record<Variant, string> = {
   primary:
     "text-white bg-[linear-gradient(135deg,#6366F1,#8B5CF6_55%,#A78BFA)] shadow-[0_8px_30px_-10px_rgba(124,92,246,0.8),inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-[0_10px_40px_-8px_rgba(124,92,246,0.95),inset_0_1px_0_rgba(255,255,255,0.3)] hover:brightness-110",
   success:
-    "text-ink-950 bg-[linear-gradient(135deg,#5EF2C2,#22D3EE)] shadow-[0_8px_30px_-10px_rgba(94,242,194,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:brightness-105",
-  secondary: "text-fg bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] hover:border-white/15",
-  ghost: "text-fg-2 hover:text-fg hover:bg-white/[0.06]",
+    "text-[#06080e] bg-[linear-gradient(135deg,#5EF2C2,#22D3EE)] shadow-[0_8px_30px_-10px_rgba(94,242,194,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:brightness-105",
+  secondary: "text-fg bg-veil/[0.06] border border-veil/10 hover:bg-veil/[0.1] hover:border-veil/15",
+  ghost: "text-fg-2 hover:text-fg hover:bg-veil/[0.06]",
   danger: "text-rose bg-rose/10 border border-rose/20 hover:bg-rose/15",
 };
 const sizes: Record<Size, string> = {
@@ -55,10 +55,10 @@ export function CardHeader({ title, subtitle, action, className }: { title: Reac
 
 type Tone = "neutral" | "amber" | "violet" | "indigo" | "cyan" | "mint" | "rose";
 const tones: Record<Tone, string> = {
-  neutral: "bg-white/[0.06] text-fg-2 border-white/10",
+  neutral: "bg-veil/[0.06] text-fg-2 border-veil/10",
   amber: "bg-amber/10 text-amber border-amber/20",
   violet: "bg-violet/10 text-violet border-violet/20",
-  indigo: "bg-indigo/15 text-[#A5B4FC] border-indigo/25",
+  indigo: "bg-indigo/15 text-periwinkle border-indigo/25",
   cyan: "bg-cyan/10 text-cyan border-cyan/20",
   mint: "bg-mint/10 text-mint border-mint/20",
   rose: "bg-rose/10 text-rose border-rose/20",
@@ -90,7 +90,7 @@ export function Label({ className, ...props }: ComponentProps<"label">) {
 }
 
 export const inputClass =
-  "h-11 w-full rounded-xl border border-white/10 bg-ink-950/60 px-3.5 text-[15px] text-fg placeholder:text-fg-3/70 outline-none transition focus:border-violet/60 focus:bg-ink-950/80 focus:ring-4 focus:ring-violet/15";
+  "h-11 w-full rounded-xl border border-veil/10 bg-ink-950/60 px-3.5 text-[15px] text-fg placeholder:text-fg-3/70 outline-none transition focus:border-violet/60 focus:bg-ink-950/80 focus:ring-4 focus:ring-violet/15";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(inputClass, className)} {...props} />;
@@ -120,7 +120,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
 export function EmptyState({ icon, title, body, action }: { icon?: ReactNode; title: string; body: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      {icon && <div className="mb-4 grid size-12 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-fg-2">{icon}</div>}
+      {icon && <div className="mb-4 grid size-12 place-items-center rounded-2xl border border-veil/10 bg-veil/[0.04] text-fg-2">{icon}</div>}
       <p className="font-display text-[15px] font-semibold text-fg">{title}</p>
       <p className="mt-1 max-w-sm text-sm text-fg-3">{body}</p>
       {action && <div className="mt-5">{action}</div>}

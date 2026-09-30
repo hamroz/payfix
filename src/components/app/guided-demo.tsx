@@ -37,7 +37,7 @@ export function GuidedDemo({ state }: { state: State }) {
 
   return (
     <div className="glass overflow-hidden rounded-2xl">
-      <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-veil/[0.06] px-5 py-4">
         <div className="flex items-center gap-2.5">
           <span className="grid size-8 place-items-center rounded-xl bg-violet/15 text-violet">
             <Sparkles className="size-4" />
@@ -51,7 +51,7 @@ export function GuidedDemo({ state }: { state: State }) {
           {doneCount}/{steps.length}
         </span>
       </div>
-      <div className="h-1 bg-white/[0.04]">
+      <div className="h-1 bg-veil/[0.04]">
         <motion.div className="h-full bg-[linear-gradient(90deg,#6366F1,#A78BFA,#5EF2C2)]" initial={{ width: 0 }} animate={{ width: `${(doneCount / steps.length) * 100}%` }} transition={{ duration: 0.8 }} />
       </div>
       <ol className="p-2">
@@ -62,18 +62,18 @@ export function GuidedDemo({ state }: { state: State }) {
               <Link
                 href={s.href}
                 target={s.external ? "_blank" : undefined}
-                className={cn("group flex items-center gap-3 rounded-xl px-3 py-2.5 transition", active ? "bg-white/[0.05]" : "hover:bg-white/[0.03]")}
+                className={cn("group flex items-center gap-3 rounded-xl px-3 py-2.5 transition", active ? "bg-veil/[0.05]" : "hover:bg-veil/[0.03]")}
               >
                 <span
                   className={cn(
                     "grid size-6 shrink-0 place-items-center rounded-full border text-[11px] font-semibold transition",
-                    s.done ? "border-mint/30 bg-mint/15 text-mint" : active ? "border-violet/50 text-violet" : "border-white/10 text-fg-3",
+                    s.done ? "border-mint/30 bg-mint/15 text-mint" : active ? "border-violet/50 text-violet" : "border-veil/10 text-fg-3",
                   )}
                 >
                   {s.done ? <Check className="size-3.5" /> : i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={cn("text-[13.5px]", s.done ? "text-fg-3 line-through decoration-white/20" : "text-fg")}>{s.title}</p>
+                  <p className={cn("text-[13.5px]", s.done ? "text-fg-3 line-through decoration-veil/20" : "text-fg")}>{s.title}</p>
                   {active && <p className="mt-0.5 text-xs text-violet">{s.hint}</p>}
                 </div>
                 {active && <ChevronRight className="size-4 text-fg-3 transition group-hover:translate-x-0.5 group-hover:text-fg" />}

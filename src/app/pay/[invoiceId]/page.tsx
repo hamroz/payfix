@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { Logo } from "@/components/brand/logo";
 import { NetworkPill } from "@/components/app/network-pill";
+import { ThemeToggle } from "@/components/theme/theme";
 import { DemoInbox } from "@/components/app/demo-inbox";
 import { WalletProviders } from "@/components/wallet/providers";
 import { businesses, customers } from "@/lib/db/schema";
@@ -29,7 +30,10 @@ export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">)
       <div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-5 py-6 sm:px-8">
         <header className="flex items-center justify-between">
           <Logo size={24} />
-          <NetworkPill />
+          <div className="flex items-center gap-2">
+            <NetworkPill />
+            <ThemeToggle />
+          </div>
         </header>
         <main className="flex flex-1 items-start justify-center py-8 sm:py-12">
           <PayPanel

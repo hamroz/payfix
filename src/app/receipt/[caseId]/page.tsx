@@ -14,6 +14,7 @@ import { explorerUrl, shortAddress } from "@/lib/solana/tx";
 import { currentBusiness, currentCustomerId, deps } from "@/lib/server/context";
 import { caseDetail } from "@/lib/server/views";
 import { PrintButton } from "./print-button";
+import { ThemeToggle } from "@/components/theme/theme";
 
 export const metadata: Metadata = { title: "Settlement receipt", robots: { index: false } };
 
@@ -73,7 +74,10 @@ export default async function ReceiptPage({ params }: PageProps<"/receipt/[caseI
     <div className="mx-auto max-w-3xl px-5 py-8 sm:py-12">
       <div className="mb-6 flex items-center justify-between print:hidden">
         <Logo size={24} />
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <PrintButton />
+        </div>
       </div>
 
       <Card className="relative overflow-hidden p-6 sm:p-10">
@@ -94,7 +98,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receipt/[caseI
             </div>
           </div>
 
-          <div className="mt-8 rounded-2xl border border-white/[0.07] bg-ink-950/40 p-4">
+          <div className="mt-8 rounded-2xl border border-veil/[0.07] bg-ink-950/40 p-4">
             <p className="mb-3 text-xs text-fg-3">{d.invoice ? `Every dollar paid toward ${d.invoice.number} (${formatUsd(BigInt(d.invoice.amount))})` : "Every dollar received"}</p>
             <Equation received={received.toString()} parts={parts} />
           </div>
@@ -119,7 +123,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receipt/[caseI
                 p.approvals.map((a) => (
                   <Row
                     key={a.id}
-                    icon={a.invalidatedAt ? <Ban className="size-4 text-rose" /> : <BadgeCheck className="size-4 text-[#A5B4FC]" />}
+                    icon={a.invalidatedAt ? <Ban className="size-4 text-rose" /> : <BadgeCheck className="size-4 text-periwinkle" />}
                     left={`v${p.version} ${a.invalidatedAt ? "approval voided" : "approved"}`}
                     sub={a.invalidatedAt ? a.invalidatedReason ?? "" : `by ${a.approvedBy} · ${formatDateTime(a.createdAt)}`}
                     right={<span className="font-mono text-[11px] text-fg-3">#{a.hash.slice(0, 12)}</span>}
@@ -140,7 +144,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receipt/[caseI
             </Section>
           )}
 
-          <p className="mt-8 border-t border-white/[0.06] pt-5 text-xs leading-relaxed text-fg-3">
+          <p className="mt-8 border-t border-veil/[0.06] pt-5 text-xs leading-relaxed text-fg-3">
             Amounts are exact token units of {config.tokenLabel}, {config.simulated ? "on a simulated chain" : `on Solana ${config.cluster}`} — test money, not customer funds. This record covers transfers PayFix observed and refunds it initiated; payments made outside PayFix are not reflected.
           </p>
         </div>
@@ -160,8 +164,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ icon, left, sub, right }: { icon: React.ReactNode; left: string; sub: string; right: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.04]">{icon}</span>
+    <div className="flex items-center gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.02] px-3.5 py-2.5">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-veil/[0.04]">{icon}</span>
       <div className="min-w-0 flex-1">
         <p className="tabular text-sm text-fg">{left}</p>
         <p className="truncate text-xs text-fg-3">{sub}</p>

@@ -36,7 +36,7 @@ export function HeroDemo() {
           <div className="flex items-center gap-2 text-xs text-fg-3">
             <FileText className="size-3.5" /> Acme Robotics · 2 invoices
           </div>
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] text-fg-3">Test money</span>
+          <span className="rounded-full border border-veil/10 bg-veil/[0.04] px-2 py-0.5 text-[11px] text-fg-3">Test money</span>
         </div>
 
         <div className="mt-5 space-y-2">
@@ -49,7 +49,7 @@ export function HeroDemo() {
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: p.t + 0.3, duration: 0.5 }}
-              className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5"
+              className="flex items-center justify-between rounded-xl border border-veil/[0.06] bg-veil/[0.03] px-3 py-2.5"
             >
               <div className="flex items-center gap-2.5">
                 <span className="grid size-7 place-items-center rounded-lg bg-mint/10 text-mint">
@@ -77,7 +77,7 @@ export function HeroDemo() {
               </motion.span>
             </AnimatePresence>
           </div>
-          <div className="flex h-3.5 gap-1 overflow-hidden rounded-full bg-white/[0.05] p-0.5">
+          <div className="flex h-3.5 gap-1 overflow-hidden rounded-full bg-veil/[0.05] p-0.5">
             {bars.map((b) => (
               <motion.div
                 key={b.key}
@@ -90,7 +90,7 @@ export function HeroDemo() {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-[13px] sm:grid-cols-4">
             {bars.map((b) => (
-              <motion.div key={b.key} animate={{ opacity: b.show ? 1 : 0.35 }} className="rounded-lg bg-white/[0.03] px-2.5 py-2">
+              <motion.div key={b.key} animate={{ opacity: b.show ? 1 : 0.35 }} className="rounded-lg bg-veil/[0.03] px-2.5 py-2">
                 <div className="text-[11px] text-fg-3">{b.label}</div>
                 <div className="tabular font-display font-semibold text-fg">{b.amount}</div>
               </motion.div>
@@ -98,7 +98,7 @@ export function HeroDemo() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-ink-950/50 p-3">
+        <div className="mt-6 flex items-center gap-3 rounded-2xl border border-veil/[0.07] bg-ink-950/50 p-3">
           <AnimatePresence mode="wait">
             <motion.div
               key={stage}
@@ -124,7 +124,7 @@ export function HeroDemo() {
           </div>
           <div className="flex gap-1">
             {STAGES.map((_, i) => (
-              <motion.span key={i} className="h-1.5 rounded-full bg-white/20" animate={{ width: i === stage ? 16 : 6, backgroundColor: i <= stage ? "#A78BFA" : "rgba(255,255,255,0.2)" }} />
+              <motion.span key={i} className={cn("h-1.5 rounded-full transition-colors duration-300", i <= stage ? "bg-violet" : "bg-veil/20")} animate={{ width: i === stage ? 16 : 6 }} />
             ))}
           </div>
         </div>
