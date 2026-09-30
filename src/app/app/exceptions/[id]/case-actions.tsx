@@ -59,12 +59,12 @@ export function CaseActions(p: Props) {
 
   return (
     <Card className="overflow-hidden">
-      <div className="border-b border-white/[0.06] px-5 py-4">
+      <div className="border-b border-veil/[0.06] px-5 py-4">
         <h3 className="font-display text-[15px] font-semibold">Next step</h3>
       </div>
       <div className="space-y-4 p-5">
         {p.customer && (
-          <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3.5 py-3">
+          <div className="flex items-center gap-3 rounded-xl bg-veil/[0.03] px-3.5 py-3">
             <span className="grid size-9 place-items-center rounded-xl bg-violet/15 font-display text-sm font-semibold text-violet">{p.customer.name[0]}</span>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{p.customer.name}</p>
@@ -226,7 +226,7 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
       </div>
 
       {r.status === "submitted" ? (
-        <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3.5 py-3 text-sm text-fg-2">
+        <div className="flex items-center gap-3 rounded-xl bg-veil/[0.03] px-3.5 py-3 text-sm text-fg-2">
           <LogoSpinner size={22} />
           <div className="min-w-0 flex-1">
             <p className="text-fg">Confirming on {p.config.simulated ? "the simulated chain" : p.config.cluster}…</p>

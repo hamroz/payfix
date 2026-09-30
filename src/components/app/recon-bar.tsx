@@ -13,7 +13,7 @@ const fills: Record<Segment["tone"], string> = {
   cyan: "bg-[linear-gradient(90deg,#06B6D4,#22D3EE)]",
   amber: "bg-[repeating-linear-gradient(135deg,#F59E0B_0_6px,#FBBF24_6px_12px)]",
   rose: "bg-[linear-gradient(90deg,#F43F5E,#FB7185)]",
-  slate: "bg-white/15",
+  slate: "bg-veil/15",
 };
 const dots: Record<Segment["tone"], string> = {
   indigo: "bg-indigo",
@@ -22,7 +22,7 @@ const dots: Record<Segment["tone"], string> = {
   cyan: "bg-cyan",
   amber: "bg-amber",
   rose: "bg-rose",
-  slate: "bg-white/30",
+  slate: "bg-veil/30",
 };
 
 /**
@@ -34,7 +34,7 @@ export function ReconBar({ segments, className, showLegend = true, height = 12 }
   const visible = segments.filter((s) => BigInt(s.units) > 0n);
   return (
     <div className={className}>
-      <div className="flex w-full gap-1 overflow-hidden rounded-full bg-white/[0.04] p-0.5" style={{ height }}>
+      <div className="flex w-full gap-1 overflow-hidden rounded-full bg-veil/[0.04] p-0.5" style={{ height }}>
         {visible.map((s, i) => {
           const pct = total === 0n ? 0 : Number((BigInt(s.units) * 10000n) / total) / 100;
           return (
@@ -85,7 +85,7 @@ export function Equation({ received, parts, className }: { received: string; par
 
 function Chip({ label, units, tone }: { label: string; units: string; tone: Segment["tone"] }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1">
+    <span className="inline-flex items-baseline gap-1.5 rounded-lg border border-veil/10 bg-veil/[0.04] px-2.5 py-1">
       <span className={cn("size-1.5 translate-y-[-1px] self-center rounded-full", dots[tone])} />
       <span className="tabular font-semibold text-fg">{formatUsd(BigInt(units))}</span>
       <span className="text-xs font-normal text-fg-3">{label}</span>

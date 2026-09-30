@@ -1,24 +1,89 @@
 @import "tailwindcss";
 
+/*
+ * Theme tokens. Both themes use the brand hues (indigo, violet, mint, cyan); light mode
+ * uses deeper shades of the same hues so text stays legible on white. `veil` is the
+ * overlay color for hairlines and tints: white on dark, ink on light.
+ */
+:root {
+  color-scheme: light;
+  --ink-950: #eceff6;
+  --ink-900: #f6f7fb;
+  --ink-850: #ffffff;
+  --ink-800: #eff1f7;
+  --ink-700: #e2e6f0;
+  --ink-600: #d2d8e5;
+  --fg: #0e1324;
+  --fg-2: #454e68;
+  --fg-3: #737d96;
+  --veil: #0b0f1a;
+  --indigo: #5b5ef0;
+  --violet: #7c5cf0;
+  --periwinkle: #4f46e5;
+  --mint: #0a9a72;
+  --cyan: #0891b2;
+  --amber: #b86e06;
+  --rose: #e11d48;
+  --gradient-text: linear-gradient(95deg, #10b981, #0891b2);
+  --gradient-text-violet: linear-gradient(95deg, #7c5cf0, #5b5ef0);
+  --glass-bg: linear-gradient(180deg, rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.74));
+  --glass-border: rgb(11 15 26 / 0.08);
+  --glass-shadow: 0 1px 2px rgb(11 15 26 / 0.04), 0 18px 50px -28px rgb(40 45 110 / 0.28);
+  --backdrop-dots: rgb(90 100 140 / 0.22);
+  --backdrop-glow-a: rgb(99 102 241 / 0.16);
+  --backdrop-glow-b: rgb(16 185 129 / 0.1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink-950: #06080e;
+  --ink-900: #0b0f1a;
+  --ink-850: #0f1422;
+  --ink-800: #141a2b;
+  --ink-700: #1c2439;
+  --ink-600: #2a3450;
+  --fg: #e8ecf6;
+  --fg-2: #a9b3cb;
+  --fg-3: #6f7a96;
+  --veil: #ffffff;
+  --indigo: #6366f1;
+  --violet: #a78bfa;
+  --periwinkle: #a5b4fc;
+  --mint: #5ef2c2;
+  --cyan: #22d3ee;
+  --amber: #fbbf24;
+  --rose: #fb7185;
+  --gradient-text: linear-gradient(95deg, #5ef2c2, #22d3ee);
+  --gradient-text-violet: linear-gradient(95deg, #c4b5fd, #6366f1);
+  --glass-bg: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.02));
+  --glass-border: rgb(255 255 255 / 0.075);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 60px -30px rgb(0 0 0 / 0.8);
+  --backdrop-dots: rgb(120 135 180 / 0.22);
+  --backdrop-glow-a: rgb(99 102 241 / 0.22);
+  --backdrop-glow-b: rgb(94 242 194 / 0.1);
+}
+
+@theme inline {
+  --color-ink-950: var(--ink-950);
+  --color-ink-900: var(--ink-900);
+  --color-ink-850: var(--ink-850);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+  --color-ink-600: var(--ink-600);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-veil: var(--veil);
+  --color-indigo: var(--indigo);
+  --color-violet: var(--violet);
+  --color-periwinkle: var(--periwinkle);
+  --color-mint: var(--mint);
+  --color-cyan: var(--cyan);
+  --color-amber: var(--amber);
+  --color-rose: var(--rose);
+}
+
 @theme {
-  --color-ink-950: #06080e;
-  --color-ink-900: #0b0f1a;
-  --color-ink-850: #0f1422;
-  --color-ink-800: #141a2b;
-  --color-ink-700: #1c2439;
-  --color-ink-600: #2a3450;
-
-  --color-fg: #e8ecf6;
-  --color-fg-2: #a9b3cb;
-  --color-fg-3: #6f7a96;
-
-  --color-indigo: #6366f1;
-  --color-violet: #a78bfa;
-  --color-mint: #5ef2c2;
-  --color-cyan: #22d3ee;
-  --color-amber: #fbbf24;
-  --color-rose: #fb7185;
-
   --font-display: "Sora Variable", ui-sans-serif, system-ui;
   --font-sans: "Inter Variable", ui-sans-serif, system-ui;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
@@ -45,7 +110,6 @@
 
 @layer base {
   html {
-    color-scheme: dark;
     background: var(--color-ink-900);
   }
   body {
@@ -70,31 +134,34 @@
 
 @layer components {
   .glass {
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.02));
-    border: 1px solid rgb(255 255 255 / 0.075);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.06),
-      0 20px 60px -30px rgb(0 0 0 / 0.8);
+    box-shadow: var(--glass-shadow);
   }
   .text-gradient {
-    background: linear-gradient(95deg, var(--color-mint), var(--color-cyan));
+    background: var(--gradient-text);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
   .text-gradient-violet {
-    background: linear-gradient(95deg, #c4b5fd, var(--color-indigo));
+    background: var(--gradient-text-violet);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
   .hairline {
-    border-color: rgb(255 255 255 / 0.07);
+    border-color: color-mix(in srgb, var(--veil) 7%, transparent);
   }
   .skeleton {
-    background: linear-gradient(90deg, rgb(255 255 255 / 0.03) 25%, rgb(255 255 255 / 0.08) 50%, rgb(255 255 255 / 0.03) 75%);
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--veil) 3%, transparent) 25%,
+      color-mix(in srgb, var(--veil) 8%, transparent) 50%,
+      color-mix(in srgb, var(--veil) 3%, transparent) 75%
+    );
     background-size: 200% 100%;
     animation: var(--animate-shimmer);
   }

@@ -73,7 +73,7 @@ export function DemoTools({ simulated }: { simulated: boolean }) {
             </Button>
           </div>
         </div>
-        <div className="border-t border-white/[0.06] pt-5">
+        <div className="border-t border-veil/[0.06] pt-5">
           <p className="text-sm font-medium">Reset the demo</p>
           <p className="mt-0.5 text-xs text-fg-3">Clears all invoices, payments, and cases, then recreates Lumen Studio, Acme Robotics, and invoices A ($1,000) and B ($400). Past chain history is ignored.</p>
           <Button

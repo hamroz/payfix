@@ -61,7 +61,7 @@ export function InvoiceForm({ customers }: { customers: Customer[] }) {
           </div>
           <AnimatePresence mode="wait" initial={false}>
             {adding ? (
-              <motion.div key="add" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3">
+              <motion.div key="add" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-2 rounded-2xl border border-veil/[0.07] bg-veil/[0.02] p-3">
                 <Input placeholder="Company or person" value={newName} onChange={(e) => setNewName(e.target.value)} />
                 <Input placeholder="billing@company.com" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
                 <div className="flex gap-2">

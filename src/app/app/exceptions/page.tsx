@@ -48,7 +48,7 @@ export default async function ExceptionsPage() {
                     const Icon = kindIcon[c.kind];
                     return (
                       <StaggerItem key={c.id}>
-                        <Link href={`/app/exceptions/${c.id}`} className="glass group flex items-center gap-4 rounded-2xl px-4 py-4 transition hover:border-white/15 sm:px-5">
+                        <Link href={`/app/exceptions/${c.id}`} className="glass group flex items-center gap-4 rounded-2xl px-4 py-4 transition hover:border-veil/15 sm:px-5">
                           <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${c.status === "resolved" ? "bg-mint/10 text-mint" : "bg-amber/10 text-amber"}`}>
                             <Icon className="size-[18px]" />
                           </span>

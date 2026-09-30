@@ -9,9 +9,9 @@ export function PlanLines({ lines, destination, proofMethod, invoiceNumbers, com
     <ul className="space-y-2">
       {lines.map((l, i) => {
         const Icon = l.type === "invoice" ? FileText : l.type === "credit" ? PiggyBank : ArrowUpRight;
-        const tone = l.type === "invoice" ? "bg-indigo/15 text-[#A5B4FC]" : l.type === "credit" ? "bg-violet/15 text-violet" : "bg-mint/10 text-mint";
+        const tone = l.type === "invoice" ? "bg-indigo/15 text-periwinkle" : l.type === "credit" ? "bg-violet/15 text-violet" : "bg-mint/10 text-mint";
         return (
-          <li key={i} className={cn("flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025]", compact ? "px-3 py-2" : "px-3.5 py-3")}>
+          <li key={i} className={cn("flex items-center gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.025]", compact ? "px-3 py-2" : "px-3.5 py-3")}>
             <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", tone)}>
               <Icon className="size-4" />
             </span>
@@ -51,7 +51,7 @@ export function ApprovalChip({ approval }: { approval: { approvedBy: string; cre
   }
   return (
     <div className="flex items-center gap-2 rounded-xl border border-indigo/25 bg-indigo/[0.08] px-3.5 py-2.5 text-[13px]">
-      <BadgeCheck className="size-4 text-[#A5B4FC]" />
+      <BadgeCheck className="size-4 text-periwinkle" />
       <span className="text-fg-2">
         Approved by <span className="text-fg">{approval.approvedBy}</span>
       </span>

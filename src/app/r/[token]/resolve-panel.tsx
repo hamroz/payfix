@@ -134,7 +134,7 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
               <p className="mt-1 max-w-sm text-sm text-fg-2">
                 {available > 0n ? `${formatUsd(available)} placed exactly as you asked. ` : ""}You and {businessName} share the same receipt.
               </p>
-              <Link href={`/receipt/${d.case.id}`} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white/[0.06] px-4 py-2.5 text-sm font-medium hover:bg-white/[0.1]">
+              <Link href={`/receipt/${d.case.id}`} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-veil/[0.06] px-4 py-2.5 text-sm font-medium hover:bg-veil/[0.1]">
                 <ReceiptText className="size-4" /> View receipt
               </Link>
             </Card>
@@ -154,7 +154,7 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
                 `${businessName} signs the refund from their wallet. You both get the same receipt.`,
               ].map((t, i) => (
                 <li key={i} className="flex gap-3">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-white/[0.06] text-[11px] font-semibold text-fg">{i + 1}</span>
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-veil/[0.06] text-[11px] font-semibold text-fg">{i + 1}</span>
                   {t}
                 </li>
               ))}
@@ -236,7 +236,7 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
       <div className="space-y-4 p-5">
         <div className="flex flex-wrap gap-2">
           {presets.map((p) => (
-            <button key={p.label} onClick={() => preset(p.values)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-fg-2 transition hover:border-violet/40 hover:text-fg">
+            <button key={p.label} onClick={() => preset(p.values)} className="rounded-full border border-veil/10 bg-veil/[0.04] px-3 py-1.5 text-xs text-fg-2 transition hover:border-violet/40 hover:text-fg">
               <Sparkles className="mr-1 inline size-3 text-violet" />
               {p.label}
             </button>
@@ -248,8 +248,8 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
             const Icon = r.type === "invoice" ? FileText : r.type === "credit" ? PiggyBank : ArrowUpRight;
             const active = (r.units ?? 0n) > 0n;
             return (
-              <motion.div key={r.key} layout className={cn("flex items-center gap-3 rounded-2xl border px-3.5 py-3 transition", active ? "border-violet/30 bg-violet/[0.05]" : "border-white/[0.07] bg-white/[0.02]")}>
-                <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", r.type === "invoice" ? "bg-indigo/15 text-[#A5B4FC]" : r.type === "credit" ? "bg-violet/15 text-violet" : "bg-mint/10 text-mint")}>
+              <motion.div key={r.key} layout className={cn("flex items-center gap-3 rounded-2xl border px-3.5 py-3 transition", active ? "border-violet/30 bg-violet/[0.05]" : "border-veil/[0.07] bg-veil/[0.02]")}>
+                <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", r.type === "invoice" ? "bg-indigo/15 text-periwinkle" : r.type === "credit" ? "bg-violet/15 text-violet" : "bg-mint/10 text-mint")}>
                   <Icon className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -266,7 +266,7 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
         </div>
 
         <div>
-          <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-white/[0.05]">
+          <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-veil/[0.05]">
             {segs.map((r) => (
               <motion.div key={r.key} layout className={cn("h-full", r.type === "invoice" ? "bg-indigo" : r.type === "credit" ? "bg-violet" : "bg-mint")} animate={{ width: `${Math.min(100, Number(((r.units ?? 0n) * 10000n) / (available || 1n)) / 100)}%` }} transition={{ type: "spring", stiffness: 300, damping: 30 }} />
             ))}
@@ -346,7 +346,7 @@ function DestinationPicker({ token, config, value, onChange }: { token: string; 
   const choices = useMemo(() => (config.demoMode ? (["primary", "alternate"] as const) : []), [config.demoMode]);
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-ink-950/40 p-4">
+    <div className="rounded-2xl border border-veil/[0.08] bg-ink-950/40 p-4">
       <p className="text-sm font-medium">Refund wallet</p>
       <p className="mt-0.5 text-xs text-fg-3">Sign a short message with the wallet that should receive the refund. Exchange deposit addresses won’t work — you must control the wallet.</p>
 

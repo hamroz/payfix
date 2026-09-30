@@ -52,7 +52,7 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
       <div className="mt-6 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <div className="flex flex-col gap-5">
           <FadeIn delay={0.05}>
-            <Card className="grid grid-cols-3 divide-x divide-white/[0.06]">
+            <Card className="grid grid-cols-3 divide-x divide-veil/[0.06]">
               {[
                 { label: "Amount", v: i.amount },
                 { label: "Applied", v: i.applied },
@@ -70,9 +70,9 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
             <Card>
               <CardHeader title="Payments and allocations" subtitle="Verified on chain; each signature counted once" />
               <div className="space-y-2 p-5">
-                {d.transfers.length === 0 && d.allocations.length === 0 && <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-fg-3">No payments yet. Share the link below.</p>}
+                {d.transfers.length === 0 && d.allocations.length === 0 && <p className="rounded-xl border border-dashed border-veil/10 px-4 py-6 text-center text-sm text-fg-3">No payments yet. Share the link below.</p>}
                 {d.transfers.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-3">
+                  <div key={t.id} className="flex items-center gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.025] px-3.5 py-3">
                     <span className="grid size-8 place-items-center rounded-lg bg-mint/10 text-mint">
                       <ArrowDownLeft className="size-4" />
                     </span>
@@ -118,7 +118,7 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
                 <CardHeader title="Exceptions" />
                 <div className="space-y-2 p-5">
                   {d.cases.map((c) => (
-                    <Link key={c.id} href={`/app/exceptions/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-3 hover:bg-white/[0.05]">
+                    <Link key={c.id} href={`/app/exceptions/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.025] px-3.5 py-3 hover:bg-veil/[0.05]">
                       <span className="text-sm">{caseKindLabel[c.kind]}</span>
                       <CaseStatusBadge status={c.status} />
                     </Link>
@@ -134,7 +134,7 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
             <Card className="p-5">
               <h3 className="font-display text-[15px] font-semibold">Payment link</h3>
               <p className="mt-1 text-xs text-fg-3">Send this to {d.customer.name}. It always asks for the exact remaining balance, and each payment carries a unique reference.</p>
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-ink-950/60 px-3 py-2">
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-veil/10 bg-ink-950/60 px-3 py-2">
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg-2">{payUrl}</span>
                 <CopyButton value={payUrl} label="Copy" />
               </div>

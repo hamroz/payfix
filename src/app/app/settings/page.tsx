@@ -42,7 +42,7 @@ export default async function SettingsPage() {
           <FadeIn>
             <Card>
               <CardHeader title="Network and token" subtitle="One explicitly configured test token. USDC is the intended production asset." />
-              <div className="divide-y divide-white/[0.06] px-5 pb-2">
+              <div className="divide-y divide-veil/[0.06] px-5 pb-2">
                 {row("Network", config.simulated ? "Simulated chain (offline)" : `Solana ${config.cluster}`)}
                 {row("Token", `${e.PAYFIX_TOKEN_LABEL} · ${config.decimals} decimals`)}
                 {row("Mint", biz.mint, explorerUrl("address", biz.mint, config.cluster))}

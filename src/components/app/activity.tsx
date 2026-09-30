@@ -25,7 +25,7 @@ const icons: Record<string, { icon: typeof ArrowDownLeft; tone: string }> = {
   "transfer.unmatched": { icon: TriangleAlert, tone: "text-amber bg-amber/10" },
   "case.opened": { icon: TriangleAlert, tone: "text-amber bg-amber/10" },
   "case.assigned": { icon: UserCheck, tone: "text-violet bg-violet/10" },
-  "invoice.created": { icon: FilePlus2, tone: "text-fg-2 bg-white/[0.06]" },
+  "invoice.created": { icon: FilePlus2, tone: "text-fg-2 bg-veil/[0.06]" },
   "link.sent": { icon: Link2, tone: "text-violet bg-violet/10" },
   "proposal.submitted": { icon: MessageSquareText, tone: "text-violet bg-violet/10" },
   "proposal.approved": { icon: BadgeCheck, tone: "text-indigo bg-indigo/15" },
@@ -53,9 +53,9 @@ export function ActivityFeed({
   if (events.length === 0) return <p className="px-5 py-8 text-center text-sm text-fg-3">{empty}</p>;
   return (
     <ol className="relative px-5 py-4">
-      <span className="absolute bottom-6 left-[35px] top-6 w-px bg-gradient-to-b from-white/10 via-white/[0.06] to-transparent" />
+      <span className="absolute bottom-6 left-[35px] top-6 w-px bg-gradient-to-b from-veil/10 via-veil/[0.06] to-transparent" />
       {events.map((e, i) => {
-        const meta = icons[e.type] ?? { icon: PlayCircle, tone: "text-fg-2 bg-white/[0.06]" };
+        const meta = icons[e.type] ?? { icon: PlayCircle, tone: "text-fg-2 bg-veil/[0.06]" };
         return (
           <motion.li
             key={e.id}

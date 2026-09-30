@@ -130,6 +130,8 @@ scripts/             devnet setup
 brand/               logo, intro video, and its renderer
 ```
 
+Light and dark themes share the brand palette (indigo, violet, mint, cyan); the header toggle cycles System → Light → Dark and remembers the choice.
+
 Tech: Next.js 16, React 19, TypeScript, Tailwind CSS 4, Motion, Drizzle ORM, PGlite/Postgres, `@solana/web3.js`, `@solana/spl-token`, Solana wallet adapter (Wallet Standard).
 
 ## Scope and honesty

@@ -18,7 +18,7 @@ export function WalletButton({ className, size = "md", label = "Connect wallet" 
   if (publicKey) {
     return (
       <div className={cn("inline-flex items-center gap-2", className)}>
-        <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-sm">
+        <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-veil/10 bg-veil/[0.05] px-3 text-sm">
           {/* eslint-disable-next-line @next/next/no-img-element -- wallet icons are data URIs */}
           {wallet?.adapter.icon && <img src={wallet.adapter.icon} alt="" className="size-4 rounded" />}
           <span className="font-mono text-[13px]">{shortAddress(publicKey.toBase58())}</span>
@@ -55,7 +55,7 @@ export function WalletButton({ className, size = "md", label = "Connect wallet" 
               <p className="mt-1 text-sm text-fg-3">Switch your wallet to Solana devnet first.</p>
               <div className="mt-4 space-y-2">
                 {installed.length === 0 && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-fg-2">
+                  <div className="rounded-2xl border border-veil/10 bg-veil/[0.03] p-4 text-sm text-fg-2">
                     No Solana wallet found in this browser.
                     <a href="https://phantom.com/download" target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-1.5 text-violet hover:underline">
                       Get Phantom <ExternalLink className="size-3.5" />
@@ -69,7 +69,7 @@ export function WalletButton({ className, size = "md", label = "Connect wallet" 
                       select(w.adapter.name);
                       setOpen(false);
                     }}
-                    className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-left transition hover:border-violet/40 hover:bg-white/[0.06]"
+                    className="flex w-full items-center gap-3 rounded-2xl border border-veil/[0.07] bg-veil/[0.03] px-4 py-3 text-left transition hover:border-violet/40 hover:bg-veil/[0.06]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- wallet icons are data URIs */}
                     <img src={w.adapter.icon} alt="" className="size-7 rounded-lg" />
