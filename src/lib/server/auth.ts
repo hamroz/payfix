@@ -38,7 +38,7 @@ export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: str
     body: `Enter ${code} to continue. It expires in 10 minutes. If you didn't ask for this, you can ignore it.`,
     code,
   });
-  if (process.env.NODE_ENV !== "production") console.log(`[payfix] sign-in code for ${p.email}: ${code}`);
+  if (env().DEMO_MODE || process.env.NODE_ENV !== "production") console.log(`[payfix] sign-in code for ${p.email}: ${code}`);
   return { maskedEmail: mask(p.email) };
 }
 

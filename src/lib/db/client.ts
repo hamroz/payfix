@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { env } from "@/lib/env";
 import * as schema from "./schema";
@@ -40,7 +40,48 @@ async function open(): Promise<Db> {
   }
   const dir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), PGLITE_DIR);
   mkdirSync(dir, { recursive: true });
-  return openPglite(dir);
+  claimDataDir(dir);
+  try {
+    return await openPglite(dir);
+  } catch (err) {
+    if (String(err).includes("Aborted") || String((err as { cause?: unknown }).cause).includes("Aborted"))
+      throw new Error(
+        `The embedded database in ${PGLITE_DIR} is corrupted — usually from two processes using it at once. ` +
+          `Move it aside (mv ${PGLITE_DIR} ${PGLITE_DIR}.bak) and restart, or run with Docker: docker compose up -d`,
+        { cause: err },
+      );
+    throw err;
+  }
+}
+
+/**
+ * PGlite is single-process: two servers on one data directory corrupt it. Refuse to
+ * open a directory another live process has claimed.
+ */
+function claimDataDir(dir: string) {
+  const lock = path.join(dir, "payfix.pid");
+  let owner = 0;
+  try {
+    owner = Number(readFileSync(lock, "utf8")) || 0;
+  } catch {
+    // no lock yet
+  }
+  if (owner && owner !== process.pid && isAlive(owner)) {
+    throw new Error(
+      `Another PayFix process (pid ${owner}) is already using ${dir}. The embedded database allows one process at a time — ` +
+        `stop the other server, or run with Docker/Postgres (docker compose up -d).`,
+    );
+  }
+  writeFileSync(lock, String(process.pid));
+}
+
+function isAlive(pid: number) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
 }
 
 /** Opens PGlite at `dataDir` (or in memory when omitted) and applies migrations. Used by tests too. */
