@@ -16,7 +16,7 @@ export function CopyButton({ value, label, className }: { value: string; label?:
         setTimeout(() => setCopied(false), 1600);
       }}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-fg-2 transition hover:bg-white/[0.06] hover:text-fg",
+        "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-fg-2 transition hover:bg-veil/[0.06] hover:text-fg",
         className,
       )}
       aria-label={label ?? "Copy"}

@@ -93,7 +93,7 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
                   {d.transfers
                     .filter((t) => t.direction === "in")
                     .map((t) => (
-                      <div key={t.id} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-3">
+                      <div key={t.id} className="flex items-center gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.025] px-3.5 py-3">
                         <span className="grid size-8 place-items-center rounded-lg bg-mint/10 text-mint">
                           <ArrowDownLeft className="size-4" />
                         </span>
@@ -140,19 +140,19 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
                 <CardHeader
                   title={current ? `Plan · version ${current.version}` : "Plan"}
                   subtitle={current ? `Proposed by the customer · ${formatDateTime(current.createdAt)}` : "Waiting for the customer to choose how to handle the extra"}
-                  action={current && <Mono className="rounded-lg border border-white/10 px-2 py-1 text-[11px]">#{current.hash.slice(0, 10)}</Mono>}
+                  action={current && <Mono className="rounded-lg border border-veil/10 px-2 py-1 text-[11px]">#{current.hash.slice(0, 10)}</Mono>}
                 />
                 <div className="px-5 pb-5 pt-4">
                   {current ? (
                     <div className="space-y-3">
                       <PlanLines lines={current.lines} destination={current.refundDestination} proofMethod={current.proofMethod} invoiceNumbers={d.invoiceNumbers} />
-                      {current.note && <p className="rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-sm text-fg-2">“{current.note}”</p>}
+                      {current.note && <p className="rounded-xl bg-veil/[0.03] px-3.5 py-2.5 text-sm text-fg-2">“{current.note}”</p>}
                       {current.approvals.map((a) => (
                         <ApprovalChip key={a.id} approval={a} />
                       ))}
                     </div>
                   ) : (
-                    <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-fg-3">
+                    <p className="rounded-xl border border-dashed border-veil/10 px-4 py-6 text-center text-sm text-fg-3">
                       {d.customer ? "Send the customer a resolution link. They choose; you approve." : "Attribute this payment to a customer first."}
                     </p>
                   )}
@@ -164,7 +164,7 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
                       </summary>
                       <div className="mt-3 space-y-3">
                         {history.map((p) => (
-                          <div key={p.id} className="rounded-2xl border border-white/[0.06] bg-ink-950/30 p-3 opacity-80">
+                          <div key={p.id} className="rounded-2xl border border-veil/[0.06] bg-ink-950/30 p-3 opacity-80">
                             <div className="mb-2 flex items-center justify-between text-xs text-fg-3">
                               <span>
                                 v{p.version} · {p.status} · {formatDateTime(p.createdAt)}

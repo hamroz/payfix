@@ -46,7 +46,7 @@ export function DemoInbox({ filterTo, className, defaultOpen = false }: { filter
             transition={{ type: "spring", stiffness: 400, damping: 32 }}
             className="glass mb-3 w-[min(92vw,380px)] overflow-hidden rounded-2xl bg-ink-850/90"
           >
-            <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+            <div className="flex items-center justify-between border-b border-veil/[0.07] px-4 py-3">
               <div>
                 <p className="text-sm font-semibold">Demo inbox</p>
                 <p className="text-xs text-fg-3">Emails PayFix would send{filterTo ? ` to ${filterTo}` : ""}</p>
@@ -55,10 +55,10 @@ export function DemoInbox({ filterTo, className, defaultOpen = false }: { filter
                 <X className="size-4" />
               </button>
             </div>
-            <div className="max-h-[50vh] divide-y divide-white/[0.06] overflow-y-auto">
+            <div className="max-h-[50vh] divide-y divide-veil/[0.06] overflow-y-auto">
               {mail.length === 0 && <p className="px-4 py-8 text-center text-sm text-fg-3">Nothing yet.</p>}
               {mail.map((m, i) => (
-                <motion.div key={m.id} initial={i === 0 ? { backgroundColor: "rgba(167,139,250,0.12)" } : false} animate={{ backgroundColor: "rgba(0,0,0,0)" }} transition={{ duration: 1.6 }} className="px-4 py-3">
+                <motion.div key={m.id} initial={i === 0 ? { backgroundColor: "rgba(167,139,250,0.12)" } : false} animate={{ backgroundColor: "rgba(167,139,250,0)" }} transition={{ duration: 1.6 }} className="px-4 py-3">
                   <div className="flex items-center justify-between gap-2 text-[11px] text-fg-3">
                     <span className="truncate">To {m.to}</span>
                     <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -72,7 +72,7 @@ export function DemoInbox({ filterTo, className, defaultOpen = false }: { filter
                   )}
                   {m.link && (
                     <div className="mt-2 flex items-center gap-2">
-                      <a href={m.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-fg hover:bg-white/[0.1]">
+                      <a href={m.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-veil/[0.06] px-2.5 py-1 text-xs font-medium text-fg hover:bg-veil/[0.1]">
                         Open link <ExternalLink className="size-3" />
                       </a>
                       <CopyButton value={m.link} label="Copy link" />

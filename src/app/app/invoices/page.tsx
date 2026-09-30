@@ -34,18 +34,18 @@ export default async function InvoicesPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden">
-          <div className="hidden grid-cols-[1fr_140px_150px_120px] gap-4 border-b border-white/[0.06] px-5 py-3 text-xs text-fg-3 md:grid">
+          <div className="hidden grid-cols-[1fr_140px_150px_120px] gap-4 border-b border-veil/[0.06] px-5 py-3 text-xs text-fg-3 md:grid">
             <span>Invoice</span>
             <span>Status</span>
             <span>Paid</span>
             <span className="text-right">Amount</span>
           </div>
-          <Stagger className="divide-y divide-white/[0.05]">
+          <Stagger className="divide-y divide-veil/[0.05]">
             {rows.map((i) => {
               const pct = Number((BigInt(i.applied) * 100n) / (BigInt(i.amount) || 1n));
               return (
                 <StaggerItem key={i.id}>
-                  <Link href={`/app/invoices/${i.id}`} className="grid grid-cols-[1fr_auto] items-center gap-3 px-5 py-4 transition hover:bg-white/[0.03] md:grid-cols-[1fr_140px_150px_120px] md:gap-4">
+                  <Link href={`/app/invoices/${i.id}`} className="grid grid-cols-[1fr_auto] items-center gap-3 px-5 py-4 transition hover:bg-veil/[0.03] md:grid-cols-[1fr_140px_150px_120px] md:gap-4">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-fg">{i.title}</p>
                       <p className="mt-0.5 truncate text-xs text-fg-3">
@@ -56,7 +56,7 @@ export default async function InvoicesPage() {
                       <InvoiceStatusBadge status={i.status} />
                     </div>
                     <div className="hidden md:block">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-veil/[0.06]">
                         <div className="h-full rounded-full bg-[linear-gradient(90deg,#6366F1,#5EF2C2)]" style={{ width: `${pct}%` }} />
                       </div>
                       <p className="tabular mt-1.5 text-xs text-fg-3">{formatUsd(BigInt(i.applied))} applied</p>

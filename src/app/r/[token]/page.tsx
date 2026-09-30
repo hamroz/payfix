@@ -4,6 +4,7 @@ import { Link2Off } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { DemoInbox } from "@/components/app/demo-inbox";
 import { NetworkPill } from "@/components/app/network-pill";
+import { ThemeToggle } from "@/components/theme/theme";
 import { Card, EmptyState } from "@/components/ui/primitives";
 import { WalletProviders } from "@/components/wallet/providers";
 import { businesses, customers } from "@/lib/db/schema";
@@ -30,7 +31,10 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
             <Logo size={24} />
             {business && <span className="hidden text-sm text-fg-3 sm:inline">for {business}</span>}
           </div>
-          <NetworkPill />
+          <div className="flex items-center gap-2">
+            <NetworkPill />
+            <ThemeToggle />
+          </div>
         </header>
         <main className="flex-1 py-8 sm:py-10">{children}</main>
       </div>

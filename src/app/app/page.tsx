@@ -76,7 +76,7 @@ export default async function Dashboard() {
                     { key: "unres", label: "Unresolved", units: b.unresolved, tone: "amber" },
                   ]}
                 />
-                <div className="mt-5 rounded-xl border border-white/[0.06] bg-ink-950/40 p-3">
+                <div className="mt-5 rounded-xl border border-veil/[0.06] bg-ink-950/40 p-3">
                   <Equation
                     received={b.received}
                     parts={[
@@ -106,9 +106,9 @@ export default async function Dashboard() {
               {v.open.length === 0 ? (
                 <EmptyState icon={<CircleCheckBig className="size-5 text-mint" />} title="All clear" body="Every payment is matched, applied, or resolved." />
               ) : (
-                <div className="mt-3 divide-y divide-white/[0.05] pb-2">
+                <div className="mt-3 divide-y divide-veil/[0.05] pb-2">
                   {v.open.map((c) => (
-                    <Link key={c.id} href={`/app/exceptions/${c.id}`} className="group flex items-center gap-4 px-5 py-3.5 transition hover:bg-white/[0.03]">
+                    <Link key={c.id} href={`/app/exceptions/${c.id}`} className="group flex items-center gap-4 px-5 py-3.5 transition hover:bg-veil/[0.03]">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-medium text-fg">{caseKindLabel[c.kind]}</span>
@@ -138,14 +138,14 @@ export default async function Dashboard() {
                   </Link>
                 }
               />
-              <div className="mt-3 divide-y divide-white/[0.05] pb-2">
+              <div className="mt-3 divide-y divide-veil/[0.05] pb-2">
                 {v.invoices.map((i) => (
-                  <Link key={i.id} href={`/app/invoices/${i.id}`} className="flex items-center gap-4 px-5 py-3 transition hover:bg-white/[0.03]">
+                  <Link key={i.id} href={`/app/invoices/${i.id}`} className="flex items-center gap-4 px-5 py-3 transition hover:bg-veil/[0.03]">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-fg">
                         <span className="font-mono text-xs text-fg-3">{i.number}</span> · {i.title}
                       </p>
-                      <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="mt-2 h-1 overflow-hidden rounded-full bg-veil/[0.06]">
                         <div
                           className="h-full rounded-full bg-[linear-gradient(90deg,#6366F1,#5EF2C2)]"
                           style={{ width: `${Number((BigInt(i.applied) * 100n) / (BigInt(i.amount) || 1n))}%` }}

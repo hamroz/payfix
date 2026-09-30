@@ -28,4 +28,4 @@ Read README.md first. It explains the product, the demo scenario, and where each
 - Services take `{ db, chain }` so tests can pass PGlite in-memory plus `SimChain`.
 - Server actions return `ActionResult` via `run()`. Throw `ResolutionError`/`InputError` for user-facing messages.
 - Next.js 16: `params`/`cookies()` are async. Use `refresh()` from `next/cache` after mutations. Pages may only export Next's allowed fields.
-- UI: dark glass aesthetic, tokens in `src/app/globals.css`, primitives in `src/components/ui`, motion via `motion/react`. Keep amounts `tabular`.
+- UI: glass aesthetic in light and dark themes. Colors are theme tokens in `src/app/globals.css` (`:root` = light, `[data-theme="dark"]`). Never hard-code `white/…` or dark-only hex values: use `veil/…` for overlays and hairlines, and brand tokens (`indigo`, `violet`, `mint`, `cyan`, `periwinkle`) for accents. Tokens, primitives in `src/components/ui`, motion via `motion/react`. Keep amounts `tabular`.

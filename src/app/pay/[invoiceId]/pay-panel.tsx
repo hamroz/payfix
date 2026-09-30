@@ -83,7 +83,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-white/[0.06] bg-ink-950/40 p-4">
+        <div className="mt-6 rounded-2xl border border-veil/[0.06] bg-ink-950/40 p-4">
           <p className="font-mono text-xs text-fg-3">{invoice.number}</p>
           <p className="mt-1 text-sm text-fg">{invoice.title}</p>
         </div>
@@ -94,7 +94,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
             <LiveSync />
           </div>
           {payments.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-fg-3">No payments yet.</p>
+            <p className="rounded-xl border border-dashed border-veil/10 px-4 py-5 text-center text-sm text-fg-3">No payments yet.</p>
           ) : (
             <ul className="space-y-2">
               <AnimatePresence initial={false}>
@@ -104,7 +104,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
                     layout
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5"
+                    className="flex items-center gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.03] px-3 py-2.5"
                   >
                     <span className="grid size-8 place-items-center rounded-lg bg-mint/10 text-mint">
                       <ArrowDownLeft className="size-4" />
@@ -164,10 +164,10 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
               <p className="mt-1 text-sm text-fg-3">Settles in seconds on Solana. No card fees, no chargebacks.</p>
 
               {methods.length > 1 && (
-                <div className="mt-5 grid grid-flow-col gap-1 rounded-xl border border-white/[0.07] bg-ink-950/50 p-1">
+                <div className="mt-5 grid grid-flow-col gap-1 rounded-xl border border-veil/[0.07] bg-ink-950/50 p-1">
                   {methods.map((m) => (
                     <button key={m} onClick={() => setMethod(m)} className={cn("relative rounded-lg px-3 py-2 text-sm transition", method === m ? "text-fg" : "text-fg-3 hover:text-fg-2")}>
-                      {method === m && <motion.span layoutId="pay-method" className="absolute inset-0 rounded-lg bg-white/[0.08]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+                      {method === m && <motion.span layoutId="pay-method" className="absolute inset-0 rounded-lg bg-veil/[0.08]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
                       <span className="relative inline-flex items-center gap-1.5">
                         {m === "demo" ? <Sparkles className="size-3.5" /> : m === "wallet" ? <Wallet className="size-3.5" /> : <QrCode className="size-3.5" />}
                         {m === "demo" ? "Demo wallet" : m === "wallet" ? "Browser wallet" : "Scan QR"}
@@ -331,7 +331,7 @@ function FaucetHint({ onDone }: { onDone: () => void }) {
         if (res.ok) onDone();
       }}
       disabled={busy}
-      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 py-2.5 text-xs text-fg-3 transition hover:border-violet/40 hover:text-fg"
+      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-veil/10 py-2.5 text-xs text-fg-3 transition hover:border-violet/40 hover:text-fg"
     >
       <Droplets className="size-3.5" /> {busy ? "Sending test USD…" : "Need test USD? Get 2,000 from the devnet faucet"}
     </button>
@@ -349,7 +349,7 @@ function ProgressRing({ pct }: { pct: number }) {
           <stop offset="1" stopColor="#5EF2C2" />
         </linearGradient>
       </defs>
-      <circle cx="38" cy="38" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="7" />
+      <circle cx="38" cy="38" r={r} fill="none" className="stroke-veil/[0.08]" strokeWidth="7" />
       <motion.circle
         cx="38"
         cy="38"
@@ -372,7 +372,7 @@ function SuccessMark() {
     <div className="relative grid size-24 place-items-center">
       <motion.span className="absolute inset-0 rounded-full bg-mint/20" initial={{ scale: 0.4, opacity: 1 }} animate={{ scale: 1.8, opacity: 0 }} transition={{ duration: 1.2, ease: "easeOut" }} />
       <motion.span className="absolute inset-2 rounded-full bg-mint/10" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }} />
-      <motion.span initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.1 }} className="relative grid size-16 place-items-center rounded-full bg-[linear-gradient(135deg,#34D399,#5EF2C2)] text-ink-950">
+      <motion.span initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.1 }} className="relative grid size-16 place-items-center rounded-full bg-[linear-gradient(135deg,#34D399,#5EF2C2)] text-[#06080e]">
         <Check className="size-8" strokeWidth={3} />
       </motion.span>
     </div>

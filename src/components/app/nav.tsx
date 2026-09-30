@@ -32,7 +32,7 @@ export function SideNav({ openCases }: { openCases: number }) {
             {active && (
               <motion.span
                 layoutId="nav-active"
-                className="absolute inset-0 rounded-xl border border-white/10 bg-white/[0.06]"
+                className="absolute inset-0 rounded-xl border border-veil/10 bg-veil/[0.06]"
                 transition={{ type: "spring", stiffness: 500, damping: 38 }}
               />
             )}
@@ -57,7 +57,7 @@ export function TabBar({ openCases }: { openCases: number }) {
         const active = isActive(path, it.href, it.exact);
         return (
           <Link key={it.href} href={it.href} className="relative flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5">
-            {active && <motion.span layoutId="tab-active" className="absolute inset-0 rounded-xl bg-white/[0.07]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+            {active && <motion.span layoutId="tab-active" className="absolute inset-0 rounded-xl bg-veil/[0.07]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
             <span className="relative">
               <it.icon className={cn("size-5", active ? "text-violet" : "text-fg-3")} />
               {it.badge && openCases > 0 && <span className="absolute -right-1.5 -top-1 size-2 rounded-full bg-amber" />}

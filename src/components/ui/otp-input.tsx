@@ -51,7 +51,7 @@ export function OtpInput({ value, onChange, onComplete, disabled, error }: { val
           className={cn(
             "h-14 w-full min-w-0 rounded-xl border bg-ink-950/60 text-center font-display text-2xl font-semibold text-fg outline-none transition",
             "focus:border-violet/60 focus:ring-4 focus:ring-violet/15",
-            error ? "border-rose/50" : d.trim() ? "border-violet/40" : "border-white/10",
+            error ? "border-rose/50" : d.trim() ? "border-violet/40" : "border-veil/10",
           )}
         />
       ))}
