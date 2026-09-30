@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PayFix intro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0B0F1A; }
+  #stage { position: relative; width: 1920px; height: 1080px; }
+  svg.layer { position: absolute; inset: 0; }
+  #word { position: absolute; left: 0; top: 0; font-family: Sora, sans-serif; font-weight: 600; font-size: 176px; letter-spacing: -6px; line-height: 1; white-space: nowrap; }
+  #word span { display: inline-block; }
+  #word .pay { color: #C9D1E4; }
+  #word .fix { color: transparent; -webkit-background-clip: text; background-clip: text; background-image: linear-gradient(90deg, #5EF2C2, #22D3EE); }
+  #tag { position: absolute; left: 0; width: 1920px; text-align: center; font-family: Sora, sans-serif; font-weight: 400; font-size: 44px; color: #8B95AD; }
+  #foot { position: absolute; left: 0; bottom: 64px; width: 1920px; text-align: center; font-family: Sora, sans-serif; font-weight: 400; font-size: 22px; letter-spacing: 6px; color: #56617A; }
+  #fade { position: absolute; inset: 0; background: #0B0F1A; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg class="layer" width="1920" height="1080">
+    <defs>
+      <radialGradient id="glowIndigo">
+        <stop offset="0" stop-color="#6366F1" stop-opacity="0.30"/>
+        <stop offset="0.45" stop-color="#6366F1" stop-opacity="0.08"/>
+        <stop offset="1" stop-color="#6366F1" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="glowMint">
+        <stop offset="0" stop-color="#5EF2C2" stop-opacity="0.35"/>
+        <stop offset="1" stop-color="#5EF2C2" stop-opacity="0"/>
+      </radialGradient>
+      <pattern id="dots" width="48" height="48" patternUnits="userSpaceOnUse">
+        <circle cx="24" cy="24" r="1.6" fill="#26314A"/>
+      </pattern>
+      <radialGradient id="vignette">
+        <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </radialGradient>
+      <mask id="gridMask"><rect width="1920" height="1080" fill="url(#vignette)"/></mask>
+    </defs>
+    <g id="gridWrap" mask="url(#gridMask)"><rect id="grid" x="-96" y="-96" width="2112" height="1272" fill="url(#dots)"/></g>
+    <ellipse id="bgGlow" rx="760" ry="760" fill="url(#glowIndigo)"/>
+    <circle id="bgMint" r="300" fill="url(#glowMint)" opacity="0"/>
+  </svg>
+
+  <svg class="layer" width="1920" height="1080">
+    <defs>
+      <linearGradient id="ringGrad" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0" stop-color="#6366F1"/>
+        <stop offset="1" stop-color="#A78BFA"/>
+      </linearGradient>
+      <filter id="blur" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3.2"/></filter>
+    </defs>
+    <g id="mark">
+      <g id="glowCopy" filter="url(#blur)" opacity="0">
+        <circle id="ringGlow" cx="32" cy="33" r="17" fill="none" stroke="url(#ringGrad)" stroke-width="10" stroke-linecap="round"/>
+        <circle id="dotGlow" r="5.5" fill="#5EF2C2"/>
+      </g>
+      <g id="trail"></g>
+      <circle id="ring" cx="32" cy="33" r="17" fill="none" stroke="url(#ringGrad)" stroke-width="10" stroke-linecap="round"/>
+      <circle id="pulse" r="5.5" fill="none" stroke="#5EF2C2" opacity="0"/>
+      <circle id="dot" r="5.5" fill="#5EF2C2"/>
+    </g>
+  </svg>
+
+  <div id="word"><span class="pay">p</span><span class="pay">a</span><span class="pay">y</span><span class="fix">f</span><span class="fix">i</span><span class="fix">x</span></div>
+  <div id="tag">Stablecoin payments, made right.</div>
+  <div id="foot">BUILT ON SOLANA</div>
+  <div id="fade"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, x) => a + (b - a) * x;
+const outCubic = x => 1 - Math.pow(1 - x, 3);
+const inOutCubic = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+
+// Mark geometry is authored in the 64-unit space of brand/payfix-mark.svg.
+const ARC = 76, MARK_CX = 32, MARK_CY = 32.25, VISUAL_H = 45.5;
+const DOT_END = [47, 15], DOT_CTRL = [96, 22], DOT_START = [128, -44];
+const S_BIG = 440 / VISUAL_H, S_LOCK = 162 / VISUAL_H, GAP = 52;
+
+const letters = [...document.querySelectorAll('#word span')];
+const trail = [];
+for (let i = 0; i < 16; i++) {
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  c.setAttribute('fill', '#5EF2C2');
+  $('trail').appendChild(c);
+  trail.push(c);
+}
+
+let lock = null;
+function layout() {
+  const fixLetters = letters.slice(3);
+  const fixLeft = fixLetters[0].offsetLeft;
+  const fixWidth = fixLetters[2].offsetLeft + fixLetters[2].offsetWidth - fixLeft;
+  for (const s of fixLetters) {
+    s.style.backgroundSize = `${fixWidth}px 100%`;
+    s.style.backgroundPosition = `${fixLeft - s.offsetLeft}px 0`;
+  }
+  const wordW = $('word').offsetWidth;
+  const markW = 44 * S_LOCK;
+  const left = (1920 - (markW + GAP + wordW)) / 2;
+  lock = { cx: left + markW / 2, cy: 492, wordX: left + markW + GAP };
+}
+
+function bez(p) {
+  const u = 1 - p;
+  return [0, 1].map(i => u * u * DOT_START[i] + 2 * u * p * DOT_CTRL[i] + p * p * DOT_END[i]);
+}
+
+function render(t) {
+  // Background fades in and drifts slowly.
+  const bgA = outCubic(seg(t, 0, 1.2));
+  $('gridWrap').setAttribute('opacity', 0.9 * bgA);
+  $('grid').setAttribute('transform', `translate(${(t * 9) % 48} ${(t * 5) % 48})`);
+
+  // Ring draws itself while rotating into place.
+  const L = ARC * outCubic(seg(t, 0.35, 1.9));
+  const rot = lerp(-130, 0, outCubic(seg(t, 0.35, 2.1)));
+  for (const id of ['ring', 'ringGlow']) {
+    const el = $(id);
+    el.setAttribute('stroke-dasharray', `${L} 200`);
+    el.setAttribute('transform', `rotate(${rot} 32 33)`);
+    el.setAttribute('opacity', L > 0.4 ? 1 : 0);
+  }
+  $('ringGrad').setAttribute('gradientTransform', `rotate(${Math.sin(t * 0.8) * 25} 0.5 0.5)`);
+
+  // The missing piece flies in and lands in the gap.
+  const p = seg(t, 1.6, 2.6), e = outCubic(p);
+  const [dx, dy] = bez(e);
+  const pop = seg(t, 2.6, 2.95);
+  const r = 5.5 * (p < 1 ? lerp(0.55, 1, e) : 1 + 0.32 * Math.sin(Math.PI * pop));
+  for (const id of ['dot', 'dotGlow']) {
+    $(id).setAttribute('cx', dx); $(id).setAttribute('cy', dy); $(id).setAttribute('r', r);
+  }
+  $('dot').setAttribute('opacity', seg(t, 1.6, 1.72));
+  const trailFade = 1 - seg(t, 2.45, 2.75);
+  trail.forEach((c, k) => {
+    const q = clamp(e - (k + 1) * 0.016);
+    const [tx, ty] = bez(q);
+    c.setAttribute('cx', tx); c.setAttribute('cy', ty);
+    c.setAttribute('r', 5.5 * lerp(0.55, 1, q) * (1 - k * 0.055));
+    c.setAttribute('opacity', p > 0 ? 0.16 * (1 - k / 16) * trailFade : 0);
+  });
+
+  // Landing: a pulse ring and a glow flash, then a slow breathing glow.
+  const q = seg(t, 2.6, 3.4);
+  $('pulse').setAttribute('cx', DOT_END[0]); $('pulse').setAttribute('cy', DOT_END[1]);
+  $('pulse').setAttribute('r', 5.5 + 13 * outCubic(q));
+  $('pulse').setAttribute('stroke-width', lerp(1.1, 0.2, q));
+  $('pulse').setAttribute('opacity', q > 0 && q < 1 ? 0.9 * (1 - q) : 0);
+  const flash = t > 2.6 ? Math.exp(-(t - 2.6) * 2.6) : 0;
+  const ambient = seg(t, 2.8, 3.8) * (0.32 + 0.1 * Math.sin((t - 3) * 2.4));
+  $('glowCopy').setAttribute('opacity', clamp(0.18 * seg(t, 0.5, 1.9) + 0.85 * flash + ambient));
+
+  // Mark moves from hero size into the lockup.
+  const m = inOutCubic(seg(t, 3.2, 4.3));
+  const s = lerp(S_BIG, S_LOCK, m);
+  const cx = lerp(960, lock.cx, m), cy = lerp(540, lock.cy, m);
+  $('mark').setAttribute('transform', `translate(${cx - MARK_CX * s} ${cy - MARK_CY * s}) scale(${s})`);
+  $('bgGlow').setAttribute('cx', cx); $('bgGlow').setAttribute('cy', cy);
+  $('bgGlow').setAttribute('opacity', bgA);
+  $('bgMint').setAttribute('cx', cx + (DOT_END[0] - MARK_CX) * s);
+  $('bgMint').setAttribute('cy', cy + (DOT_END[1] - MARK_CY) * s);
+  $('bgMint').setAttribute('opacity', clamp(0.9 * flash + 0.6 * ambient));
+
+  // Wordmark letters rise out of a blur.
+  $('word').style.transform = `translate(${lock.wordX}px, ${lock.cy - 100}px)`;
+  letters.forEach((el, i) => {
+    const a = 3.85 + i * 0.065;
+    const k = outCubic(seg(t, a, a + 0.6));
+    el.style.transform = `translateY(${(1 - k) * 56}px)`;
+    el.style.opacity = k;
+    el.style.filter = `blur(${(1 - k) * 10}px)`;
+  });
+
+  const tq = outCubic(seg(t, 5.0, 5.8));
+  $('tag').style.top = `${lock.cy + 128 + (1 - tq) * 20}px`;
+  $('tag').style.opacity = tq;
+  $('foot').style.opacity = 0.9 * outCubic(seg(t, 5.6, 6.5));
+
+  $('fade').style.opacity = inOutCubic(seg(t, 9.45, 10));
+}
+
+window.ready = document.fonts.ready.then(() => {
+  layout();
+  render(0);
+  return document.fonts.check('600 50px Sora');
+});
+window.render = render;
+</script>
+</body>
+</html>
