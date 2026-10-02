@@ -38,6 +38,8 @@ async function open(): Promise<Db> {
     await migrate(db, { migrationsFolder: MIGRATIONS });
     return db;
   }
+  if (process.env.VERCEL)
+    throw new Error("DATABASE_URL is not set. On Vercel, add a Postgres database (Storage → Neon) and connect it to this project.");
   const dir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), PGLITE_DIR);
   mkdirSync(dir, { recursive: true });
   claimDataDir(dir);
