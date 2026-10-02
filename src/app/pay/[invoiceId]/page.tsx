@@ -47,7 +47,7 @@ export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">)
               remaining: inv.remaining.toString(),
               dueAt: inv.dueAt.toISOString(),
             }}
-            business={{ name: biz.name, wallet: biz.walletAddress }}
+            business={{ id: biz.id, name: biz.name, wallet: biz.walletAddress }}
             customerName={cust?.name ?? "Customer"}
             payments={payments}
           />

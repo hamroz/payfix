@@ -1,5 +1,5 @@
 import { fromUnits } from "@/lib/money";
-import { currentBusiness, deps } from "@/lib/server/context";
+import { currentWorkspace, deps } from "@/lib/server/context";
 import { ledgerView } from "@/lib/server/views";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ const cell = (v: string | null | undefined) => {
 
 /** Every posting as CSV: one row per account movement, amounts in exact decimal token units. */
 export async function GET() {
-  const biz = await currentBusiness();
+  const biz = (await currentWorkspace())?.biz;
   if (!biz) return new Response("Sign in first", { status: 401 });
   const { db } = await deps();
   const entries = await ledgerView(db, biz.id);

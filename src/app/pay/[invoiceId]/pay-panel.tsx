@@ -16,16 +16,16 @@ import { Alert, Button, Card, Input, Label } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import type { PublicConfig } from "@/lib/env";
-import { formatDate } from "@/lib/format";
+import { amountFit, formatDate } from "@/lib/format";
 import { formatUsd, fromUnits, tryToUnits } from "@/lib/money";
-import { buildPaymentTransaction, explorerUrl, shortAddress } from "@/lib/solana/tx";
+import { ata, buildPaymentTransaction, explorerUrl, shortAddress } from "@/lib/solana/tx";
 import type { TransferRow } from "@/lib/server/views";
 import { cn } from "@/lib/cn";
 
 type Invoice = { id: string; number: string; title: string; amount: string; applied: string; remaining: string; dueAt: string };
 type Method = "demo" | "wallet" | "qr";
 
-export function PayPanel({ config, invoice, business, customerName, payments }: { config: PublicConfig; invoice: Invoice; business: { name: string; wallet: string }; customerName: string; payments: TransferRow[] }) {
+export function PayPanel({ config, invoice, business, customerName, payments }: { config: PublicConfig; invoice: Invoice; business: { id: string; name: string; wallet: string }; customerName: string; payments: TransferRow[] }) {
   const remaining = BigInt(invoice.remaining);
   const [amount, setAmount] = useState(remaining > 0n ? fromUnits(remaining) : "");
   const methods: Method[] = config.simulated ? ["demo"] : config.demoMode ? ["demo", "wallet", "qr"] : ["wallet", "qr"];
@@ -72,11 +72,15 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
 
         <div className="mt-6 flex items-center gap-5">
           <ProgressRing pct={paidPct} />
-          <div className="min-w-0">
+          <div className="@container min-w-0 flex-1" title={formatUsd(BigInt(remaining === 0n ? invoice.amount : invoice.remaining))}>
             <p className="text-xs uppercase tracking-[0.14em] text-fg-3">
               {remaining === 0n ? "Paid in full" : BigInt(invoice.applied) > 0n ? "Remaining" : "Amount due"}
             </p>
-            <AnimatedAmount units={remaining === 0n ? invoice.amount : invoice.remaining} className="tabular mt-1 block font-display text-4xl font-semibold tracking-tight" />
+            <AnimatedAmount
+              units={remaining === 0n ? invoice.amount : invoice.remaining}
+              className="tabular mt-1 block whitespace-nowrap font-display font-semibold tracking-tight"
+              style={amountFit(remaining === 0n ? invoice.amount : invoice.remaining, 2.25)}
+            />
             <p className="mt-1 text-sm text-fg-3">
               of {formatUsd(BigInt(invoice.amount))} · due {formatDate(invoice.dueAt)}
             </p>
@@ -91,7 +95,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-medium">Payments</p>
-            <LiveSync />
+            <LiveSync businessId={business.id} />
           </div>
           {payments.length === 0 ? (
             <p className="rounded-xl border border-dashed border-veil/10 px-4 py-5 text-center text-sm text-fg-3">No payments yet.</p>
@@ -223,7 +227,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
   );
 }
 
-function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { invoiceId: string; amount: bigint | null; business: { wallet: string }; config: PublicConfig; onPaid: (sig: string) => void; onError: (e: string | null) => void }) {
+function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { invoiceId: string; amount: bigint | null; business: { id: string; wallet: string }; config: PublicConfig; onPaid: (sig: string) => void; onError: (e: string | null) => void }) {
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const [busy, setBusy] = useState(false);
@@ -235,6 +239,17 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
     onError(null);
     setBusy(true);
     try {
+      // Check the balance first so the customer gets a clear answer, not a failed transaction.
+      const held = await connection
+        .getTokenAccountBalance(ata(config.mint, publicKey), "confirmed")
+        .then((r) => BigInt(r.value.amount))
+        .catch(() => 0n);
+      if (held < amount) {
+        onError(
+          `This wallet holds ${formatUsd(held)} ${config.tokenLabel}, which isn’t enough for ${formatUsd(amount)}. Pay a smaller amount${config.demoMode ? " or use the faucet below to get test USD" : ""}.`,
+        );
+        return;
+      }
       const req = await createPaymentRequestAction(invoiceId, fromUnits(amount));
       if (!req.ok) throw new Error(req.error);
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
@@ -250,10 +265,10 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
       });
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-      await fetch("/api/sync", { method: "POST" });
+      await fetch(`/api/sync?b=${encodeURIComponent(business.id)}`, { method: "POST" });
       onPaid(signature);
     } catch (e) {
-      onError(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "The payment didn’t go through.");
+      onError(walletErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -275,6 +290,16 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
       </div>
     </div>
   );
+}
+
+/** Plain-language versions of the errors wallets and RPCs throw. */
+function walletErrorMessage(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/reject|denied|cancel/i.test(msg)) return "You cancelled the payment in your wallet. Nothing was sent.";
+  if (/insufficient|0x1\b|debit an account/i.test(msg)) return "The wallet doesn’t have enough test USD or SOL for this payment. Nothing was sent.";
+  if (/blockhash|expired|timed? ?out/i.test(msg)) return "The network took too long to confirm. Check the payments list in a moment before trying again.";
+  if (/network|cluster|devnet/i.test(msg)) return "Switch your wallet to Solana devnet, then try again.";
+  return "The payment didn’t go through. Nothing was charged — try again.";
 }
 
 function QrPay({ invoiceId, amount }: { invoiceId: string; amount: string }) {

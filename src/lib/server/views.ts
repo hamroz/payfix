@@ -211,15 +211,16 @@ export async function invoiceDetail(db: Db, businessId: string, invoiceId: strin
   const [withBal] = (await invoicesWithBalances(db, { businessId, customerId: row.customer.id })).filter((i) => i.id === invoiceId);
   // Money applied here that came from other sources (e.g. another invoice's excess via a resolution).
   const credited = await db
-    .select({ amount: postings.amount, caseId: postings.caseId, memo: journalEntries.memo, createdAt: journalEntries.createdAt })
+    .select({ amount: postings.amount, caseId: postings.caseId, memo: journalEntries.memo, kind: journalEntries.kind, createdAt: journalEntries.createdAt })
     .from(postings)
     .innerJoin(journalEntries, eq(journalEntries.id, postings.entryId))
-    .where(and(eq(postings.invoiceId, invoiceId), eq(postings.account, "invoice"), eq(journalEntries.kind, "resolution")));
+    .where(and(eq(postings.invoiceId, invoiceId), eq(postings.account, "invoice"), inArray(journalEntries.kind, ["resolution", "credit"])));
   return {
     invoice: invoiceRow({ ...withBal, customerName: row.customer.name }),
     customer: { id: row.customer.id, name: row.customer.name, email: row.customer.email },
+    credit: s(await customerCredit(db, row.customer.id)),
     transfers: await transferRows(db, { invoiceId }),
-    allocations: credited.map((c) => ({ amount: s(c.amount), caseId: c.caseId, memo: c.memo, createdAt: c.createdAt.toISOString() })),
+    allocations: credited.map((c) => ({ amount: s(c.amount), caseId: c.caseId, memo: c.memo, kind: c.kind, createdAt: c.createdAt.toISOString() })),
     activity: await recentEvents(db, { businessId, invoiceId }, 20),
     cases: (await caseRows(db, businessId)).filter((c) => c.invoiceNumber === row.i.number),
   };
@@ -272,6 +273,7 @@ export async function caseDetail(db: Db, caseId: string) {
       available: s(p.available),
       hash: p.hash,
       note: p.note,
+      businessNote: p.businessNote,
       createdAt: p.createdAt.toISOString(),
       approvals: aps
         .filter((a) => a.proposalId === p.id)
@@ -312,4 +314,27 @@ export async function ledgerView(db: Db, businessId: string) {
       .filter((p) => p.entryId === e.id)
       .map((p) => ({ account: p.account, amount: s(p.amount), invoiceNumber: p.invoiceId ? (nums.get(p.invoiceId) ?? null) : null })),
   }));
+}
+
+/** Payments that arrived after their invoice's due date. Informational: the money is applied normally. */
+export async function latePayments(db: Db, businessId: string) {
+  const rows = await db
+    .select({ t: transfers, invoiceId: invoices.id, invoiceNumber: invoices.number, dueAt: invoices.dueAt, customerName: customers.name })
+    .from(transfers)
+    .innerJoin(invoices, eq(invoices.id, transfers.invoiceId))
+    .leftJoin(customers, eq(customers.id, transfers.customerId))
+    .where(and(eq(transfers.businessId, businessId), sql`${transfers.flags} @> '["late"]'::jsonb`))
+    .orderBy(desc(transfers.createdAt));
+  return rows.map((r) => {
+    const received = r.t.blockTime ?? r.t.createdAt;
+    return {
+      id: r.t.id,
+      amount: s(r.t.amount),
+      invoiceId: r.invoiceId,
+      invoiceNumber: r.invoiceNumber,
+      customerName: r.customerName,
+      receivedAt: received.toISOString(),
+      daysLate: Math.max(1, Math.ceil((received.getTime() - r.dueAt.getTime()) / 864e5)),
+    };
+  });
 }

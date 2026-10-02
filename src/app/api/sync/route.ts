@@ -1,12 +1,14 @@
-import { syncAll } from "@/lib/server/context";
+import { syncCompany } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
-/** Polled by open pages. Pulls new chain activity and returns a change marker. */
-export async function POST() {
+/** Polled by open pages for one company (?b=<businessId>). Pulls new chain activity and returns a change marker. */
+export async function POST(req: Request) {
+  const businessId = new URL(req.url).searchParams.get("b");
+  if (!businessId) return Response.json({ error: "Missing company" }, { status: 400 });
   try {
-    return Response.json(await syncAll());
-  } catch (err) {
-    return Response.json({ error: err instanceof Error ? err.message : "Sync failed" }, { status: 500 });
+    return Response.json(await syncCompany(businessId));
+  } catch {
+    return Response.json({ error: "Sync failed" }, { status: 500 });
   }
 }

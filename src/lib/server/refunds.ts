@@ -111,7 +111,11 @@ export async function submitSignedRefund(deps: Deps, p: { businessId: string; at
     const msg = err instanceof Error ? err.message : String(err);
     if (/simulation failed|insufficient|custom program error/i.test(msg)) {
       await markFailed(deps.db, refund, attempt.id, msg);
-      throw new ResolutionError(`The network rejected the refund: ${msg.slice(0, 160)}`);
+      throw new ResolutionError(
+        /insufficient|0x1\b/i.test(msg)
+          ? "The refund wasn’t sent: the business wallet doesn’t have enough funds or SOL for fees. Nothing moved; top it up and sign again."
+          : "The network rejected the refund, so nothing moved. You can sign it again.",
+      );
     }
   }
   return { signature };

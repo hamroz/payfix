@@ -4,13 +4,16 @@ import { eq } from "drizzle-orm";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/primitives";
 import { customers } from "@/lib/db/schema";
-import { deps, requireBusiness } from "@/lib/server/context";
+import { redirect } from "next/navigation";
+import { deps, requireWorkspace } from "@/lib/server/context";
+import { can } from "@/lib/roles";
 import { InvoiceForm } from "./invoice-form";
 
 export const metadata: Metadata = { title: "New invoice" };
 
 export default async function NewInvoicePage() {
-  const biz = await requireBusiness();
+  const { biz, role } = await requireWorkspace();
+  if (!can(role, "editor")) redirect("/app/invoices");
   const { db } = await deps();
   const list = await db.select({ id: customers.id, name: customers.name, email: customers.email }).from(customers).where(eq(customers.businessId, biz.id));
   return (

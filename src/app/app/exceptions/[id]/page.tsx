@@ -17,8 +17,9 @@ import { publicConfig } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { formatUsd } from "@/lib/money";
 import { explorerUrl, shortAddress } from "@/lib/solana/tx";
-import { deps, requireBusiness } from "@/lib/server/context";
-import { demoKeys } from "@/lib/server/demo";
+import { deps, requireWorkspace } from "@/lib/server/context";
+import { serverHeldKey } from "@/lib/server/demo";
+import { can } from "@/lib/roles";
 import { caseDetail } from "@/lib/server/views";
 import { CaseActions } from "./case-actions";
 
@@ -26,7 +27,7 @@ export const metadata: Metadata = { title: "Exception" };
 
 export default async function CasePage({ params }: PageProps<"/app/exceptions/[id]">) {
   const { id } = await params;
-  const biz = await requireBusiness();
+  const { biz, role } = await requireWorkspace();
   const { db } = await deps();
   const [owned] = await db.select().from(cases).where(and(eq(cases.id, id), eq(cases.businessId, biz.id)));
   if (!owned) notFound();
@@ -38,7 +39,7 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
   const step = stepFor(d);
   // Refunds are signed by the wallet that received the money, which may not be the active one.
   const signer = d.refund?.sourceWallet ?? biz.walletAddress;
-  const demoMerchant = demoKeys()?.merchant?.publicKey.toBase58() === signer;
+  const demoMerchant = (await serverHeldKey(db, biz.id, signer)) !== null;
 
   const applied = (acct: string) => d.applied.filter((a) => a.account === acct).reduce((s, a) => s + BigInt(a.amount), 0n);
   const originalInvoiceApplied = d.transfers.reduce((s, t) => s + BigInt(t.appliedHere), 0n);
@@ -198,9 +199,10 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
                 customer={d.customer}
                 customers={allCustomers}
                 linkActive={d.linkActive}
-                current={current ? { id: current.id, version: current.version, status: current.status, hash: current.hash } : null}
+                current={current ? { id: current.id, version: current.version, status: current.status, hash: current.hash, businessNote: current.businessNote } : null}
                 refund={d.refund}
                 businessWallet={signer}
+                canAct={can(role, "editor")}
                 demoMerchant={demoMerchant}
                 config={config}
               />
