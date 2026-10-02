@@ -4,7 +4,8 @@ import { sql } from "drizzle-orm";
 import { createAssociatedTokenAccountIdempotentInstruction, createMintToInstruction } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import type { Db } from "@/lib/db/client";
-import { businesses, chainSignatures, type DestinationProof } from "@/lib/db/schema";
+import { businesses, businessWallets, chainSignatures, type DestinationProof } from "@/lib/db/schema";
+import { newId } from "@/lib/ids";
 import { env } from "@/lib/env";
 import { toUnits } from "@/lib/money";
 import { destinationProofMessage } from "@/lib/solana/proof";
@@ -51,6 +52,7 @@ export async function seedDemo(db: Db) {
     walletAddress: keys.merchant.publicKey.toBase58(),
     mint,
   });
+  await db.insert(businessWallets).values({ id: newId("bw"), businessId, address: keys.merchant.publicKey.toBase58(), label: "Demo merchant wallet" });
   const acme = await createCustomer(db, { businessId, name: "Acme Robotics", email: DEMO_CUSTOMER_EMAIL });
   await createCustomer(db, { businessId, name: "Northwind Coffee", email: "finance@northwind.test" });
   const day = 864e5;
@@ -73,7 +75,7 @@ export async function resetDemo(db: Db) {
   await db.execute(sql`
     truncate table postings, journal_entries, refund_attempts, refunds, approvals, proposals, resolution_links,
       case_transfers, cases, transfers, chain_signatures, payment_requests, invoices, customers, events,
-      otp_codes, sessions, outbox, businesses restart identity cascade`);
+      otp_codes, sessions, outbox, business_wallets, businesses restart identity cascade`);
   return seedDemo(db);
 }
 
@@ -141,6 +143,32 @@ export function demoSignRefund(unsignedB64: string, walletAddress: string) {
   const tx = Transaction.from(Buffer.from(unsignedB64, "base64"));
   tx.partialSign(keys.merchant);
   return tx.serialize().toString("base64");
+}
+
+/**
+ * Demo mode: make sure a wallet has a test-token account, so payments to it can land.
+ * The treasury pays the rent. (Customer payments also create it if missing.)
+ */
+export async function ensureTokenAccount(address: string) {
+  const simulator = sim();
+  if (simulator) {
+    simulator.fund(new PublicKey(address).toBase58(), 0n);
+    return;
+  }
+  const keys = demoKeys();
+  const mint = env().PAYFIX_MINT;
+  if (!keys?.treasury || !mint) return;
+  const owner = new PublicKey(address);
+  const mintPk = new PublicKey(mint);
+  const conn = connection();
+  if (await conn.getAccountInfo(ata(mintPk, owner))) return;
+  const tx = new Transaction().add(createAssociatedTokenAccountIdempotentInstruction(keys.treasury.publicKey, ata(mintPk, owner), owner, mintPk));
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = keys.treasury.publicKey;
+  tx.sign(keys.treasury);
+  const signature = await conn.sendRawTransaction(tx.serialize());
+  await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
 }
 
 /** Test-token faucet: sends test USD (and a little devnet SOL for fees) to any wallet. */

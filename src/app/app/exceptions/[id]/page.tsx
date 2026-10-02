@@ -36,7 +36,9 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
   const current = d.proposals[0] ?? null;
   const history = d.proposals.slice(1);
   const step = stepFor(d);
-  const demoMerchant = demoKeys()?.merchant?.publicKey.toBase58() === biz.walletAddress;
+  // Refunds are signed by the wallet that received the money, which may not be the active one.
+  const signer = d.refund?.sourceWallet ?? biz.walletAddress;
+  const demoMerchant = demoKeys()?.merchant?.publicKey.toBase58() === signer;
 
   const applied = (acct: string) => d.applied.filter((a) => a.account === acct).reduce((s, a) => s + BigInt(a.amount), 0n);
   const originalInvoiceApplied = d.transfers.reduce((s, t) => s + BigInt(t.appliedHere), 0n);
@@ -198,7 +200,7 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
                 linkActive={d.linkActive}
                 current={current ? { id: current.id, version: current.version, status: current.status, hash: current.hash } : null}
                 refund={d.refund}
-                businessWallet={biz.walletAddress}
+                businessWallet={signer}
                 demoMerchant={demoMerchant}
                 config={config}
               />

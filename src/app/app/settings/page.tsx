@@ -6,7 +6,8 @@ import { Card, CardHeader, Mono, PageHeader } from "@/components/ui/primitives";
 import { WalletProviders } from "@/components/wallet/providers";
 import { env, publicConfig } from "@/lib/env";
 import { ata, explorerUrl } from "@/lib/solana/tx";
-import { requireBusiness } from "@/lib/server/context";
+import { deps, requireBusiness } from "@/lib/server/context";
+import { listWallets } from "@/lib/server/wallets";
 import { demoKeys } from "@/lib/server/demo";
 import { DemoTools, WalletSettings } from "./settings-client";
 
@@ -17,7 +18,9 @@ export default async function SettingsPage() {
   const config = publicConfig();
   const e = env();
   const tokenAccount = ata(biz.mint, biz.walletAddress).toBase58();
-  const demoMerchant = demoKeys()?.merchant?.publicKey.toBase58() === biz.walletAddress;
+  const demoMerchantAddress = demoKeys()?.merchant?.publicKey.toBase58() ?? null;
+  const { db } = await deps();
+  const wallets = (await listWallets(db, biz.id)).map((w) => ({ address: w.address, label: w.label, active: w.active }));
 
   const row = (label: string, value: string, link?: string) => (
     <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -46,16 +49,14 @@ export default async function SettingsPage() {
                 {row("Network", config.simulated ? "Simulated chain (offline)" : `Solana ${config.cluster}`)}
                 {row("Token", `${e.PAYFIX_TOKEN_LABEL} · ${config.decimals} decimals`)}
                 {row("Mint", biz.mint, explorerUrl("address", biz.mint, config.cluster))}
-                {row("Receiving wallet", biz.walletAddress, explorerUrl("address", biz.walletAddress, config.cluster))}
-                {row("Token account", tokenAccount, explorerUrl("address", tokenAccount, config.cluster))}
+                {row("Active receiving wallet", biz.walletAddress, explorerUrl("address", biz.walletAddress, config.cluster))}
+                {row("Active token account", tokenAccount, explorerUrl("address", tokenAccount, config.cluster))}
               </div>
             </Card>
           </FadeIn>
-          {!config.simulated && (
-            <FadeIn delay={0.05}>
-              <WalletSettings current={biz.walletAddress} demoMerchant={demoMerchant} />
-            </FadeIn>
-          )}
+          <FadeIn delay={0.05}>
+            <WalletSettings wallets={wallets} demoMerchant={demoMerchantAddress} cluster={config.cluster} simulated={config.simulated} />
+          </FadeIn>
           {config.demoMode && (
             <FadeIn delay={0.1}>
               <DemoTools simulated={config.simulated} />

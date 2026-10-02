@@ -15,6 +15,7 @@ import { businessBalances, caseAvailable, invoiceWithBalance } from "./queries";
 import { approveProposal, executePlan, findLink, sendResolutionLink, submitProposal } from "./resolution";
 import { prepareRefund, reconcileRefund, submitSignedRefund } from "./refunds";
 import { sendCode, verifyCode } from "./auth";
+import { addWallet, listWallets, removeWallet } from "./wallets";
 import { outbox } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 
@@ -239,5 +240,51 @@ describe("the demo scenario, end to end", () => {
     expect(unmatched.customerId).toBeNull();
     expect(await caseAvailable(db, unmatched.id)).toBe($("25"));
     void newId;
+  });
+
+  it("keeps watching earlier wallets and refunds from the wallet that received the money", async () => {
+    const second = Keypair.generate();
+    await addWallet(db, { businessId, address: second.publicKey.toBase58(), label: "MetaMask", makeActive: true });
+    const wallets = await listWallets(db, businessId);
+    expect(wallets.map((w) => [w.label, w.active])).toEqual([
+      ["MetaMask", true],
+      ["Primary wallet", false],
+    ]);
+
+    const invD = (await createInvoice(db, { businessId, customerId, title: "Retainer", amount: $("100"), dueAt: new Date(Date.now() + 864e5) })).id;
+    const req = await createPaymentRequest(db, { invoiceId: invD, amount: null });
+    expect(req.url).toContain(`solana:${second.publicKey.toBase58()}?`);
+
+    // One payment lands in the new active wallet, one through an older link into the first wallet.
+    chain.transfer({ from: payer.publicKey.toBase58(), to: second.publicKey.toBase58(), amount: $("90"), reference: req.reference });
+    chain.transfer({ from: payer.publicKey.toBase58(), to: merchant.publicKey.toBase58(), amount: $("60"), reference: req.reference });
+    await syncBusiness(deps(), businessId);
+    expect((await invoiceWithBalance(db, invD))!.applied).toBe($("100"));
+
+    const overpaid = (await db.select().from(cases).where(eq(cases.invoiceId, invD)))[0];
+    expect(await caseAvailable(db, overpaid.id)).toBe($("50"));
+    const v1 = await submitProposal(db, {
+      caseId: overpaid.id,
+      customerId,
+      lines: [{ type: "refund", amount: "50" }],
+      refundDestination: refundWalletA.publicKey.toBase58(),
+      destinationProof: proof(overpaid.id, refundWalletA),
+    });
+    await approveProposal(db, { businessId, caseId: overpaid.id, proposalId: v1.proposalId, approvedBy: "owner@lumen.test" });
+    const { refundId: rid } = await executePlan(db, { businessId, caseId: overpaid.id });
+    const [refund] = await db.select().from(refunds).where(eq(refunds.id, rid!));
+    expect(refund.sourceWallet).toBe(merchant.publicKey.toBase58()); // the $60 payment carried the excess
+
+    const before = chain.balance(merchant.publicKey.toBase58());
+    const prep = await prepareRefund(deps(), { businessId, refundId: rid! });
+    const tx = Transaction.from(Buffer.from(prep.transaction, "base64"));
+    expect(tx.feePayer?.toBase58()).toBe(merchant.publicKey.toBase58());
+    tx.partialSign(merchant);
+    await submitSignedRefund(deps(), { businessId, attemptId: prep.attemptId, signedTransaction: tx.serialize().toString("base64") });
+    expect(await reconcileRefund(deps(), rid!)).toBe("confirmed");
+    expect(chain.balance(merchant.publicKey.toBase58())).toBe(before - $("50"));
+
+    await expect(removeWallet(db, { businessId, address: second.publicKey.toBase58() })).rejects.toThrow(/active/);
+    await expect(removeWallet(db, { businessId, address: merchant.publicKey.toBase58() })).rejects.toThrow(/received payments/);
   });
 });
