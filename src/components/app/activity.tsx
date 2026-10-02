@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -70,7 +71,7 @@ export function ActivityFeed({
             <div className="min-w-0 flex-1 pt-0.5">
               <p className="text-[13.5px] leading-snug text-fg">{e.message}</p>
               <p className="mt-0.5 text-xs text-fg-3">
-                {who(e.actor)} · {timeAgo(e.createdAt)}
+                {who(e.actor)} · <TimeAgo date={e.createdAt} />
               </p>
             </div>
           </motion.li>
@@ -78,4 +79,14 @@ export function ActivityFeed({
       })}
     </ol>
   );
+}
+
+/** Relative time that may differ between server and browser clocks; re-renders every 30 s. */
+function TimeAgo({ date }: { date: Date | string }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return <span suppressHydrationWarning>{timeAgo(date)}</span>;
 }
