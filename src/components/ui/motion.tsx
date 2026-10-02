@@ -48,7 +48,7 @@ export function StaggerItem({ children, className }: { children: ReactNode; clas
  * Counts up to an exact amount. The animation is cosmetic: intermediate frames are
  * rounded, and the final frame renders the exact value from integer units.
  */
-export function AnimatedAmount({ units, decimals = 6, className, duration = 1.1 }: { units: string; decimals?: number; className?: string; duration?: number }) {
+export function AnimatedAmount({ units, decimals = 6, className, duration = 1.1, style }: { units: string; decimals?: number; className?: string; duration?: number; style?: React.CSSProperties }) {
   const exact = BigInt(units);
   const target = Number(exact) / 10 ** decimals;
   const ref = useRef<HTMLSpanElement>(null);
@@ -72,7 +72,7 @@ export function AnimatedAmount({ units, decimals = 6, className, duration = 1.1 
   }, [inView, target, exact, decimals, duration, reduce]);
 
   return (
-    <span ref={ref} className={className}>
+    <span ref={ref} className={className} style={style}>
       {reduce ? formatUsd(exact, decimals) : text}
     </span>
   );

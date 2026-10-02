@@ -11,7 +11,8 @@ import { publicConfig } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { formatUsd } from "@/lib/money";
 import { explorerUrl, shortAddress } from "@/lib/solana/tx";
-import { currentBusiness, currentCustomerId, deps } from "@/lib/server/context";
+import { currentCustomerId, currentUser, deps } from "@/lib/server/context";
+import { membershipRole } from "@/lib/server/workspaces";
 import { caseDetail } from "@/lib/server/views";
 import { PrintButton } from "./print-button";
 import { ThemeToggle } from "@/components/theme/theme";
@@ -24,9 +25,10 @@ export default async function ReceiptPage({ params }: PageProps<"/receipt/[caseI
   const { db } = await deps();
   const [c] = await db.select().from(cases).where(eq(cases.id, caseId));
   if (!c) notFound();
-  const biz = await currentBusiness();
+  const user = await currentUser();
   const customerId = await currentCustomerId();
-  const allowed = biz?.id === c.businessId || (c.customerId !== null && customerId === c.customerId);
+  const member = user ? await membershipRole(db, user.id, c.businessId) : null;
+  const allowed = member !== null || (c.customerId !== null && customerId === c.customerId);
   if (!allowed) {
     return (
       <div className="mx-auto max-w-md px-5 py-20">

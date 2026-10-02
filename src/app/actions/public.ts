@@ -2,13 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
-import { cases, type DestinationProof, type ProposalLine } from "@/lib/db/schema";
+import { cases, invoices, type DestinationProof, type ProposalLine } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { newToken } from "@/lib/ids";
 import { tryToUnits } from "@/lib/money";
 import { destinationProofMessage } from "@/lib/solana/proof";
 import { isWalletAddress } from "@/lib/solana/tx";
-import { currentCustomerId, deps, syncAll } from "@/lib/server/context";
+import { currentCustomerId, deps, syncCompany } from "@/lib/server/context";
 import { demoDestinationProof, demoPay } from "@/lib/server/demo";
 import { createPaymentRequest, InputError } from "@/lib/server/invoices";
 import { findLink, ResolutionError, submitProposal } from "@/lib/server/resolution";
@@ -33,8 +33,10 @@ export async function demoPayAction(invoiceId: string, amount: string) {
     const units = tryToUnits(amount);
     if (units === null || units <= 0n) throw new InputError("Enter an amount like 400 or 49.99.");
     const { db } = await deps();
+    const [inv] = await db.select({ businessId: invoices.businessId }).from(invoices).where(eq(invoices.id, invoiceId));
+    if (!inv) throw new InputError("Invoice not found.");
     const res = await demoPay(db, { invoiceId, amount: units });
-    await syncAll(true);
+    await syncCompany(inv.businessId, true);
     refresh();
     return res;
   });

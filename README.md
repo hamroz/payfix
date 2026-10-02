@@ -4,7 +4,7 @@
 
 PayFix is a payment-resolution app for small agencies that accept USDC on Solana from repeat clients. It connects invoices to on-chain payments, flags payments that don't match (overpayments, apparent duplicates, transfers without a reference), and gives the customer and the business one place to agree on what happens to the extra money: apply it to another invoice, keep it as credit, refund it, or split it.
 
-> **Status:** working prototype (M2–M3 scope). Runs locally with zero setup on a simulated chain, or against Solana devnet with a real test token. Test money only.
+> **Status:** working beta (M4 build scope). Live demo: **https://payfix-mu.vercel.app** (Solana devnet, test money only). Runs locally with Docker, on devnet or a simulated chain.
 
 ## The demonstration
 
@@ -30,7 +30,7 @@ PayFix runs as its own compose project (`payfix`) with its own network and volum
 
 In the app:
 
-- Sign in as `owner@lumen.test`. Sign-in codes and resolution links appear in the **Demo inbox** (bottom left) and in `docker compose logs app`, because demo mode doesn't send real email.
+- Sign in with **any email**. Demo mode doesn't send real email, so codes and links appear in the **Demo inbox** (bottom left), which only shows your own messages, and in `docker compose logs app`. New users create a company; in demo mode it gets its own devnet wallet and, optionally, the demo customer with invoices A and B.
 - The **Guided demo** card on the overview walks through the scenario and ticks itself off from real state.
 - Payments use the **demo customer wallet**, and refunds are signed by the **demo merchant wallet**, so no browser extension is needed.
 
@@ -64,11 +64,24 @@ Then restart: `npm run docker:up` for Docker (the container reads `.env.local`),
 
 To use your own Phantom as the customer from the start, run `npm run setup:devnet -- --to <your devnet address>`.
 
+### Companies, teams, and roles
+
+Each user can belong to several companies and switch between them from the sidebar. In **Settings → Team**, owners invite people by email:
+
+| Role | Can |
+| --- | --- |
+| Owner | Everything, plus team, receiving wallets, and resetting demo data |
+| Editor | Invoices, customers, resolution links, approvals, running plans, signing refunds |
+| Viewer | Read everything and export CSV |
+
+The server checks the role on every action; the UI also hides what a role can't do. Companies are isolated from each other: payment references, inbox messages, live sync, and demo resets are all scoped to one company.
+
 ### Other commands
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Unit tests plus the end-to-end demo scenario against in-memory Postgres and a simulated chain |
+| `npm test` | Unit tests plus the demo scenario, tenant isolation, roles, and credit rules against in-memory Postgres and a simulated chain |
+| `npm run e2e [url]` | Rehearses the whole demo in headless Chrome against a running app (default `http://localhost:3300`), on devnet |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |
 | `npm run build` | Production build |
 | `npm run docker:up` / `docker:down` / `docker:logs` | Build and run, stop, or tail the Docker stack |

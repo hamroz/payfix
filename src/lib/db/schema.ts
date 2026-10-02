@@ -21,11 +21,33 @@ const units = (name: string) => bigint(name, { mode: "bigint" });
 export const businesses = pgTable("businesses", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  ownerEmail: text("owner_email").notNull().unique(),
+  /** Email of whoever created the company. Access is governed by `memberships`, not this. */
+  ownerEmail: text("owner_email").notNull(),
   walletAddress: text("wallet_address").notNull(),
   mint: text("mint").notNull(),
   createdAt: createdAt(),
 });
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  createdAt: createdAt(),
+});
+
+export type Role = "owner" | "editor" | "viewer";
+
+/** A user's access to one company. Owners manage team, wallets, and the workspace; editors run operations; viewers read. */
+export const memberships = pgTable(
+  "memberships",
+  {
+    id: text("id").primaryKey(),
+    businessId: text("business_id").notNull().references(() => businesses.id),
+    userId: text("user_id").notNull().references(() => users.id),
+    role: text("role").$type<Role>().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("memberships_business_user").on(t.businessId, t.userId)],
+);
 
 /**
  * Every wallet a business has received into. `businesses.walletAddress` is the active one
@@ -38,6 +60,8 @@ export const businessWallets = pgTable(
     businessId: text("business_id").notNull().references(() => businesses.id),
     address: text("address").notNull(),
     label: text("label").notNull(),
+    /** Demo mode only: the wallet's secret key, encrypted with a key derived from SESSION_SECRET. */
+    secretEnc: text("secret_enc"),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("business_wallets_business_address").on(t.businessId, t.address)],
@@ -174,7 +198,7 @@ export type DestinationProof = {
   verifiedAt: string;
 };
 
-export type ProposalStatus = "submitted" | "approved" | "superseded" | "executed";
+export type ProposalStatus = "submitted" | "approved" | "superseded" | "declined" | "executed";
 
 export const proposals = pgTable(
   "proposals",
@@ -191,6 +215,8 @@ export const proposals = pgTable(
     hash: text("hash").notNull(),
     status: text("status").$type<ProposalStatus>().notNull().default("submitted"),
     note: text("note"),
+    /** Set when the business declines this version and asks the customer for changes. */
+    businessNote: text("business_note"),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("proposals_case_version").on(t.caseId, t.version)],
@@ -339,6 +365,8 @@ export const sessions = pgTable("sessions", {
 /** Demo-mode mailbox: every email PayFix would send is stored here and shown at /dev/inbox. */
 export const outbox = pgTable("outbox", {
   id: text("id").primaryKey(),
+  /** The company the email is about, so the demo inbox only shows it to that company's members. */
+  businessId: text("business_id"),
   to: text("to").notNull(),
   subject: text("subject").notNull(),
   body: text("body").notNull(),

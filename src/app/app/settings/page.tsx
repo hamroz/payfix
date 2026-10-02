@@ -6,21 +6,31 @@ import { Card, CardHeader, Mono, PageHeader } from "@/components/ui/primitives";
 import { WalletProviders } from "@/components/wallet/providers";
 import { env, publicConfig } from "@/lib/env";
 import { ata, explorerUrl } from "@/lib/solana/tx";
-import { deps, requireBusiness } from "@/lib/server/context";
+import { deps, requireWorkspace } from "@/lib/server/context";
 import { listWallets } from "@/lib/server/wallets";
+import { listMembers } from "@/lib/server/workspaces";
+import { businessWallets } from "@/lib/db/schema";
+import { and, eq, isNotNull } from "drizzle-orm";
+import { can } from "@/lib/roles";
 import { demoKeys } from "@/lib/server/demo";
 import { DemoTools, WalletSettings } from "./settings-client";
+import { TeamSettings } from "./team";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const biz = await requireBusiness();
+  const { biz, role, user } = await requireWorkspace();
   const config = publicConfig();
   const e = env();
   const tokenAccount = ata(biz.mint, biz.walletAddress).toBase58();
-  const demoMerchantAddress = demoKeys()?.merchant?.publicKey.toBase58() ?? null;
   const { db } = await deps();
-  const wallets = (await listWallets(db, biz.id)).map((w) => ({ address: w.address, label: w.label, active: w.active }));
+  const serverHeld = new Set([
+    ...(await db.select({ a: businessWallets.address }).from(businessWallets).where(and(eq(businessWallets.businessId, biz.id), isNotNull(businessWallets.secretEnc)))).map((r) => r.a),
+    ...(demoKeys()?.merchant ? [demoKeys()!.merchant!.publicKey.toBase58()] : []),
+  ]);
+  const wallets = (await listWallets(db, biz.id)).map((w) => ({ address: w.address, label: w.label, active: w.active, serverHeld: serverHeld.has(w.address) }));
+  const members = (await listMembers(db, biz.id)).map((m) => ({ userId: m.userId, email: m.email, role: m.role }));
+  const isOwner = can(role, "owner");
 
   const row = (label: string, value: string, link?: string) => (
     <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -55,11 +65,14 @@ export default async function SettingsPage() {
             </Card>
           </FadeIn>
           <FadeIn delay={0.05}>
-            <WalletSettings wallets={wallets} demoMerchant={demoMerchantAddress} cluster={config.cluster} simulated={config.simulated} />
+            <TeamSettings members={members} canManage={isOwner} me={user.email} />
+          </FadeIn>
+          <FadeIn delay={0.08}>
+            <WalletSettings wallets={wallets} canManage={isOwner} cluster={config.cluster} simulated={config.simulated} />
           </FadeIn>
           {config.demoMode && (
             <FadeIn delay={0.1}>
-              <DemoTools simulated={config.simulated} />
+              <DemoTools simulated={config.simulated} canReset={isOwner} />
             </FadeIn>
           )}
           <FadeIn delay={0.15}>

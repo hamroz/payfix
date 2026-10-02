@@ -5,7 +5,8 @@ import { Stagger, StaggerItem } from "@/components/ui/motion";
 import { Card, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { customers } from "@/lib/db/schema";
 import { formatUsd } from "@/lib/money";
-import { deps, requireBusiness } from "@/lib/server/context";
+import { deps, requireWorkspace } from "@/lib/server/context";
+import { can } from "@/lib/roles";
 import { customerCredit, invoicesWithBalances } from "@/lib/server/queries";
 import { initials } from "@/lib/format";
 import { AddCustomer } from "./add-customer";
@@ -13,7 +14,7 @@ import { AddCustomer } from "./add-customer";
 export const metadata: Metadata = { title: "Customers" };
 
 export default async function CustomersPage() {
-  const biz = await requireBusiness();
+  const { biz, role } = await requireWorkspace();
   const { db } = await deps();
   const list = await db.select().from(customers).where(eq(customers.businessId, biz.id)).orderBy(customers.name);
   const rows = await Promise.all(
@@ -31,7 +32,7 @@ export default async function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader eyebrow="Customers" title="Customers" subtitle="Repeat clients, their balances, and any credit they’ve chosen to keep with you." actions={<AddCustomer />} />
+      <PageHeader eyebrow="Customers" title="Customers" subtitle="Repeat clients, their balances, and any credit they’ve chosen to keep with you." actions={can(role, "editor") ? <AddCustomer /> : undefined} />
       {rows.length === 0 ? (
         <Card>
           <EmptyState icon={<Users className="size-5" />} title="No customers yet" body="Add a customer to start invoicing." />

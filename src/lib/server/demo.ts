@@ -1,21 +1,18 @@
 import bs58 from "bs58";
 import nacl from "tweetnacl";
-import { sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createAssociatedTokenAccountIdempotentInstruction, createMintToInstruction } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import type { Db } from "@/lib/db/client";
-import { businesses, businessWallets, chainSignatures, type DestinationProof } from "@/lib/db/schema";
-import { newId } from "@/lib/ids";
+import { businesses, businessWallets, invoices, type DestinationProof } from "@/lib/db/schema";
 import { env } from "@/lib/env";
-import { toUnits } from "@/lib/money";
+import { formatUsd, toUnits } from "@/lib/money";
 import { destinationProofMessage } from "@/lib/solana/proof";
 import { ata, buildPaymentTransaction } from "@/lib/solana/tx";
 import { chain, connection, isSimulated, sim } from "./chain";
-import { createCustomer, createInvoice, createPaymentRequest } from "./invoices";
+import { decryptSecret, encryptSecret } from "./crypto";
+import { createPaymentRequest, InputError } from "./invoices";
 import { simulatedKeys } from "./sim-keys";
-
-export const DEMO_OWNER_EMAIL = "owner@lumen.test";
-export const DEMO_CUSTOMER_EMAIL = "ap@acme.test";
 
 const fromSecret = (s: string | undefined) => (s ? Keypair.fromSecretKey(bs58.decode(s)) : null);
 
@@ -36,47 +33,49 @@ export function demoReady() {
   return Boolean(k?.merchant && k.customer && k.treasury && env().PAYFIX_MINT);
 }
 
-/** Creates the demo agency, its repeat client, and the two invoices from the demo script. */
-export async function seedDemo(db: Db) {
-  const existing = await db.select().from(businesses).limit(1);
-  if (existing.length) return existing[0].id;
-  const keys = demoKeys();
-  const mint = env().PAYFIX_MINT;
-  if (!keys?.merchant || !mint) throw new Error("Run `npm run setup:devnet` first to create the test mint and demo wallets.");
-
-  const businessId = "biz_lumen";
-  await db.insert(businesses).values({
-    id: businessId,
-    name: "Lumen Studio",
-    ownerEmail: DEMO_OWNER_EMAIL,
-    walletAddress: keys.merchant.publicKey.toBase58(),
-    mint,
-  });
-  await db.insert(businessWallets).values({ id: newId("bw"), businessId, address: keys.merchant.publicKey.toBase58(), label: "Demo merchant wallet" });
-  const acme = await createCustomer(db, { businessId, name: "Acme Robotics", email: DEMO_CUSTOMER_EMAIL });
-  await createCustomer(db, { businessId, name: "Northwind Coffee", email: "finance@northwind.test" });
-  const day = 864e5;
-  await createInvoice(db, { businessId, customerId: acme, title: "Brand identity system", amount: toUnits("1000"), dueAt: new Date(Date.now() + 10 * day) });
-  await createInvoice(db, { businessId, customerId: acme, title: "Website retainer — October", amount: toUnits("400"), dueAt: new Date(Date.now() + 21 * day) });
-  // Earlier demo runs left history on the merchant account; don't re-ingest it into the fresh workspace.
-  const history = await chain()
-    .getSignatures(ata(mint, keys.merchant.publicKey).toBase58(), 500)
-    .catch(() => []);
-  if (history.length)
-    await db
-      .insert(chainSignatures)
-      .values(history.map((s) => ({ businessId, signature: s.signature, relevant: false })))
-      .onConflictDoNothing();
-  return businessId;
+/**
+ * A fresh, server-held devnet wallet for a new demo company, so every visitor's
+ * workspace receives into its own account and never sees anyone else's payments.
+ * The treasury opens its test-token account and gives it a little SOL for refund fees.
+ */
+export async function provisionDemoWallet(): Promise<{ address: string; secretEnc: string }> {
+  const kp = Keypair.generate();
+  const address = kp.publicKey.toBase58();
+  const simulator = sim();
+  if (simulator) {
+    simulator.fund(address, 0n);
+  } else {
+    const keys = demoKeys();
+    const mint = env().PAYFIX_MINT;
+    if (!keys?.treasury || !mint) throw new Error("Demo wallets aren't configured. Run `npm run setup:devnet`.");
+    const mintPk = new PublicKey(mint);
+    const conn = connection();
+    const tx = new Transaction().add(
+      createAssociatedTokenAccountIdempotentInstruction(keys.treasury.publicKey, ata(mintPk, kp.publicKey), kp.publicKey, mintPk),
+      SystemProgram.transfer({ fromPubkey: keys.treasury.publicKey, toPubkey: kp.publicKey, lamports: 0.01 * LAMPORTS_PER_SOL }),
+    );
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = keys.treasury.publicKey;
+    tx.sign(keys.treasury);
+    const signature = await conn.sendRawTransaction(tx.serialize());
+    await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  }
+  return { address, secretEnc: encryptSecret(bs58.encode(kp.secretKey)) };
 }
 
-/** Wipes every table and reseeds the demo workspace. */
-export async function resetDemo(db: Db) {
-  await db.execute(sql`
-    truncate table postings, journal_entries, refund_attempts, refunds, approvals, proposals, resolution_links,
-      case_transfers, cases, transfers, chain_signatures, payment_requests, invoices, customers, events,
-      otp_codes, sessions, outbox, business_wallets, businesses restart identity cascade`);
-  return seedDemo(db);
+/** Test-token balance of a wallet, in base units (0 if it has no token account). */
+export async function tokenBalance(owner: string): Promise<bigint> {
+  const simulator = sim();
+  if (simulator) return simulator.balance(owner);
+  const mint = env().PAYFIX_MINT;
+  if (!mint) return 0n;
+  try {
+    const r = await connection().getTokenAccountBalance(ata(mint, owner), "confirmed");
+    return BigInt(r.value.amount);
+  } catch {
+    return 0n;
+  }
 }
 
 async function waitForConfirmation(signature: string, timeoutMs = 45_000) {
@@ -90,12 +89,28 @@ async function waitForConfirmation(signature: string, timeoutMs = 45_000) {
   throw new Error("Timed out waiting for confirmation.");
 }
 
+const DEMO_TOP_UP_LIMIT = toUnits("100000");
+
 /** The demo customer pays an invoice from its demo wallet. Returns the signature. */
 export async function demoPay(db: Db, p: { invoiceId: string; amount: bigint }) {
   const keys = demoKeys();
   if (!keys?.customer) throw new Error("Demo wallets aren't configured.");
+  // Every visitor's demo pays from this one wallet, so keep it stocked for reasonable
+  // amounts (we're the test mint's authority). Absurd amounts get a clear answer instead.
+  const customer = keys.customer.publicKey.toBase58();
+  let balance = await tokenBalance(customer);
+  if (balance < p.amount && p.amount <= DEMO_TOP_UP_LIMIT) {
+    await faucet(customer, p.amount - balance + toUnits("5000"));
+    balance = await tokenBalance(customer);
+  }
+  if (balance < p.amount)
+    throw new InputError(
+      `The demo customer wallet only holds ${formatUsd(balance)} test USD and tops up to at most ${formatUsd(DEMO_TOP_UP_LIMIT)} per payment, so it can’t pay ${formatUsd(p.amount)}. Pay a smaller amount.`,
+    );
+  const [inv] = await db.select().from(invoices).where(eq(invoices.id, p.invoiceId));
+  if (!inv) throw new InputError("Invoice not found.");
+  const [biz] = await db.select().from(businesses).where(eq(businesses.id, inv.businessId));
   const req = await createPaymentRequest(db, { invoiceId: p.invoiceId, amount: p.amount });
-  const [biz] = await db.select().from(businesses).limit(1);
   const { blockhash, lastValidBlockHeight } = await chain().getLatestBlockhash();
   const tx = buildPaymentTransaction({
     payer: keys.customer.publicKey,
@@ -135,13 +150,24 @@ export function demoDestinationProof(caseId: string, which: "primary" | "alterna
   return signProof(wallets[which], caseId, "demo_wallet");
 }
 
-/** Signs a prepared refund with the demo merchant wallet (only when it is the business wallet). */
-export function demoSignRefund(unsignedB64: string, walletAddress: string) {
-  const keys = demoKeys();
-  if (!keys?.merchant || keys.merchant.publicKey.toBase58() !== walletAddress)
-    throw new Error("This business receives into a connected wallet — sign the refund there.");
-  const tx = Transaction.from(Buffer.from(unsignedB64, "base64"));
-  tx.partialSign(keys.merchant);
+/** The server-held key for one of a company's wallets, if it has one (demo mode only). */
+export async function serverHeldKey(db: Db, businessId: string, walletAddress: string): Promise<Keypair | null> {
+  if (!env().DEMO_MODE) return null;
+  const [w] = await db
+    .select()
+    .from(businessWallets)
+    .where(and(eq(businessWallets.businessId, businessId), eq(businessWallets.address, walletAddress)));
+  if (w?.secretEnc) return Keypair.fromSecretKey(bs58.decode(decryptSecret(w.secretEnc)));
+  const legacy = demoKeys()?.merchant;
+  return legacy && legacy.publicKey.toBase58() === walletAddress ? legacy : null;
+}
+
+/** Signs a prepared refund with the company's server-held demo wallet. */
+export async function demoSignRefund(db: Db, p: { businessId: string; unsignedB64: string; walletAddress: string }) {
+  const kp = await serverHeldKey(db, p.businessId, p.walletAddress);
+  if (!kp) throw new InputError("This wallet's key isn't held by PayFix. Sign the refund in that wallet.");
+  const tx = Transaction.from(Buffer.from(p.unsignedB64, "base64"));
+  tx.partialSign(kp);
   return tx.serialize().toString("base64");
 }
 
