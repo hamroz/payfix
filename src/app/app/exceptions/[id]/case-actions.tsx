@@ -237,17 +237,28 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
   const [busy, setBusy] = useState<null | "demo" | "wallet">(null);
   const r = p.refund;
 
-  // While a refund is in flight, reconcile with the chain every couple of seconds.
+  // While a refund is in flight, reconcile with the chain. One check at a time, and stop
+  // once it settles: a page render can take longer than the poll interval, and a new
+  // refresh cancels the one in flight, so refreshing on every tick never lands.
   useEffect(() => {
     if (r.status !== "submitted") return;
-    const id = setInterval(async () => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
       const res = await checkRefundAction(r.id);
+      if (stopped) return;
       if (res.ok && res.status !== "submitted") {
         if (res.status === "confirmed") toast.push({ tone: "success", title: "Refund confirmed on chain", body: "Case resolved." });
         router.refresh();
+        return;
       }
-    }, 2000);
-    return () => clearInterval(id);
+      timer = setTimeout(tick, 2000);
+    };
+    timer = setTimeout(tick, 2000);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
   }, [r.status, r.id, router, toast]);
 
   const walletMatches = publicKey?.toBase58() === p.businessWallet;
