@@ -82,7 +82,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
               style={amountFit(remaining === 0n ? invoice.amount : invoice.remaining, 2.25)}
             />
             <p className="mt-1 text-sm text-fg-3">
-              of {formatUsd(BigInt(invoice.amount))} · due {formatDate(invoice.dueAt)}
+              of {formatUsd(BigInt(invoice.amount))} · due <span suppressHydrationWarning>{formatDate(invoice.dueAt)}</span>
             </p>
           </div>
         </div>
