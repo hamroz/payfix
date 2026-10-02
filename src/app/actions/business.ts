@@ -2,10 +2,11 @@
 
 import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
-import { businesses, cases, refunds } from "@/lib/db/schema";
+import { cases, refunds } from "@/lib/db/schema";
 import { tryToUnits } from "@/lib/money";
 import { deps, requireBusiness, resetSeedFlag, syncAll } from "@/lib/server/context";
-import { demoSignRefund, faucet, resetDemo } from "@/lib/server/demo";
+import { demoSignRefund, ensureTokenAccount, faucet, resetDemo } from "@/lib/server/demo";
+import { addWallet, removeWallet, setActiveWallet } from "@/lib/server/wallets";
 import { createCustomer, createInvoice, InputError } from "@/lib/server/invoices";
 import { prepareRefund, reconcileRefund, submitSignedRefund } from "@/lib/server/refunds";
 import { approveProposal, assignCustomer, executePlan, ResolutionError, sendResolutionLink } from "@/lib/server/resolution";
@@ -103,7 +104,8 @@ export async function demoSignRefundAction(refundId: string) {
     const biz = await requireBusiness();
     const d = await deps();
     const { attemptId, transaction } = await prepareRefund(d, { businessId: biz.id, refundId });
-    const signed = demoSignRefund(transaction, biz.walletAddress);
+    const [r] = await d.db.select().from(refunds).where(eq(refunds.id, refundId));
+    const signed = demoSignRefund(transaction, r?.sourceWallet ?? biz.walletAddress);
     const res = await submitSignedRefund(d, { businessId: biz.id, attemptId, signedTransaction: signed });
     refresh();
     return res;
@@ -131,12 +133,33 @@ export async function syncNowAction() {
   });
 }
 
-export async function updateWalletAction(address: string) {
+export async function addWalletAction(input: { address: string; label: string; makeActive: boolean }) {
   return run(async () => {
     const biz = await requireBusiness();
-    if (!isWalletAddress(address)) throw new InputError("That isn't a valid wallet address.");
     const { db } = await deps();
-    await db.update(businesses).set({ walletAddress: address }).where(eq(businesses.id, biz.id));
+    await addWallet(db, { businessId: biz.id, ...input });
+    // In demo mode, open the wallet's test-token account now so payments can land immediately.
+    if (env().DEMO_MODE) await ensureTokenAccount(input.address.trim()).catch(() => undefined);
+    refresh();
+    return {};
+  });
+}
+
+export async function setActiveWalletAction(address: string) {
+  return run(async () => {
+    const biz = await requireBusiness();
+    const { db } = await deps();
+    await setActiveWallet(db, { businessId: biz.id, address });
+    refresh();
+    return {};
+  });
+}
+
+export async function removeWalletAction(address: string) {
+  return run(async () => {
+    const biz = await requireBusiness();
+    const { db } = await deps();
+    await removeWallet(db, { businessId: biz.id, address });
     refresh();
     return {};
   });

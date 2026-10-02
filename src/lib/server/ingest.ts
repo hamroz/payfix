@@ -11,23 +11,31 @@ import { ata, shortAddress } from "@/lib/solana/tx";
 import type { ChainClient } from "./chain";
 import { logEvent, postEntry } from "./journal";
 import { invoiceWithBalance } from "./queries";
+import { listWallets } from "./wallets";
 
 export type Deps = { db: Db; chain: ChainClient };
 
 type Business = typeof businesses.$inferSelect;
 
 /**
- * Pulls recent activity on the merchant's token account and ingests anything new.
+ * Pulls recent activity on each of the business's token accounts (every receiving wallet,
+ * not just the active one, so older payment links still settle) and ingests anything new.
  * Safe to run concurrently and repeatedly: each signature is claimed once in
  * chain_signatures, transfers are unique per signature, and journal entries are keyed.
  */
 export async function syncBusiness(deps: Deps, businessId: string): Promise<{ ingested: number }> {
   const [biz] = await deps.db.select().from(businesses).where(eq(businesses.id, businessId));
   if (!biz) throw new Error("Business not found");
-  const tokenAccount = ata(biz.mint, biz.walletAddress).toBase58();
+  let ingested = 0;
+  for (const w of await listWallets(deps.db, businessId)) ingested += await syncWallet(deps, biz, w.address);
+  return { ingested };
+}
 
+async function syncWallet(deps: Deps, biz: Business, wallet: string): Promise<number> {
+  const businessId = biz.id;
+  const tokenAccount = ata(biz.mint, wallet).toBase58();
   const recent = await deps.chain.getSignatures(tokenAccount, 40);
-  if (recent.length === 0) return { ingested: 0 };
+  if (recent.length === 0) return 0;
   const seen = new Set(
     (
       await deps.db
@@ -46,14 +54,14 @@ export async function syncBusiness(deps: Deps, businessId: string): Promise<{ in
     }
     const tx = await deps.chain.getParsedTransaction(sig.signature);
     if (!tx) continue; // not visible yet at this commitment; try again next sync
-    if (await ingestTransaction(deps.db, biz, sig.signature, tx)) ingested++;
+    if (await ingestTransaction(deps.db, biz, wallet, sig.signature, tx)) ingested++;
   }
-  return { ingested };
+  return ingested;
 }
 
-/** Records one transaction. Returns true if it produced a new transfer. */
-export async function ingestTransaction(db: Db, biz: Business, signature: string, tx: ParsedTransactionWithMeta): Promise<boolean> {
-  const tokenAccount = ata(biz.mint, biz.walletAddress).toBase58();
+/** Records one transaction seen on `wallet`'s token account. Returns true if it produced a new transfer. */
+export async function ingestTransaction(db: Db, biz: Business, wallet: string, signature: string, tx: ParsedTransactionWithMeta): Promise<boolean> {
+  const tokenAccount = ata(biz.mint, wallet).toBase58();
   const movement = parseTokenMovement(tx, { tokenAccount, mint: biz.mint });
 
   return db.transaction(async (t) => {
@@ -76,6 +84,7 @@ export async function ingestTransaction(db: Db, biz: Business, signature: string
       signature,
       direction: movement.direction,
       mint: biz.mint,
+      walletAddress: wallet,
       amount: movement.amount,
       counterpartyOwner: movement.counterpartyOwner,
       counterpartyTokenAccount: movement.counterpartyTokenAccount,

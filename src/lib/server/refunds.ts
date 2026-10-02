@@ -46,7 +46,7 @@ export async function prepareRefund(deps: Deps, p: { businessId: string; refundI
   const [biz] = await deps.db.select().from(businesses).where(eq(businesses.id, refund.businessId));
   const { blockhash, lastValidBlockHeight } = await deps.chain.getLatestBlockhash();
   const tx = buildRefundTransaction({
-    merchant: new PublicKey(biz.walletAddress),
+    merchant: new PublicKey(refund.sourceWallet ?? biz.walletAddress),
     destination: new PublicKey(refund.destinationOwner),
     mint: new PublicKey(biz.mint),
     decimals: env().PAYFIX_MINT_DECIMALS,
