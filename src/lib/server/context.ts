@@ -43,9 +43,13 @@ export async function setSessionCookie(kind: SessionKind, token: string, expires
   });
 }
 
+// Read the cookie before touching the database: it marks the route as per-request, so
+// Next.js never tries to prerender it at build time (when no database is reachable).
 export async function currentBusiness() {
+  const token = (await cookies()).get(COOKIES.business)?.value;
+  if (!token) return null;
   const { db } = await deps();
-  const id = await sessionSubject(db, "business", (await cookies()).get(COOKIES.business)?.value);
+  const id = await sessionSubject(db, "business", token);
   if (!id) return null;
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, id));
   return biz ?? null;
@@ -58,8 +62,10 @@ export async function requireBusiness() {
 }
 
 export async function currentCustomerId() {
+  const token = (await cookies()).get(COOKIES.customer)?.value;
+  if (!token) return null;
   const { db } = await deps();
-  return sessionSubject(db, "customer", (await cookies()).get(COOKIES.customer)?.value);
+  return sessionSubject(db, "customer", token);
 }
 
 /**
