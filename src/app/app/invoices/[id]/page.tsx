@@ -8,17 +8,19 @@ import { AnimatedAmount, FadeIn } from "@/components/ui/motion";
 import { CopyButton } from "@/components/ui/interactive";
 import { ButtonLink, Card, CardHeader, Mono } from "@/components/ui/primitives";
 import { env, publicConfig } from "@/lib/env";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { amountFit, formatDate, formatDateTime } from "@/lib/format";
 import { formatUsd } from "@/lib/money";
 import { explorerUrl, shortAddress } from "@/lib/solana/tx";
-import { deps, requireBusiness } from "@/lib/server/context";
+import { deps, requireWorkspace } from "@/lib/server/context";
+import { can } from "@/lib/roles";
+import { ApplyCredit } from "./apply-credit";
 import { invoiceDetail } from "@/lib/server/views";
 
 export const metadata: Metadata = { title: "Invoice" };
 
 export default async function InvoicePage({ params }: PageProps<"/app/invoices/[id]">) {
   const { id } = await params;
-  const biz = await requireBusiness();
+  const { biz, role } = await requireWorkspace();
   const { db } = await deps();
   const d = await invoiceDetail(db, biz.id, id);
   if (!d) notFound();
@@ -52,15 +54,15 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
       <div className="mt-6 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <div className="flex flex-col gap-5">
           <FadeIn delay={0.05}>
-            <Card className="grid grid-cols-3 divide-x divide-veil/[0.06]">
+            <Card className="grid grid-cols-3 divide-x divide-veil/[0.06] overflow-hidden">
               {[
                 { label: "Amount", v: i.amount },
                 { label: "Applied", v: i.applied },
                 { label: "Remaining", v: i.remaining },
               ].map((s) => (
-                <div key={s.label} className="p-4 sm:p-5">
+                <div key={s.label} className="@container min-w-0 p-4 sm:p-5" title={formatUsd(BigInt(s.v))}>
                   <p className="text-xs text-fg-3">{s.label}</p>
-                  <AnimatedAmount units={s.v} className="tabular mt-1.5 block font-display text-lg font-semibold sm:text-2xl" />
+                  <AnimatedAmount units={s.v} className="tabular mt-1.5 block whitespace-nowrap font-display font-semibold" style={amountFit(s.v, 1.5)} />
                 </div>
               ))}
             </Card>
@@ -101,7 +103,9 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
                       <Shuffle className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="tabular text-sm font-medium">{formatUsd(BigInt(a.amount))} allocated from an overpayment</p>
+                      <p className="tabular text-sm font-medium">
+                        {formatUsd(BigInt(a.amount))} {a.kind === "credit" ? "applied from customer credit" : "allocated from an overpayment"}
+                      </p>
                       <p className="truncate text-xs text-fg-3">
                         {a.memo} · {formatDateTime(a.createdAt)}
                       </p>
@@ -130,6 +134,11 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
         </div>
 
         <div className="flex flex-col gap-5">
+          {can(role, "editor") && BigInt(d.credit) > 0n && BigInt(i.remaining) > 0n && (
+            <FadeIn delay={0.06}>
+              <ApplyCredit invoiceId={i.id} credit={d.credit} remaining={i.remaining} customerName={d.customer.name} />
+            </FadeIn>
+          )}
           <FadeIn delay={0.08}>
             <Card className="p-5">
               <h3 className="font-display text-[15px] font-semibold">Payment link</h3>

@@ -2,7 +2,7 @@
 
 Created September 26, 2026. Internal deadline: **Saturday, October 10, 2026, at 23:59 Europe/Berlin**.
 
-Status: **Plan ready; implementation has not started in this workspace.** Dates below are delivery targets, not scheduled background runs.
+Status (Oct 2): **M1–M3 complete; M4 build work complete, its external-tester gate still open.** Live demo: https://payfix-mu.vercel.app. See [Progress and evidence](#progress-and-evidence) below. Dates are delivery targets, not scheduled background runs.
 
 If entering Crypto World's Fair, its published submission date is October 12, 2026. The internal deadline leaves a two-day contingency window. Confirm the precise cutoff in the submission portal. [Event page](https://colosseum.com/worldsfair).
 
@@ -65,6 +65,22 @@ AI agents handle implementation and review. AI-generated product decisions or pa
 | **Oct 10** | **M7 — submission ready** | Final demo build; README; architecture explanation; pitch draft; recording script; screenshots; submission copy; development disclosure | Record founder presentation; approve factual claims; team leader completes submission | Accessible demo/repository for judges; working video links; complete submission checklist; confirmation retained if submitted |
 
 Milestones are acceptance gates. If AI work finishes early, advance immediately and use the gained time for outside feedback and reliability checks.
+
+## Progress and evidence
+
+Recorded Oct 2. Build work started Sep 30 (three days after the plan) and caught up by Oct 1.
+
+| Milestone | Build status | Evidence | Still open |
+|---|---|---|---|
+| **M1** | Done | Runnable app, data model (`src/lib/db/schema.ts`), payment and resolution states, README architecture section | No standalone product brief, screen-flow doc, or written acceptance checklist; human items (registration, five businesses, decision-maker) not recorded here |
+| **M2** | Done | Devnet: $1,000 invoice tracks $600 then $500, Explorer links per transfer; re-sync never double-counts (`flow.test.ts`) | First discovery conversations not recorded here |
+| **M3** | Done | $60 to B + $40 refund end to end on devnet and on the live site; destination change voids approval; pending/failed refunds stay visible (tests + e2e) | Language review by the team; interviewee-suggested case |
+| **M4** | Build done | Exceptions inbox (overpayment, duplicate, unmatched, late); customer credit kept and applied once; receipts and CSV; role checks; phone layout; every visitor gets an isolated company with its own devnet wallet; `npm run e2e` rehearses the whole demo in a real browser | **Three external walkthroughs on real phones** — the gate is "another person completes the flow without developer intervention" |
+| M5–M7 | Not started | — | External evidence, release candidate, submission package (repo is still private) |
+
+Built beyond the plan: Docker setup, light theme, multiple receiving wallets per company, companies with Owner/Editor/Viewer roles, Vercel deployment with Neon Postgres.
+
+Automated checks: `npm test` (30 tests including the full demo scenario offline, tenant isolation, roles, single-use credit) and `npm run e2e [url]` (11-step browser rehearsal on devnet).
 
 ## Who does what
 

@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
  * Polls /api/sync while the page is visible and refreshes server components when
  * anything changed. Renders a small live indicator.
  */
-export function LiveSync({ interval = 4000, label = true, className }: { interval?: number; label?: boolean; className?: string }) {
+export function LiveSync({ businessId, interval = 4000, label = true, className }: { businessId: string; interval?: number; label?: boolean; className?: string }) {
   const router = useRouter();
   const version = useRef<number | null>(null);
   const [state, setState] = useState<"live" | "syncing" | "offline">("live");
@@ -20,7 +20,7 @@ export function LiveSync({ interval = 4000, label = true, className }: { interva
       if (document.visibilityState === "visible") {
         setState("syncing");
         try {
-          const res = await fetch("/api/sync", { method: "POST" });
+          const res = await fetch(`/api/sync?b=${encodeURIComponent(businessId)}`, { method: "POST" });
           const data = (await res.json()) as { version?: number };
           if (!res.ok || data.version === undefined) throw new Error();
           if (version.current !== null && data.version !== version.current) router.refresh();
@@ -37,7 +37,7 @@ export function LiveSync({ interval = 4000, label = true, className }: { interva
       stopped = true;
       clearTimeout(timer);
     };
-  }, [interval, router]);
+  }, [interval, router, businessId]);
 
   return (
     <span className={cn("inline-flex items-center gap-2 text-xs text-fg-3", className)} title="PayFix checks the chain every few seconds">

@@ -22,13 +22,15 @@ import { formatUsd, fromUnits, tryToUnits } from "@/lib/money";
 import { shortAddress } from "@/lib/solana/tx";
 import type { CaseDetail } from "@/lib/server/views";
 import { cn } from "@/lib/cn";
+import { amountFit } from "@/lib/format";
 
 type Props = { token: string; businessName: string; customerName: string; config: PublicConfig; detail: CaseDetail };
 
 export function ResolvePanel({ token, businessName, customerName, config, detail: d }: Props) {
   const current = d.proposals[0] ?? null;
   const editable = d.case.status === "open" || d.case.status === "proposed" || d.case.status === "approved";
-  const [editing, setEditing] = useState(!current && editable);
+  const declined = current?.status === "declined";
+  const [editing, setEditing] = useState((!current || declined) && editable);
   const available = BigInt(current && !editable ? current.available : d.available);
 
   return (
@@ -53,9 +55,9 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
         <FadeIn delay={0.05}>
           <Card className="p-5">
             <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
+              <div className="@container min-w-0 flex-1">
                 <p className="text-xs uppercase tracking-[0.14em] text-fg-3">{d.case.status === "resolved" ? "Extra, now resolved" : "Extra to allocate"}</p>
-                <AnimatedAmount units={(d.case.status === "resolved" || !editable ? (current?.available ?? d.available) : d.available).toString()} className="tabular mt-1 block font-display text-4xl font-semibold tracking-tight text-gradient" />
+                <AnimatedAmount units={(d.case.status === "resolved" || !editable ? (current?.available ?? d.available) : d.available).toString()} className="tabular mt-1 block whitespace-nowrap font-display font-semibold tracking-tight text-gradient" style={amountFit(d.available, 2.25)} />
               </div>
               <div className="flex flex-col gap-1.5">
                 {d.transfers
@@ -70,10 +72,19 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
           </Card>
         </FadeIn>
 
+        {declined && editable && (
+          <FadeIn delay={0.05}>
+            <div className="rounded-2xl border border-amber/25 bg-amber/[0.07] p-4">
+              <p className="text-sm font-medium text-amber">{businessName} asked for a change to version {current!.version}</p>
+              <p className="mt-1 text-sm text-fg-2">“{current!.businessNote}”</p>
+            </div>
+          </FadeIn>
+        )}
+
         <AnimatePresence mode="wait">
           {editing && editable ? (
             <motion.div key="builder" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <PlanBuilder token={token} available={BigInt(d.available)} openInvoices={d.openInvoices.filter((i) => BigInt(i.remaining) > 0n)} current={current} config={config} businessName={businessName} onDone={() => setEditing(false)} onCancel={current ? () => setEditing(false) : undefined} />
+              <PlanBuilder token={token} available={BigInt(d.available)} openInvoices={d.openInvoices.filter((i) => BigInt(i.remaining) > 0n)} current={current} config={config} businessName={businessName} onDone={() => setEditing(false)} onCancel={current && !declined ? () => setEditing(false) : undefined} />
             </motion.div>
           ) : current ? (
             <motion.div key="status" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
@@ -203,7 +214,21 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
   const set = (key: string, value: string) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, value: value.replace(/[^\d.]/g, "") } : r)));
   const preset = (values: Record<string, bigint>) => setRows((rs) => rs.map((r) => ({ ...r, value: values[r.key] ? fromUnits(values[r.key]) : "" })));
   const firstInv = openInvoices[0];
+  // Fill invoices in due-date order, oldest first; anything left over is refunded.
+  const oldestFirst = (() => {
+    const values: Record<string, bigint> = {};
+    let left = available;
+    for (const inv of [...openInvoices].sort((a, b) => a.dueAt.localeCompare(b.dueAt))) {
+      if (left === 0n) break;
+      const take = BigInt(inv.remaining) < left ? BigInt(inv.remaining) : left;
+      values[inv.id] = take;
+      left -= take;
+    }
+    if (left > 0n) values.refund = left;
+    return values;
+  })();
   const presets: { label: string; values: Record<string, bigint> }[] = [
+    ...(openInvoices.length > 1 ? [{ label: "Oldest invoices first", values: oldestFirst }] : []),
     ...(firstInv ? [{ label: `All to ${firstInv.number}`, values: { [firstInv.id]: available < BigInt(firstInv.remaining) ? available : BigInt(firstInv.remaining), refund: available > BigInt(firstInv.remaining) ? available - BigInt(firstInv.remaining) : 0n } }] : []),
     ...(firstInv ? [{ label: "Split 60 / 40", values: { [firstInv.id]: (available * 60n) / 100n, refund: available - (available * 60n) / 100n } }] : []),
     { label: "Keep as credit", values: { credit: available } },

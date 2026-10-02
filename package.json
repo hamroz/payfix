@@ -14,7 +14,8 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f app",
-    "db:up": "docker compose up -d db"
+    "db:up": "docker compose up -d db",
+    "e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

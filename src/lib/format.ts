@@ -25,3 +25,14 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join("");
+
+/**
+ * Inline style that makes a money amount exactly fit its container (the parent needs the
+ * Tailwind `@container` class): the font shrinks with the number's length, never below
+ * legibility, never above `maxRem`. "$400.00" stays large; "$10,000,000.00" fits in full.
+ */
+export function amountFit(units: string | bigint, maxRem = 1.5): { fontSize: string } {
+  const whole = Math.max(1, (typeof units === "bigint" ? units : BigInt(units)).toString().length - 6);
+  const chars = whole + Math.floor((whole - 1) / 3) + 4; // "$" + digits + commas + ".00"
+  return { fontSize: `max(0.75rem, min(${maxRem}rem, ${(100 / (0.64 * chars)).toFixed(2)}cqw))` };
+}

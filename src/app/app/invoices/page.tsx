@@ -6,13 +6,14 @@ import { Stagger, StaggerItem } from "@/components/ui/motion";
 import { ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { formatDate } from "@/lib/format";
 import { formatUsd } from "@/lib/money";
-import { deps, requireBusiness } from "@/lib/server/context";
+import { deps, requireWorkspace } from "@/lib/server/context";
+import { can } from "@/lib/roles";
 import { invoiceList } from "@/lib/server/views";
 
 export const metadata: Metadata = { title: "Invoices" };
 
 export default async function InvoicesPage() {
-  const biz = await requireBusiness();
+  const { biz, role } = await requireWorkspace();
   const { db } = await deps();
   const rows = await invoiceList(db, biz.id);
 
@@ -23,9 +24,11 @@ export default async function InvoicesPage() {
         title="Invoices"
         subtitle="Each invoice gets a payment link. Partial payments are tracked; anything beyond the balance becomes an exception to resolve."
         actions={
-          <ButtonLink href="/app/invoices/new">
-            <FilePlus2 className="size-4" /> New invoice
-          </ButtonLink>
+          can(role, "editor") && (
+            <ButtonLink href="/app/invoices/new">
+              <FilePlus2 className="size-4" /> New invoice
+            </ButtonLink>
+          )
         }
       />
       {rows.length === 0 ? (

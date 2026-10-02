@@ -10,14 +10,15 @@ import { ButtonLink, Card, CardHeader, EmptyState, PageHeader } from "@/componen
 import { env } from "@/lib/env";
 import { formatUsd } from "@/lib/money";
 import { cn } from "@/lib/cn";
-import { deps, requireBusiness } from "@/lib/server/context";
+import { deps, requireWorkspace } from "@/lib/server/context";
+import { can } from "@/lib/roles";
 import { dashboardView } from "@/lib/server/views";
-import { timeAgo } from "@/lib/format";
+import { amountFit, timeAgo } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
 
 export default async function Dashboard() {
-  const biz = await requireBusiness();
+  const { biz, role } = await requireWorkspace();
   const { db } = await deps();
   const v = await dashboardView(db, biz.id);
   const b = v.balances;
@@ -42,9 +43,11 @@ export default async function Dashboard() {
             <ButtonLink href="/app/exceptions" variant="secondary">
               <Inbox className="size-4" /> Exceptions
             </ButtonLink>
-            <ButtonLink href="/app/invoices/new">
-              <FilePlus2 className="size-4" /> New invoice
-            </ButtonLink>
+            {can(role, "editor") && (
+              <ButtonLink href="/app/invoices/new">
+                <FilePlus2 className="size-4" /> New invoice
+              </ButtonLink>
+            )}
           </>
         }
       />
@@ -52,9 +55,9 @@ export default async function Dashboard() {
       <Stagger className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {stats.map((s) => (
           <StaggerItem key={s.label}>
-            <Card className="h-full p-4 sm:p-5">
+            <Card className="@container h-full min-w-0 overflow-hidden p-4 sm:p-5" title={formatUsd(BigInt(s.units))}>
               <p className="text-xs text-fg-3">{s.label}</p>
-              <AnimatedAmount units={s.units} className={cn("tabular mt-2 block font-display text-xl font-semibold tracking-tight sm:text-[26px]", s.tone)} />
+              <AnimatedAmount units={s.units} className={cn("tabular mt-2 block whitespace-nowrap font-display font-semibold tracking-tight", s.tone)} style={amountFit(s.units, 1.625)} />
               <p className="mt-1 text-xs text-fg-3">{s.note}</p>
             </Card>
           </StaggerItem>

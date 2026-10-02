@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { Link2Off } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { DemoInbox } from "@/components/app/demo-inbox";
+import { LiveSync } from "@/components/app/live-sync";
 import { NetworkPill } from "@/components/app/network-pill";
 import { ThemeToggle } from "@/components/theme/theme";
 import { Card, EmptyState } from "@/components/ui/primitives";
@@ -23,7 +24,7 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
   const config = publicConfig();
   const found = await findLink(db, token);
 
-  const shell = (children: React.ReactNode, business?: string, email?: string) => (
+  const shell = (children: React.ReactNode, business?: string, businessId?: string) => (
     <WalletProviders rpcUrl={config.rpcUrl}>
       <div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-5 py-6 sm:px-8">
         <header className="flex items-center justify-between gap-3">
@@ -32,13 +33,14 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
             {business && <span className="hidden text-sm text-fg-3 sm:inline">for {business}</span>}
           </div>
           <div className="flex items-center gap-2">
+            {businessId && <LiveSync businessId={businessId} label={false} />}
             <NetworkPill />
             <ThemeToggle />
           </div>
         </header>
         <main className="flex-1 py-8 sm:py-10">{children}</main>
       </div>
-      {config.demoMode && <DemoInbox filterTo={email} />}
+      {config.demoMode && <DemoInbox />}
     </WalletProviders>
   );
 
@@ -57,7 +59,7 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
   const sessionCustomer = await currentCustomerId();
 
   if (sessionCustomer !== link.customerId) {
-    return shell(<VerifyGate token={token} businessName={biz.name} customerName={cust.name} />, biz.name, cust.email);
+    return shell(<VerifyGate token={token} businessName={biz.name} customerName={cust.name} />, biz.name);
   }
 
   // The customer sees only their own invoices.
@@ -67,6 +69,6 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
   return shell(
     <ResolvePanel token={token} businessName={biz.name} customerName={cust.name} config={config} detail={{ ...d, invoiceNumbers }} />,
     biz.name,
-    cust.email,
+    biz.id,
   );
 }
