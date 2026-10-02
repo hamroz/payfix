@@ -292,12 +292,16 @@ export async function executePlan(db: Db, p: { businessId: string; caseId: strin
     const refundId = refundAmount > 0n ? newId("rf") : null;
     if (refundId) {
       const [biz] = await t.select().from(businesses).where(eq(businesses.id, c.businessId));
+      // The refund leaves from the wallet that received the excess (largest source first).
+      const largest = [...sources].sort((a, b) => (b.unresolved > a.unresolved ? 1 : -1))[0];
+      const [src] = await t.select({ wallet: transfers.walletAddress }).from(transfers).where(eq(transfers.id, largest.transferId));
       await t.insert(refunds).values({
         id: refundId,
         businessId: c.businessId,
         caseId: c.id,
         proposalId: prop.id,
         amount: refundAmount,
+        sourceWallet: src?.wallet ?? biz.walletAddress,
         destinationOwner: prop.refundDestination!,
         destinationTokenAccount: ata(biz.mint, prop.refundDestination!).toBase58(),
       });

@@ -45,9 +45,14 @@ export function buildPaymentTransaction(p: {
   blockhash: Blockhash;
   lastValidBlockHeight: number;
 }): Transaction {
-  const ix = createTransferCheckedInstruction(ata(p.mint, p.payer), p.mint, ata(p.mint, p.merchant), p.payer, p.amount, p.decimals);
+  const merchantAta = ata(p.mint, p.merchant);
+  const ix = createTransferCheckedInstruction(ata(p.mint, p.payer), p.mint, merchantAta, p.payer, p.amount, p.decimals);
   ix.keys.push({ pubkey: p.reference, isSigner: false, isWritable: false });
-  return new Transaction({ feePayer: p.payer, blockhash: p.blockhash, lastValidBlockHeight: p.lastValidBlockHeight }).add(ix);
+  // A freshly added receiving wallet may not have a token account yet; create it if missing (no-op otherwise).
+  return new Transaction({ feePayer: p.payer, blockhash: p.blockhash, lastValidBlockHeight: p.lastValidBlockHeight }).add(
+    createAssociatedTokenAccountIdempotentInstruction(p.payer, merchantAta, p.merchant, p.mint),
+    ix,
+  );
 }
 
 /**

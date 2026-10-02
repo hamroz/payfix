@@ -27,6 +27,22 @@ export const businesses = pgTable("businesses", {
   createdAt: createdAt(),
 });
 
+/**
+ * Every wallet a business has received into. `businesses.walletAddress` is the active one
+ * (new payment links point there); all of them stay watched so older links still settle.
+ */
+export const businessWallets = pgTable(
+  "business_wallets",
+  {
+    id: text("id").primaryKey(),
+    businessId: text("business_id").notNull().references(() => businesses.id),
+    address: text("address").notNull(),
+    label: text("label").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("business_wallets_business_address").on(t.businessId, t.address)],
+);
+
 export const customers = pgTable(
   "customers",
   {
@@ -91,6 +107,8 @@ export const transfers = pgTable(
     signature: text("signature").notNull(),
     direction: text("direction", { enum: ["in", "out"] }).notNull(),
     mint: text("mint").notNull(),
+    /** The business wallet whose token account moved. Null only for rows from before multi-wallet support. */
+    walletAddress: text("wallet_address"),
     amount: units("amount").notNull(),
     counterpartyOwner: text("counterparty_owner"),
     counterpartyTokenAccount: text("counterparty_token_account"),
@@ -202,6 +220,8 @@ export const refunds = pgTable(
     caseId: text("case_id").notNull().references(() => cases.id),
     proposalId: text("proposal_id").notNull().references(() => proposals.id),
     amount: units("amount").notNull(),
+    /** The business wallet that holds the funds and must sign the refund. */
+    sourceWallet: text("source_wallet"),
     destinationOwner: text("destination_owner").notNull(),
     destinationTokenAccount: text("destination_token_account").notNull(),
     status: text("status").$type<RefundStatus>().notNull().default("awaiting_signature"),

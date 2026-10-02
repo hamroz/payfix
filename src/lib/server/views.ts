@@ -281,6 +281,7 @@ export async function caseDetail(db: Db, caseId: string) {
       ? {
           id: refund.id,
           amount: s(refund.amount),
+          sourceWallet: refund.sourceWallet,
           destination: refund.destinationOwner,
           status: refund.status,
           signature: refund.signature,
