@@ -44,7 +44,7 @@ async function waitFor(desc, js, timeout = 45_000) {
     } catch {}
     await sleep(400);
   }
-  const text = await evaluate("document.body.innerText.slice(0, 600)").catch(() => "");
+  const text = await evaluate(`document.body.innerText.slice(0, ${process.env.E2E_DEBUG ? 4000 : 600})`).catch(() => "");
   throw new Error(`Timed out waiting for: ${desc}\n--- page ---\n${text}`);
 }
 const waitText = (t, timeout) => waitFor(`text "${t}"`, `document.body.innerText.includes(${JSON.stringify(t)})`, timeout);
@@ -91,6 +91,9 @@ async function main() {
   await new Promise((r) => (ws.onopen = r));
   ws.onmessage = ({ data }) => {
     const m = JSON.parse(data);
+    if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error" && process.env.E2E_DEBUG)
+      console.log(`  [console] ${m.params.args.map((a) => a.value ?? a.description).join(" ").slice(0, 300)}`);
+    if (m.method === "Runtime.exceptionThrown" && process.env.E2E_DEBUG) console.log(`  [exception] ${m.params.exceptionDetails.exception?.description?.slice(0, 300)}`);
     if (m.id && pending.has(m.id)) {
       const { res, rej } = pending.get(m.id);
       pending.delete(m.id);
@@ -99,6 +102,7 @@ async function main() {
     }
   };
   await send("Page.enable");
+  await send("Runtime.enable");
   console.log(`PayFix e2e against ${BASE} as ${email}`);
 
   step("Sign up and create a company");
