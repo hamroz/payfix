@@ -6,7 +6,11 @@ const bool = z
   .transform((v) => v === "true" || v === "1");
 
 const schema = z.object({
-  APP_URL: z.string().default("http://localhost:3000"),
+  // On Vercel, default to the project's production domain (a system env var Vercel sets).
+  APP_URL: z
+    .string()
+    .optional()
+    .transform((v) => v || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
   DATABASE_URL: z.string().optional().transform((v) => v || undefined),
   PGLITE_DIR: z.string().default(".data/pglite"),
   SESSION_SECRET: z.string().default("dev-insecure-session-secret-change-me"),
