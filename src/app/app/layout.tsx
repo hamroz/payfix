@@ -1,18 +1,16 @@
 import Link from "next/link";
-import { LogOut } from "lucide-react";
-import { signOut } from "@/app/actions/auth";
+import { Eye } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { LiveSync } from "@/components/app/live-sync";
 import { SideNav, TabBar } from "@/components/app/nav";
 import { NetworkPill } from "@/components/app/network-pill";
 import { ThemeToggle } from "@/components/theme/theme";
-import { deps, requireBusiness } from "@/lib/server/context";
+import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
+import { deps, requireWorkspace } from "@/lib/server/context";
 import { openCaseCount } from "@/lib/server/queries";
-import { shortAddress } from "@/lib/solana/tx";
-import { initials } from "@/lib/format";
 
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
-  const biz = await requireBusiness();
+  const { biz, role, user, workspaces } = await requireWorkspace();
   const { db } = await deps();
   const open = await openCaseCount(db, biz.id);
 
@@ -25,22 +23,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
         <div className="mt-8 flex-1">
           <SideNav openCases={open} />
         </div>
-        <div className="rounded-2xl border border-veil/[0.07] bg-veil/[0.03] p-3">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#6366F1,#A78BFA)] font-display text-sm font-semibold text-white">
-              {initials(biz.name)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{biz.name}</p>
-              <p className="truncate font-mono text-[11px] text-fg-3">{shortAddress(biz.walletAddress, 5)}</p>
-            </div>
-            <form action={signOut}>
-              <button className="rounded-lg p-1.5 text-fg-3 transition hover:bg-veil/[0.06] hover:text-fg" aria-label="Sign out">
-                <LogOut className="size-4" />
-              </button>
-            </form>
-          </div>
-        </div>
+        <WorkspaceSwitcher current={{ businessId: biz.id, name: biz.name, role }} workspaces={workspaces} email={user.email} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -50,7 +33,12 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           </Link>
           <div className="hidden text-sm text-fg-3 lg:block">{biz.name}</div>
           <div className="flex items-center gap-3">
-            <LiveSync />
+            {role === "viewer" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-veil/10 bg-veil/[0.04] px-2.5 py-1 text-[11px] font-medium text-fg-2">
+                <Eye className="size-3.5" /> View only
+              </span>
+            )}
+            <LiveSync businessId={biz.id} />
             <NetworkPill />
             <ThemeToggle />
           </div>

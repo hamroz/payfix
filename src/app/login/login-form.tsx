@@ -49,7 +49,7 @@ export function LoginForm({ defaultEmail, demo }: { defaultEmail: string; demo: 
               sendCode();
             }}
           >
-            <h1 className="font-display text-2xl font-semibold tracking-tight">Sign in to PayFix</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Sign in or create an account</h1>
             <p className="mt-1.5 text-sm text-fg-2">We’ll email you a 6-digit code. No passwords.</p>
             <div className="mt-6">
               <Label htmlFor="email">Work email</Label>
@@ -64,7 +64,7 @@ export function LoginForm({ defaultEmail, demo }: { defaultEmail: string; demo: 
             </Button>
             {demo && (
               <p className="mt-5 rounded-xl border border-violet/20 bg-violet/[0.07] px-3.5 py-2.5 text-[13px] text-fg-2">
-                <span className="font-medium text-violet">Demo workspace.</span> You’re signing in as Lumen Studio, a small agency. Codes show up in the demo inbox at the bottom left.
+                <span className="font-medium text-violet">Live demo.</span> Use any email. You’ll get your own private company with a devnet test wallet. Codes appear in the demo inbox at the bottom left.
               </p>
             )}
           </motion.form>
@@ -75,7 +75,7 @@ export function LoginForm({ defaultEmail, demo }: { defaultEmail: string; demo: 
             </button>
             <h1 className="font-display text-2xl font-semibold tracking-tight">Check your email</h1>
             <p className="mt-1.5 text-sm text-fg-2">
-              If <span className="text-fg">{masked}</span> has a PayFix workspace, a code is on its way.
+              We sent a 6-digit code to <span className="text-fg">{masked}</span>.
             </p>
             <div className="mt-6">
               <OtpInput value={code} onChange={setCode} onComplete={verify} disabled={pending} error={!!error} />

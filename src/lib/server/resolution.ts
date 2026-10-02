@@ -99,6 +99,7 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
     const url = `${env().APP_URL}/r/${token}`;
     await t.insert(outbox).values({
       id: newId("ml"),
+      businessId: c.businessId,
       to: cust.email,
       subject: `Let's settle the extra ${formatUsd(available)} you sent`,
       body: `Hi ${cust.name}, we received ${formatUsd(available)} more than your invoice needed. Choose how you'd like it handled — applied to another invoice, kept as credit, or refunded. Nothing moves until we both approve the exact plan.`,
@@ -230,6 +231,44 @@ export function summarize(lines: ProposalLine[], invoiceNumber: (id: string) => 
           : `${formatUsd(BigInt(l.amount))} refunded`,
     )
     .join(", ");
+}
+
+/**
+ * The business declines the current version and tells the customer why. Any approval of
+ * it is voided and the case goes back to the customer, who can submit a new version.
+ * The business never edits the customer's plan itself: it's the customer's money.
+ */
+export async function requestChanges(db: Db, p: { businessId: string; caseId: string; proposalId: string; note: string }) {
+  const note = p.note.trim();
+  if (note.length < 3) throw new ResolutionError("Tell the customer what to change.");
+  await db.transaction(async (t) => {
+    const c = await lockCase(t, p.caseId);
+    if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
+    const latest = await latestProposal(t, c.id);
+    if (!latest || latest.id !== p.proposalId) throw new ResolutionError("A newer version of this plan exists. Review it first.");
+    if (latest.status !== "submitted" && latest.status !== "approved") throw new ResolutionError(`Version ${latest.version} is already ${latest.status}.`);
+    const approval = await activeApproval(t, latest.id);
+    if (approval) await t.update(approvals).set({ invalidatedAt: new Date(), invalidatedReason: `Business requested changes: ${note}` }).where(eq(approvals.id, approval.id));
+    await t.update(proposals).set({ status: "declined", businessNote: note }).where(eq(proposals.id, latest.id));
+    await t.update(cases).set({ status: "open" }).where(eq(cases.id, c.id));
+    const [cust] = await t.select().from(customers).where(eq(customers.id, c.customerId!));
+    const [biz] = await t.select().from(businesses).where(eq(businesses.id, c.businessId));
+    await t.insert(outbox).values({
+      id: newId("ml"),
+      businessId: c.businessId,
+      to: cust.email,
+      subject: `${biz.name} asked for a change to your plan`,
+      body: `${biz.name} reviewed version ${latest.version} and asked: “${note}” Open your resolution link to send a revised plan.`,
+    });
+    await logEvent(t, {
+      businessId: c.businessId,
+      caseId: c.id,
+      customerId: c.customerId,
+      actor: "business",
+      type: "proposal.declined",
+      message: `Business asked for changes to v${latest.version}: “${note}”`,
+    });
+  });
 }
 
 /** The business approves one exact version, bound by its hash. */

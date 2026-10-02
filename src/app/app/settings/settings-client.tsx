@@ -4,7 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Droplets, ExternalLink, Plus, RotateCcw, Trash2, Wallet as WalletIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { addWalletAction, faucetAction, removeWalletAction, resetDemoAction, setActiveWalletAction } from "@/app/actions/business";
+import { addWalletAction, faucetAction, removeWalletAction, resetWorkspaceAction, setActiveWalletAction } from "@/app/actions/business";
 import { CopyButton } from "@/components/ui/interactive";
 import { cn } from "@/lib/cn";
 import { LogoSpinner } from "@/components/brand/logo";
@@ -13,13 +13,13 @@ import { useToast } from "@/components/ui/toast";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { explorerUrl, shortAddress } from "@/lib/solana/tx";
 
-type Wallet = { address: string; label: string; active: boolean };
+type Wallet = { address: string; label: string; active: boolean; serverHeld: boolean };
 
 /**
  * Several receiving wallets, one active. New payment links use the active wallet; PayFix
  * keeps watching the others, and each refund is signed by the wallet that got the money.
  */
-export function WalletSettings({ wallets, demoMerchant, cluster, simulated }: { wallets: Wallet[]; demoMerchant: string | null; cluster: string; simulated: boolean }) {
+export function WalletSettings({ wallets, canManage, cluster, simulated }: { wallets: Wallet[]; canManage: boolean; cluster: string; simulated: boolean }) {
   const { publicKey, wallet } = useWallet();
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function WalletSettings({ wallets, demoMerchant, cluster, simulated }: { 
                 <p className="flex items-center gap-2 text-sm font-medium">
                   {w.label}
                   {w.active && <Badge tone="violet">Active</Badge>}
-                  {w.address === demoMerchant && <span className="text-xs font-normal text-fg-3">server-held demo key</span>}
+                  {w.serverHeld && <span className="text-xs font-normal text-fg-3">server-held demo key</span>}
                 </p>
                 <p className="flex items-center gap-1 font-mono text-xs text-fg-3">
                   {shortAddress(w.address, 6)}
@@ -63,7 +63,7 @@ export function WalletSettings({ wallets, demoMerchant, cluster, simulated }: { 
                   )}
                 </p>
               </div>
-              {!w.active && (
+              {!w.active && canManage && (
                 <div className="flex gap-1.5">
                   <Button size="sm" variant="secondary" disabled={pending} onClick={() => act(`a:${w.address}`, () => setActiveWalletAction(w.address), `${w.label} is now active`)}>
                     {busy === `a:${w.address}` ? <LogoSpinner size={14} /> : "Make active"}
@@ -77,6 +77,7 @@ export function WalletSettings({ wallets, demoMerchant, cluster, simulated }: { 
           ))}
         </ul>
 
+        {canManage && (
         <div className="rounded-2xl border border-dashed border-veil/10 p-4">
           <p className="text-sm font-medium">Add a wallet</p>
           <p className="mt-0.5 text-xs text-fg-3">Connect it (Phantom, Solflare, MetaMask with a Solana account) or paste its Solana address. Switch the wallet to devnet first.</p>
@@ -114,7 +115,8 @@ export function WalletSettings({ wallets, demoMerchant, cluster, simulated }: { 
             Make it the active wallet for new payment links
           </label>
         </div>
-        {demoMerchant && wallets.find((w) => w.active)?.address === demoMerchant && (
+        )}
+        {wallets.find((w) => w.active)?.serverHeld && (
           <Alert tone="violet" title="The demo merchant wallet is active">
             Its key is held by this server so refunds sign in one click. Add your own wallet and make it active to sign refunds yourself.
           </Alert>
@@ -124,7 +126,7 @@ export function WalletSettings({ wallets, demoMerchant, cluster, simulated }: { 
   );
 }
 
-export function DemoTools({ simulated }: { simulated: boolean }) {
+export function DemoTools({ simulated, canReset }: { simulated: boolean; canReset: boolean }) {
   const [address, setAddress] = useState("");
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
@@ -154,25 +156,28 @@ export function DemoTools({ simulated }: { simulated: boolean }) {
             </Button>
           </div>
         </div>
+        {canReset && (
         <div className="border-t border-veil/[0.06] pt-5">
           <p className="text-sm font-medium">Reset the demo</p>
-          <p className="mt-0.5 text-xs text-fg-3">Clears all invoices, payments, and cases, then recreates Lumen Studio, Acme Robotics, and invoices A ($1,000) and B ($400). Past chain history is ignored.</p>
+          <p className="mt-0.5 text-xs text-fg-3">Clears this company’s invoices, payments, and cases (no one else’s), then recreates Acme Robotics with invoices A ($1,000) and B ($400). Your team and wallets stay.</p>
           <Button
             variant="danger"
             className="mt-3"
             disabled={pending}
             onClick={() => {
-              if (!confirm("Reset the demo workspace? This deletes all demo data.")) return;
+              if (!confirm("Reset this workspace? This deletes its invoices, payments, and cases.")) return;
               start(async () => {
-                const res = await resetDemoAction();
+                const res = await resetWorkspaceAction();
                 if (!res.ok) return toast.push({ tone: "error", title: "Reset failed", body: res.error });
-                router.push("/login");
+                toast.push({ tone: "success", title: "Workspace reset", body: "Sample invoices recreated." });
+                router.push("/app");
               });
             }}
           >
             {pending ? <LogoSpinner size={18} /> : <RotateCcw className="size-4" />} Reset demo data
           </Button>
         </div>
+        )}
       </div>
     </Card>
   );

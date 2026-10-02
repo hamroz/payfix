@@ -72,8 +72,14 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
       .returning();
     if (claimed.length === 0 || !movement) return false;
 
+    // References are only meaningful within the company that issued them.
     const request = movement.accountKeys.length
-      ? (await t.select().from(paymentRequests).where(inArray(paymentRequests.reference, movement.accountKeys)))[0]
+      ? (
+          await t
+            .select()
+            .from(paymentRequests)
+            .where(and(eq(paymentRequests.businessId, biz.id), inArray(paymentRequests.reference, movement.accountKeys)))
+        )[0]
       : undefined;
     const invoice = request ? (await t.select().from(invoices).where(eq(invoices.id, request.invoiceId)))[0] : undefined;
 

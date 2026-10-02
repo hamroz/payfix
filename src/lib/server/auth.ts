@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { businesses, customers, otpCodes, outbox, sessions } from "@/lib/db/schema";
+import { customers, otpCodes, outbox, sessions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { newId, newToken } from "@/lib/ids";
 
@@ -17,10 +17,11 @@ const codeHash = (id: string, code: string) => createHmac("sha256", env().SESSIO
 const mask = (email: string) => email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => `${a}${"•".repeat(Math.min(b.length, 6))}${c}`);
 
 /**
- * Emails a 6-digit sign-in code. For customers, the subject is fixed by the resolution
- * link, so the code always goes to the invoice customer's address on file.
+ * Emails a 6-digit sign-in code. Business sign-in codes are for a user (who may belong to
+ * several companies). For customers, the subject is fixed by the resolution link, so the
+ * code always goes to the invoice customer's address on file.
  */
-export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: string; email: string }) {
+export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: string; email: string; businessId?: string | null }) {
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const id = newId("otp");
   await db.insert(otpCodes).values({
@@ -33,6 +34,7 @@ export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: str
   });
   await db.insert(outbox).values({
     id: newId("ml"),
+    businessId: p.businessId ?? null,
     to: p.email,
     subject: `${code} is your PayFix code`,
     body: `Enter ${code} to continue. It expires in 10 minutes. If you didn't ask for this, you can ignore it.`,
@@ -40,11 +42,6 @@ export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: str
   });
   if (env().DEMO_MODE || process.env.NODE_ENV !== "production") console.log(`[payfix] sign-in code for ${p.email}: ${code}`);
   return { maskedEmail: mask(p.email) };
-}
-
-export async function businessForEmail(db: Db, email: string) {
-  const [biz] = await db.select().from(businesses).where(eq(businesses.ownerEmail, email.trim().toLowerCase()));
-  return biz ?? null;
 }
 
 /** Checks a code and, on success, opens a session. Returns the raw session token for the cookie. */

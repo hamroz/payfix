@@ -4,7 +4,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { Buffer } from "buffer";
 import { AnimatePresence, motion } from "motion/react";
-import { BadgeCheck, CircleCheckBig, ExternalLink, Link2, PenLine, PlayCircle, Send, ShieldAlert, UserPlus } from "lucide-react";
+import { BadgeCheck, CircleCheckBig, ExternalLink, Eye, Link2, MessageSquareWarning, PenLine, PlayCircle, Send, ShieldAlert, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -14,6 +14,7 @@ import {
   demoSignRefundAction,
   executeAction,
   prepareRefundAction,
+  requestChangesAction,
   sendLinkAction,
   submitRefundAction,
 } from "@/app/actions/business";
@@ -35,10 +36,12 @@ type Props = {
   customer: { id: string; name: string; email: string } | null;
   customers: { id: string; name: string }[];
   linkActive: boolean;
-  current: { id: string; version: number; status: string; hash: string } | null;
+  current: { id: string; version: number; status: string; hash: string; businessNote: string | null } | null;
   refund: CaseDetail["refund"];
   businessWallet: string;
   demoMerchant: boolean;
+  /** Editors and owners act; viewers see the state only. */
+  canAct: boolean;
   config: PublicConfig;
 };
 
@@ -75,7 +78,13 @@ export function CaseActions(p: Props) {
 
         <AnimatePresence mode="wait">
           <motion.div key={`${p.status}-${p.current?.id ?? "none"}-${p.refund?.status ?? ""}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }} className="space-y-3">
-            {!p.customer && p.kind === "unmatched" && (
+            {!p.canAct && p.status !== "resolved" && (
+              <p className="flex items-start gap-2 rounded-xl bg-veil/[0.04] px-3.5 py-3 text-sm text-fg-2">
+                <Eye className="mt-0.5 size-4 shrink-0" /> You have view-only access. An editor or owner handles the next step.
+              </p>
+            )}
+
+            {p.canAct && !p.customer && p.kind === "unmatched" && (
               <>
                 <p className="text-sm text-fg-2">This transfer had no invoice reference, so PayFix won’t guess who sent it. Amount alone isn’t proof. If you know the sender, attribute it — they’ll still confirm how it’s used.</p>
                 <Select value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
@@ -91,7 +100,14 @@ export function CaseActions(p: Props) {
               </>
             )}
 
-            {p.customer && (p.status === "open" || p.status === "proposed") && !p.current && (
+            {p.canAct && p.current?.status === "declined" && (
+              <div className="rounded-xl border border-amber/20 bg-amber/[0.06] px-3.5 py-3 text-sm">
+                <p className="font-medium text-amber">You asked for changes to v{p.current.version}</p>
+                <p className="mt-0.5 text-fg-2">“{p.current.businessNote}” Waiting for the customer’s revised plan.</p>
+              </div>
+            )}
+
+            {p.canAct && p.customer && (p.status === "open" || p.status === "proposed") && (!p.current || p.current.status === "declined") && (
               <>
                 <p className="text-sm text-fg-2">Your customer decides where the extra goes. They’ll verify by email, choose a split, and prove any refund wallet by signing with it.</p>
                 <Button
@@ -120,7 +136,7 @@ export function CaseActions(p: Props) {
               </>
             )}
 
-            {p.status === "proposed" && p.current?.status === "submitted" && (
+            {p.canAct && p.status === "proposed" && p.current?.status === "submitted" && (
               <>
                 <p className="text-sm text-fg-2">
                   Review version {p.current.version}. Your approval covers exactly this plan (<span className="font-mono text-xs">#{p.current.hash.slice(0, 10)}</span>). Any change the customer makes will void it.
@@ -128,19 +144,21 @@ export function CaseActions(p: Props) {
                 <Button className="w-full" disabled={pending} onClick={() => act(() => approveAction(p.caseId, p.current!.id), `Approved v${p.current!.version}`)}>
                   {pending ? <LogoSpinner size={18} /> : <BadgeCheck className="size-4" />} Approve v{p.current.version}
                 </Button>
+                <RequestChanges caseId={p.caseId} proposalId={p.current.id} version={p.current.version} />
               </>
             )}
 
-            {p.status === "approved" && (
+            {p.canAct && p.status === "approved" && (
               <>
                 <p className="text-sm text-fg-2">Approved. Running the plan re-checks the approval against the current version, posts the allocations, and reserves any refund.</p>
                 <Button variant="success" className="w-full" disabled={pending} onClick={() => act(() => executeAction(p.caseId), "Plan executed")}>
                   {pending ? <LogoSpinner size={18} /> : <PlayCircle className="size-4" />} Run plan v{p.current?.version}
                 </Button>
+                {p.current && <RequestChanges caseId={p.caseId} proposalId={p.current.id} version={p.current.version} />}
               </>
             )}
 
-            {p.status === "executing" && p.refund && <RefundPanel {...p} refund={p.refund} />}
+            {p.status === "executing" && p.refund && (p.canAct ? <RefundPanel {...p} refund={p.refund} /> : <p className="text-sm text-fg-2">Refund of the plan is in progress.</p>)}
 
             {p.status === "resolved" && (
               <div className="flex flex-col items-center py-3 text-center">
@@ -160,6 +178,54 @@ export function CaseActions(p: Props) {
         </AnimatePresence>
       </div>
     </Card>
+  );
+}
+
+/** Decline this version with a note. The customer revises; the business never edits their plan. */
+function RequestChanges({ caseId, proposalId, version }: { caseId: string; proposalId: string; version: number }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const toast = useToast();
+  if (!open)
+    return (
+      <Button variant="ghost" className="w-full" onClick={() => setOpen(true)}>
+        <MessageSquareWarning className="size-4" /> Request changes
+      </Button>
+    );
+  return (
+    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2 overflow-hidden">
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={3}
+        autoFocus
+        placeholder="e.g. Please keep the $40 as credit instead of a refund."
+        className="w-full rounded-xl border border-veil/10 bg-ink-950/60 px-3.5 py-2.5 text-sm text-fg outline-none placeholder:text-fg-3/70 focus:border-violet/60 focus:ring-4 focus:ring-violet/15"
+      />
+      <div className="flex gap-2">
+        <Button variant="secondary" size="sm" onClick={() => setOpen(false)} disabled={pending}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          className="flex-1"
+          disabled={pending || note.trim().length < 3}
+          onClick={() =>
+            start(async () => {
+              const res = await requestChangesAction(caseId, proposalId, note);
+              if (!res.ok) return toast.push({ tone: "error", title: "Couldn’t send", body: res.error });
+              toast.push({ tone: "success", title: `Asked for changes to v${version}`, body: "The customer was notified." });
+              router.refresh();
+            })
+          }
+        >
+          {pending ? <LogoSpinner size={16} /> : "Send to customer"}
+        </Button>
+      </div>
+      <p className="text-xs text-fg-3">This voids any approval of v{version}. The customer sends a new version.</p>
+    </motion.div>
   );
 }
 
