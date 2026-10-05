@@ -1,0 +1,7 @@
+{
+  "name": "PayFix Test USD",
+  "symbol": "tUSD",
+  "description": "Test money for the PayFix demo on Solana devnet. It has no value and is not USDC.",
+  "image": "https://payfix-mu.vercel.app/token/test-usd.png",
+  "external_url": "https://payfix-mu.vercel.app"
+}

@@ -26,7 +26,9 @@ const guarantees = [
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  const { SOLANA_CLUSTER } = env();
+  const { SOLANA_CLUSTER, DEMO_MODE, DEMO_URL } = env();
+  // The production site sends visitors to the separate devnet demo; the demo site signs them in.
+  const demoHref = DEMO_MODE ? "/login" : DEMO_URL;
   return (
     <div className="relative">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
@@ -66,16 +68,23 @@ export default function Home() {
               </p>
             </FadeIn>
             <FadeIn delay={0.24} className="mt-8 flex flex-wrap items-center gap-3">
-              <ButtonLink href="/login" size="lg">
-                Try the live demo <ArrowRight className="size-4" />
-              </ButtonLink>
-              <ButtonLink href="#how" variant="secondary" size="lg">
-                See how it works
+              {demoHref ? (
+                <ButtonLink href={demoHref} size="lg">
+                  Try the live demo <ArrowRight className="size-4" />
+                </ButtonLink>
+              ) : (
+                <ButtonLink href="/login" size="lg">
+                  Get started <ArrowRight className="size-4" />
+                </ButtonLink>
+              )}
+              <ButtonLink href={DEMO_MODE || !demoHref ? "#how" : "/login"} variant="secondary" size="lg">
+                {DEMO_MODE || !demoHref ? "See how it works" : "Sign in"}
               </ButtonLink>
             </FadeIn>
             <FadeIn delay={0.32}>
               <p className="mt-6 text-xs text-fg-3">
-                Demo uses a clearly labeled test token, never real funds. <span className="text-fg-2">$1,100 received = $1,000 + $60 + $40.</span>
+                {DEMO_MODE || demoHref ? "The demo uses a clearly labeled test token, never real funds. " : ""}
+                <span className="text-fg-2">$1,100 received = $1,000 + $60 + $40.</span>
               </p>
             </FadeIn>
           </div>

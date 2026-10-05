@@ -27,6 +27,7 @@ import { env } from "@/lib/env";
 import { newId } from "@/lib/ids";
 import { toUnits } from "@/lib/money";
 import { createCustomer, createInvoice, InputError } from "./invoices";
+import { deliverOutbox, queueEmail } from "./email";
 import { logEvent } from "./journal";
 
 const normalizeEmail = (e: string) => e.trim().toLowerCase();
@@ -150,8 +151,7 @@ export async function addMember(db: Db, p: { businessId: string; email: string; 
     .returning();
   if (inserted.length === 0) throw new InputError("That person is already on the team.");
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, p.businessId));
-  await db.insert(outbox).values({
-    id: newId("ml"),
+  await queueEmail(db, {
     businessId: p.businessId,
     to: user.email,
     subject: `You've been added to ${biz.name} on PayFix`,
@@ -159,6 +159,7 @@ export async function addMember(db: Db, p: { businessId: string; email: string; 
     link: `${env().APP_URL}/login`,
   });
   await logEvent(db, { businessId: p.businessId, actor: "business", type: "member.added", message: `${user.email} joined as ${p.role}` });
+  await deliverOutbox(db);
 }
 
 async function ownerCount(db: Executor, businessId: string) {

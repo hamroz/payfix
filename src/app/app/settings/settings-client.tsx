@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Droplets, ExternalLink, Plus, RotateCcw, Trash2, Wallet as WalletIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useWalletProof } from "@/components/wallet/use-wallet-proof";
 import { addWalletAction, faucetAction, removeWalletAction, resetWorkspaceAction, setActiveWalletAction } from "@/app/actions/business";
 import { CopyButton } from "@/components/ui/interactive";
 import { cn } from "@/lib/cn";
@@ -19,8 +20,9 @@ type Wallet = { address: string; label: string; active: boolean; serverHeld: boo
  * Several receiving wallets, one active. New payment links use the active wallet; PayFix
  * keeps watching the others, and each refund is signed by the wallet that got the money.
  */
-export function WalletSettings({ wallets, canManage, cluster, simulated }: { wallets: Wallet[]; canManage: boolean; cluster: string; simulated: boolean }) {
+export function WalletSettings({ wallets, canManage, cluster, simulated, demoMode }: { wallets: Wallet[]; canManage: boolean; cluster: string; simulated: boolean; demoMode: boolean }) {
   const { publicKey, wallet } = useWallet();
+  const { prove } = useWalletProof();
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [manual, setManual] = useState({ address: "", label: "" });
@@ -80,19 +82,37 @@ export function WalletSettings({ wallets, canManage, cluster, simulated }: { wal
         {canManage && (
         <div className="rounded-2xl border border-dashed border-veil/10 p-4">
           <p className="text-sm font-medium">Add a wallet</p>
-          <p className="mt-0.5 text-xs text-fg-3">Connect it (Phantom, Solflare, MetaMask with a Solana account) or paste its Solana address. Switch the wallet to devnet first.</p>
+          <p className="mt-0.5 text-xs text-fg-3">
+            {demoMode
+              ? `Connect it (Phantom, Solflare, MetaMask with a Solana account) or paste its Solana address. Switch the wallet to ${cluster} first.`
+              : "Connect the wallet and sign a message to prove it’s yours. This stops a mistyped address from receiving your customers’ payments."}
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {!simulated && <WalletButton size="sm" />}
             {connected && !connectedKnown && (
               <Button
                 size="sm"
                 disabled={pending}
-                onClick={() => act("connected", () => addWalletAction({ address: connected, label: wallet?.adapter.name ?? "", makeActive }), `${wallet?.adapter.name ?? "Wallet"} added`)}
+                onClick={() =>
+                  act(
+                    "connected",
+                    async () => {
+                      try {
+                        const { address, proof } = await prove();
+                        return await addWalletAction({ address, label: wallet?.adapter.name ?? "", makeActive, proof });
+                      } catch (e) {
+                        return { ok: false, error: e instanceof Error ? e.message : "The wallet didn’t sign." };
+                      }
+                    },
+                    `${wallet?.adapter.name ?? "Wallet"} verified and added`,
+                  )
+                }
               >
-                {busy === "connected" ? <LogoSpinner size={14} /> : <Plus className="size-4" />} Add {wallet?.adapter.name ?? "wallet"} {shortAddress(connected)}
+                {busy === "connected" ? <LogoSpinner size={14} /> : <Plus className="size-4" />} Verify and add {shortAddress(connected)}
               </Button>
             )}
           </div>
+          {demoMode && (
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_160px_auto]">
             <Input placeholder="Solana address" value={manual.address} onChange={(e) => setManual((m) => ({ ...m, address: e.target.value.trim() }))} className="font-mono text-sm" />
             <Input placeholder="Label (optional)" value={manual.label} onChange={(e) => setManual((m) => ({ ...m, label: e.target.value }))} />
@@ -110,6 +130,7 @@ export function WalletSettings({ wallets, canManage, cluster, simulated }: { wal
               {busy === "manual" ? <LogoSpinner size={16} /> : "Add"}
             </Button>
           </div>
+          )}
           <label className="mt-3 flex items-center gap-2 text-xs text-fg-2">
             <input type="checkbox" checked={makeActive} onChange={(e) => setMakeActive(e.target.checked)} className="accent-violet" />
             Make it the active wallet for new payment links

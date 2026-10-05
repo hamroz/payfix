@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "setup:devnet": "tsx scripts/setup-devnet.ts",
+    "setup:token-metadata": "tsx scripts/token-metadata.ts",
     "db:generate": "drizzle-kit generate",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",

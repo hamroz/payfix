@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { endSession, sendCode, verifyCode } from "@/lib/server/auth";
-import { COOKIES, deps, setDemoInboxCookie, setSessionCookie } from "@/lib/server/context";
+import { clientIp, COOKIES, deps, setDemoInboxCookie, setSessionCookie } from "@/lib/server/context";
+import { consume, HOUR, rateKey } from "@/lib/server/ratelimit";
 import { InputError } from "@/lib/server/invoices";
 import { findOrCreateUser } from "@/lib/server/workspaces";
 import { findLink } from "@/lib/server/resolution";
@@ -12,9 +13,12 @@ import { customerById } from "@/lib/server/queries";
 import { run } from "./result";
 
 /** Sign in or sign up: the same email code either way. New users create a company next. */
+const ipLimit = (ip: string) => ({ key: rateKey("code-ip", ip), max: 30, windowMs: HOUR, message: "Too many sign-in attempts from this network. Try again in an hour." });
+
 export async function requestBusinessCode(email: string) {
   return run(async () => {
     const { db } = await deps();
+    await consume(db, [ipLimit(await clientIp())]);
     const user = await findOrCreateUser(db, email);
     const { maskedEmail } = await sendCode(db, { purpose: "business", subjectId: user.id, email: user.email });
     if (env().DEMO_MODE) await setDemoInboxCookie(user.email);
@@ -47,6 +51,7 @@ export async function signOut() {
 export async function requestCustomerCode(token: string) {
   return run(async () => {
     const { db } = await deps();
+    await consume(db, [ipLimit(await clientIp())]);
     const found = await findLink(db, token);
     if (!found.ok) throw new InputError(found.reason);
     const customer = await customerById(db, found.link.customerId);
