@@ -12,6 +12,7 @@ import {
   invoices,
   journalEntries,
   memberships,
+  notificationReads,
   outbox,
   paymentRequests,
   postings,
@@ -119,6 +120,7 @@ export async function clearWorkspaceData(db: Db, businessId: string) {
       await t.delete(resolutionLinks).where(inArray(resolutionLinks.caseId, caseIds));
       await t.delete(caseTransfers).where(inArray(caseTransfers.caseId, caseIds));
     }
+    await t.delete(notificationReads).where(inArray(notificationReads.eventId, t.select({ id: events.id }).from(events).where(eq(events.businessId, businessId))));
     await t.delete(events).where(eq(events.businessId, businessId));
     await t.delete(cases).where(eq(cases.businessId, businessId));
     await t.delete(transfers).where(eq(transfers.businessId, businessId));

@@ -44,6 +44,10 @@ export const memberships = pgTable(
     businessId: text("business_id").notNull().references(() => businesses.id),
     userId: text("user_id").notNull().references(() => users.id),
     role: text("role").$type<Role>().notNull(),
+    /** Notification categories this member turned off here. Stored muted, so everything (and anything new) defaults to on. */
+    notificationMuted: jsonb("notification_muted").$type<string[]>().notNull().default([]),
+    /** "Mark all read": events at or before this count as read for this member. */
+    notificationsReadAt: ts("notifications_read_at"),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("memberships_business_user").on(t.businessId, t.userId)],
@@ -331,12 +335,27 @@ export const events = pgTable(
     invoiceId: text("invoice_id").references(() => invoices.id),
     customerId: text("customer_id").references(() => customers.id),
     actor: text("actor", { enum: ["system", "business", "customer"] }).notNull(),
+    /** The member who caused it, so they aren't notified of their own actions. Null for customer and system events. */
+    actorUserId: text("actor_user_id"),
     type: text("type").notNull(),
     message: text("message").notNull(),
     data: jsonb("data").$type<Record<string, unknown>>(),
+    /** Set for events that must happen once per subject (e.g. `overdue:<invoiceId>`). */
+    dedupeKey: text("dedupe_key"),
     createdAt: createdAt(),
   },
-  (t) => [index("events_business_created").on(t.businessId, t.createdAt)],
+  (t) => [index("events_business_created").on(t.businessId, t.createdAt), uniqueIndex("events_business_dedupe").on(t.businessId, t.dedupeKey)],
+);
+
+/** Notifications a member opened one by one. "Mark all read" uses `memberships.notificationsReadAt` instead. */
+export const notificationReads = pgTable(
+  "notification_reads",
+  {
+    userId: text("user_id").notNull().references(() => users.id),
+    eventId: text("event_id").notNull().references(() => events.id),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.eventId] })],
 );
 
 // ── Auth ───────────────────────────────────────────────────────────────────
