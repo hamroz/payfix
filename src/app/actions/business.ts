@@ -5,16 +5,18 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { cases, refunds } from "@/lib/db/schema";
 import { env } from "@/lib/env";
-import { tryToUnits } from "@/lib/money";
+import { toUnits, tryToUnits } from "@/lib/money";
 import type { Role } from "@/lib/roles";
 import { isWalletAddress } from "@/lib/solana/tx";
 import { applyCredit } from "@/lib/server/credit";
-import { currentUser, deps, requireRole, setWorkspaceCookie, syncCompany } from "@/lib/server/context";
-import { demoSignRefund, ensureTokenAccount, faucet, provisionDemoWallet } from "@/lib/server/demo";
+import { clientIp, currentUser, deps, requireRole, setWorkspaceCookie, syncCompany } from "@/lib/server/context";
+import { demoSignRefund, ensureTokenAccount, faucet, provisionDemoWallet, tokenBalance } from "@/lib/server/demo";
 import { createCustomer, createInvoice, InputError } from "@/lib/server/invoices";
+import { consume, DAY, HOUR, MINUTE, rateKey } from "@/lib/server/ratelimit";
 import { prepareRefund, reconcileRefund, submitSignedRefund } from "@/lib/server/refunds";
 import { approveProposal, assignCustomer, executePlan, requestChanges, ResolutionError, sendResolutionLink } from "@/lib/server/resolution";
-import { addWallet, removeWallet, setActiveWallet } from "@/lib/server/wallets";
+import { addWallet, assertWalletOwnership, removeWallet, setActiveWallet } from "@/lib/server/wallets";
+import type { OwnershipProof } from "@/lib/solana/proof";
 import {
   addMember,
   clearWorkspaceData,
@@ -38,18 +40,24 @@ const MAX_INVOICE = tryToUnits("1000000000")!;
  * Creates a company with the signed-in user as owner. In demo mode it gets its own
  * server-held devnet wallet and, optionally, the demo script's sample customers and invoices.
  */
-export async function createWorkspaceAction(input: { name: string; walletAddress?: string; sampleData?: boolean }) {
+export async function createWorkspaceAction(input: { name: string; walletAddress?: string; walletProof?: OwnershipProof; sampleData?: boolean }) {
   const res = await run(async () => {
     const user = await currentUser();
     if (!user) throw new InputError("Sign in first.");
     const { db } = await deps();
     let wallet: { address: string; label: string; secretEnc?: string };
     if (env().DEMO_MODE && !input.walletAddress) {
+      // Each demo wallet costs the treasury devnet SOL, so creation is limited.
+      await consume(db, [
+        { key: rateKey("demo-company", user.id), max: 5, windowMs: DAY, message: "You’ve created several demo companies today. Reuse one from the company menu, or try again tomorrow." },
+        { key: "demo-company:global", max: 60, windowMs: HOUR, message: "Lots of people are trying the demo right now. Try again in a few minutes." },
+      ]);
       const w = await provisionDemoWallet();
       wallet = { address: w.address, label: "Demo merchant wallet", secretEnc: w.secretEnc };
     } else {
       const address = (input.walletAddress ?? "").trim();
       if (!isWalletAddress(address)) throw new InputError("Enter the Solana wallet address payments should go to.");
+      assertWalletOwnership(address, input.walletProof);
       wallet = { address, label: "Primary wallet" };
     }
     const businessId = await createWorkspace(db, { userId: user.id, email: user.email, name: input.name, wallet });
@@ -268,7 +276,7 @@ export async function syncNowAction() {
 
 // ── Wallets ─────────────────────────────────────────────────────────────────
 
-export async function addWalletAction(input: { address: string; label: string; makeActive: boolean }) {
+export async function addWalletAction(input: { address: string; label: string; makeActive: boolean; proof?: OwnershipProof }) {
   return run(async () => {
     const { biz } = await requireRole("owner");
     const { db } = await deps();
@@ -300,10 +308,23 @@ export async function removeWalletAction(address: string) {
   });
 }
 
+/**
+ * Devnet faucet: 2,000 test USD (plus a little SOL for fees when the wallet has none).
+ * Public, so it's limited per wallet, per network, and overall to protect the treasury.
+ */
 export async function faucetAction(address: string) {
   return run(async () => {
     if (!env().DEMO_MODE) throw new InputError("The faucet is only available in demo mode.");
-    if (!isWalletAddress(address)) throw new InputError("That isn't a valid wallet address.");
+    address = address.trim();
+    if (!isWalletAddress(address)) throw new InputError("That isn't a valid Solana wallet address.");
+    if ((await tokenBalance(address)) >= toUnits("10000")) throw new InputError("This wallet already has plenty of test USD.");
+    const { db } = await deps();
+    await consume(db, [
+      { key: rateKey("faucet", address), max: 1, windowMs: 10 * MINUTE, message: "This wallet just received test USD. Try again in 10 minutes." },
+      { key: rateKey("faucet-day", address), max: 5, windowMs: DAY, message: "This wallet has reached today’s test USD limit." },
+      { key: rateKey("faucet-ip", await clientIp()), max: 10, windowMs: HOUR, message: "Too many faucet requests from this network. Try again in an hour." },
+      { key: "faucet:global", max: 120, windowMs: HOUR, message: "The faucet is busy. Try again in a few minutes." },
+    ]);
     return { signature: await faucet(address) };
   });
 }

@@ -5,19 +5,32 @@ import { useState, useTransition } from "react";
 import { createWorkspaceAction, switchWorkspaceAction } from "@/app/actions/business";
 import { LogoSpinner } from "@/components/brand/logo";
 import { Button, Input, Label } from "@/components/ui/primitives";
+import { WalletButton } from "@/components/wallet/wallet-button";
+import { useWalletProof } from "@/components/wallet/use-wallet-proof";
+import { shortAddress } from "@/lib/solana/tx";
 import { roleLabel, type Role } from "@/lib/roles";
 
 export function OnboardingForm({ email, demo, existing }: { email: string; demo: boolean; existing: { businessId: string; name: string; role: Role }[] }) {
   const [name, setName] = useState("");
-  const [wallet, setWallet] = useState("");
   const [sample, setSample] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  const { address, prove } = useWalletProof();
+
   const create = () =>
     start(async () => {
       setError(null);
-      const res = await createWorkspaceAction({ name, walletAddress: demo ? undefined : wallet, sampleData: demo && sample });
+      let walletInput = {};
+      if (!demo) {
+        try {
+          const { address: walletAddress, proof } = await prove();
+          walletInput = { walletAddress, walletProof: proof };
+        } catch (e) {
+          return setError(e instanceof Error ? e.message : "The wallet didn’t sign.");
+        }
+      }
+      const res = await createWorkspaceAction({ name, ...walletInput, sampleData: demo && sample });
       if (res && !res.ok) setError(res.error);
     });
 
@@ -53,17 +66,22 @@ export function OnboardingForm({ email, demo, existing }: { email: string; demo:
             </label>
           ) : (
             <div>
-              <Label htmlFor="wallet">Receiving wallet (Solana address)</Label>
-              <Input id="wallet" value={wallet} onChange={(e) => setWallet(e.target.value.trim())} placeholder="Your business wallet address" className="font-mono text-sm" />
-              <p className="mt-1.5 text-xs text-fg-3">Payments land here and refunds are signed from here. You can add more wallets later.</p>
+              <Label>Receiving wallet</Label>
+              <div className="flex items-center gap-2">
+                <WalletButton size="sm" />
+                {address && <span className="font-mono text-xs text-fg-2">{shortAddress(address, 6)}</span>}
+              </div>
+              <p className="mt-1.5 text-xs text-fg-3">
+                Payments land here and refunds are signed from here. You’ll sign a message to prove it’s yours; nothing is charged. You can add more wallets later.
+              </p>
             </div>
           )}
         </div>
         {error && <p className="mt-3 text-sm text-rose">{error}</p>}
-        <Button type="submit" size="lg" className="mt-6 w-full" disabled={pending || name.trim().length < 2}>
+        <Button type="submit" size="lg" className="mt-6 w-full" disabled={pending || name.trim().length < 2 || (!demo && !address)}>
           {pending ? (
             <>
-              <LogoSpinner size={20} /> {demo ? "Setting up your wallet…" : "Creating…"}
+              <LogoSpinner size={20} /> {demo ? "Setting up your wallet…" : "Waiting for your wallet…"}
             </>
           ) : (
             <>
