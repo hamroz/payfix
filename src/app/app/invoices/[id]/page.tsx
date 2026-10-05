@@ -51,7 +51,7 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
         </div>
       </FadeIn>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-6 grid gap-5 *:min-w-0 lg:grid-cols-[1.4fr_1fr]">
         <div className="flex flex-col gap-5">
           <FadeIn delay={0.05}>
             <Card className="grid grid-cols-3 divide-x divide-veil/[0.06] overflow-hidden">

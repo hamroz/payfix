@@ -64,7 +64,7 @@ export default async function Dashboard() {
         ))}
       </Stagger>
 
-      <div className="mt-4 grid gap-4 lg:mt-5 lg:grid-cols-[1.45fr_1fr] lg:gap-5">
+      <div className="mt-4 grid gap-4 *:min-w-0 lg:mt-5 lg:grid-cols-[1.45fr_1fr] lg:gap-5">
         <div className="flex flex-col gap-4 lg:gap-5">
           <FadeIn delay={0.1}>
             <Card>

@@ -50,10 +50,9 @@ export function SideNav({ openCases }: { openCases: number }) {
 
 export function TabBar({ openCases }: { openCases: number }) {
   const path = usePathname();
-  const mobile = items.filter((i) => i.href !== "/app/customers");
   return (
     <nav className="glass fixed inset-x-3 bottom-3 z-40 flex justify-around rounded-2xl bg-ink-850/85 px-1 py-1.5 lg:hidden">
-      {mobile.map((it) => {
+      {items.map((it) => {
         const active = isActive(path, it.href, it.exact);
         return (
           <Link key={it.href} href={it.href} className="relative flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5">
@@ -62,7 +61,7 @@ export function TabBar({ openCases }: { openCases: number }) {
               <it.icon className={cn("size-5", active ? "text-violet" : "text-fg-3")} />
               {it.badge && openCases > 0 && <span className="absolute -right-1.5 -top-1 size-2 rounded-full bg-amber" />}
             </span>
-            <span className={cn("relative text-[10px]", active ? "text-fg" : "text-fg-3")}>{it.label}</span>
+            <span className={cn("relative text-[10px] leading-tight", active ? "text-fg" : "text-fg-3")}>{it.label}</span>
           </Link>
         );
       })}
