@@ -172,13 +172,17 @@ async function main() {
   await waitText("Waiting for E2E Studio to approve");
   ok("plan v1 submitted");
 
-  step("Business asks for changes");
+  step("Business approves v1, then asks for changes (approval voided)");
   await goto(casePath);
+  await click("Approve v1");
+  await waitText("Run plan v1");
   await click("Request changes");
   await type("textarea", "Please send the refund to your other wallet.");
   await click("Send to customer");
   await waitText("You asked for changes to v1");
-  ok("v1 declined with a note");
+  const canRun = await evaluate("[...document.querySelectorAll('button')].some(b => b.innerText.includes('Run plan'))");
+  if (canRun) throw new Error("A plan can still be run after its approval was voided");
+  ok("v1 approval voided; nothing can run until a new version is approved");
 
   step("Customer revises (wallet B), business approves v2 and refunds");
   await goto(link);

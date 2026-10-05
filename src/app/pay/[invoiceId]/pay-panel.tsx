@@ -94,7 +94,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-medium">Payments</p>
-            <LiveSync businessId={business.id} />
+            <LiveSync scope={{ invoice: invoice.id }} />
           </div>
           {payments.length === 0 ? (
             <p className="rounded-xl border border-dashed border-veil/10 px-4 py-5 text-center text-sm text-fg-3">No payments yet.</p>

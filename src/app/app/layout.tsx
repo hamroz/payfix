@@ -27,20 +27,23 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-veil/[0.06] bg-ink-900/70 px-5 py-3 backdrop-blur-xl sm:px-8">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-veil/[0.06] bg-ink-900/70 px-4 py-3 backdrop-blur-xl sm:gap-3 sm:px-8">
           <Link href="/app" className="lg:hidden">
             <Logo size={24} />
           </Link>
           <div className="hidden text-sm text-fg-3 lg:block">{biz.name}</div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {role === "viewer" && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-veil/10 bg-veil/[0.04] px-2.5 py-1 text-[11px] font-medium text-fg-2">
                 <Eye className="size-3.5" /> View only
               </span>
             )}
-            <LiveSync businessId={biz.id} />
+            <LiveSync scope={{ b: biz.id }} />
             <NetworkPill />
             <ThemeToggle />
+            <div className="lg:hidden">
+              <WorkspaceSwitcher compact current={{ businessId: biz.id, name: biz.name, role }} workspaces={workspaces} email={user.email} />
+            </div>
           </div>
         </header>
         <main className="flex-1 px-5 pb-28 pt-6 sm:px-8 sm:pt-8 lg:pb-12">{children}</main>
