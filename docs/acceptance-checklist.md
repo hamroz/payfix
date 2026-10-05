@@ -73,6 +73,7 @@ Run on: ________  Commit: ________  `npm test`: __/63 passed  e2e target: ______
 - [ ] **11. Private details stay off chain; public receipts disclose only what is intended.**
   - Manual only. On Explorer, check that a payment carries only the random reference key and a refund carries only the memo `payfix:refund:<id>`.
   - The Solana Pay link/QR passes the business name and "INV-xxxx · title" to the payer's wallet app as `label`/`message`. These are not written on chain.
+  - With an amount on a public HTTPS deployment, the QR is a Solana Pay transaction request (`/api/pay/<reference>`): the wallet signs the exact transfer PayFix builds, so Phantom pays the devnet test token even though it can't read its balance. Automated: `pay-request.test.ts`. Without an amount, or on a local http origin, it stays a transfer request.
   - The receipt requires a member or the verified customer.
 - [ ] **12. Test money, synthetic cases, real interviews, and live activity stay distinguished.**
   - Manual: NetworkPill ("test money") on every screen, and the receipt footer.
