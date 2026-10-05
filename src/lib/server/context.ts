@@ -1,6 +1,6 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db/client";
 import { businesses, events } from "@/lib/db/schema";
@@ -125,4 +125,10 @@ export async function syncCompany(businessId: string, force = false) {
   if (state.running) await state.running;
   const [row] = await db.select({ n: sql<number>`count(*)`.mapWith(Number) }).from(events).where(eq(events.businessId, businessId));
   return { version: row?.n ?? 0 };
+}
+
+/** The visitor's IP as reported by the platform proxy, for abuse limits only. */
+export async function clientIp() {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
 }

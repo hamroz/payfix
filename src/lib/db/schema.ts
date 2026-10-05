@@ -362,15 +362,38 @@ export const sessions = pgTable("sessions", {
   createdAt: createdAt(),
 });
 
-/** Demo-mode mailbox: every email PayFix would send is stored here and shown at /dev/inbox. */
-export const outbox = pgTable("outbox", {
-  id: text("id").primaryKey(),
-  /** The company the email is about, so the demo inbox only shows it to that company's members. */
-  businessId: text("business_id"),
-  to: text("to").notNull(),
-  subject: text("subject").notNull(),
-  body: text("body").notNull(),
-  link: text("link"),
-  code: text("code"),
-  createdAt: createdAt(),
-});
+/**
+ * Every email PayFix sends. In demo mode rows stay here (status "demo") and the demo inbox
+ * shows them. Otherwise rows are queued as "pending", delivered by the email provider, and
+ * the code and link are erased once sent so the table never holds live credentials.
+ */
+export const outbox = pgTable(
+  "outbox",
+  {
+    id: text("id").primaryKey(),
+    /** The company the email is about, so the demo inbox only shows it to that company's members. */
+    businessId: text("business_id"),
+    to: text("to").notNull(),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    link: text("link"),
+    code: text("code"),
+    status: text("status", { enum: ["demo", "pending", "sent", "failed"] }).notNull().default("demo"),
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    sentAt: ts("sent_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("outbox_pending").on(t.status, t.createdAt)],
+);
+
+/** One row per rate-limited action (key = action + subject), counted over a sliding window. */
+export const rateEvents = pgTable(
+  "rate_events",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("rate_events_key_time").on(t.key, t.createdAt)],
+);
