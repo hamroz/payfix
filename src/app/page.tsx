@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BadgeCheck, FileCheck2, GitCompareArrows, Link2, Radar, RotateCcw, ShieldCheck, Wallet } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { HeroDemo } from "@/components/marketing/hero-demo";
+import { ProcessFilm } from "@/components/marketing/process-film";
 import { FadeIn, Stagger, StaggerItem } from "@/components/ui/motion";
 import { ButtonLink } from "@/components/ui/primitives";
 import { Spotlight } from "@/components/ui/interactive";
@@ -114,6 +115,15 @@ export default function Home() {
               </StaggerItem>
             ))}
           </Stagger>
+
+          <div className="mb-5 mt-16 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">Watch it run</p>
+              <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight">One overpayment, start to finish.</h3>
+            </div>
+            <p className="text-sm text-fg-3">49 seconds · the live demo’s scenario, in test money</p>
+          </div>
+          <ProcessFilm />
         </section>
 
         <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
