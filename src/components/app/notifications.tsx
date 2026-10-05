@@ -93,7 +93,7 @@ export function NotificationBell({ items, unread }: { items: NotificationRow[]; 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="glass fixed inset-x-4 top-16 z-50 overflow-hidden rounded-2xl bg-ink-850/95 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px]"
+            className="glass fixed inset-x-4 top-16 z-50 overflow-hidden rounded-2xl bg-ink-850 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px]"
           >
             <div className="flex items-center justify-between gap-3 border-b border-veil/[0.06] px-4 py-3">
               <h2 className="font-display text-[15px] font-semibold text-fg">Notifications</h2>

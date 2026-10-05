@@ -32,6 +32,7 @@ In the app:
 
 - Sign in with **any email**. Demo mode doesn't send real email, so sign-in codes and customer emails appear in the **Demo inbox** (bottom left of the sign-in, pay, and resolution pages), which only shows your own messages, and in `docker compose logs app`. Inside the app, the case page shows the resolution link it just sent. New users create a company; in demo mode it gets its own devnet wallet and, optionally, the demo customer with invoices A and B.
 - The **Guided demo** card on the overview walks through the scenario and ticks itself off from real state.
+- The **bell** in the header lists notifications for the company you are in: payments, exceptions, resolutions, refunds, invoices (including paid in full and overdue), customers, and team or wallet changes. It skips what you did yourself. Each person turns categories on or off in **Settings → Notifications** (all on by default).
 - Payments use the **demo customer wallet**, and refunds are signed by the **demo merchant wallet**, so no browser extension is needed.
 
 With no `.env.local`, PayFix runs on a **simulated chain** (clearly labeled in the UI), so nothing touches a real network.
