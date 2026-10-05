@@ -13,6 +13,8 @@ import { CATEGORIES } from "@/lib/domain/notifications";
 import { approveProposal, executePlan, submitProposal } from "./resolution";
 import { removeWallet } from "./wallets";
 import { SimChain } from "./sim-chain";
+import { refreshCompany } from "./sync";
+import type { ChainClient } from "./chain";
 import { addMember, clearWorkspaceData, createWorkspace, findOrCreateUser, listMembers, removeMember, seedSampleData, setMemberRole } from "./workspaces";
 
 const $ = (s: string) => toUnits(s);
@@ -121,6 +123,15 @@ describe("notifications", () => {
     expect(overdue).toHaveLength(1);
     expect(overdue[0].message).toBe(`${late.number} is overdue: $5.00 remaining`);
     expect(await ofType("invoice.overdue", { invoiceId: settled.id })).toHaveLength(0);
+  });
+
+  it("still flags overdue invoices when the chain can't be reached", async () => {
+    const down = new Proxy({} as ChainClient, {
+      get: () => () => Promise.reject(new Error("fetch failed")),
+    });
+    const late = await createInvoice(db, { businessId: a.businessId, customerId: (await acme()).id, title: "Late, chain down", amount: $("7"), dueAt: new Date("2026-02-01T00:00:00Z") });
+    await expect(refreshCompany({ db, chain: down }, a.businessId, { checkOverdue: true })).rejects.toThrow(/fetch failed/);
+    expect(await ofType("invoice.overdue", { invoiceId: late.id })).toHaveLength(1);
   });
 
   it("logs customer, team, and wallet changes with the member who made them", async () => {
