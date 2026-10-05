@@ -3,12 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowDownLeft, ArrowLeft, ArrowUpRight, ExternalLink, Shuffle } from "lucide-react";
 import { ActivityFeed } from "@/components/app/activity";
-import { CaseStatusBadge, InvoiceStatusBadge, caseKindLabel } from "@/components/app/status";
+import { CaseStatusBadge, InvoiceStatusBadge } from "@/components/app/status";
 import { AnimatedAmount, FadeIn } from "@/components/ui/motion";
 import { CopyButton } from "@/components/ui/interactive";
 import { ButtonLink, Card, CardHeader, Mono } from "@/components/ui/primitives";
 import { env, publicConfig } from "@/lib/env";
-import { amountFit, formatDate, formatDateTime } from "@/lib/format";
+import { amountFit } from "@/lib/format";
+import { renderMemo } from "@/lib/i18n/english";
+import { getI18n } from "@/lib/i18n/server";
 import { formatUsd } from "@/lib/money";
 import { explorerUrl, shortAddress } from "@/lib/solana/tx";
 import { deps, requireWorkspace } from "@/lib/server/context";
@@ -16,7 +18,10 @@ import { can } from "@/lib/roles";
 import { ApplyCredit } from "./apply-credit";
 import { invoiceDetail } from "@/lib/server/views";
 
-export const metadata: Metadata = { title: "Invoice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getI18n();
+  return { title: m.invoices.detail.title };
+}
 
 export default async function InvoicePage({ params }: PageProps<"/app/invoices/[id]">) {
   const { id } = await params;
@@ -27,11 +32,14 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
   const config = publicConfig();
   const payUrl = `${env().APP_URL}/pay/${d.invoice.id}`;
   const i = d.invoice;
+  const i18n = await getI18n();
+  const { m, t, date, dateTime } = i18n;
+  const x = m.invoices.detail;
 
   return (
     <div className="mx-auto max-w-5xl">
       <Link href="/app/invoices" className="mb-5 inline-flex items-center gap-1.5 text-sm text-fg-3 hover:text-fg">
-        <ArrowLeft className="size-4" /> Invoices
+        <ArrowLeft className="size-4" /> {x.back}
       </Link>
       <FadeIn>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -42,11 +50,11 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
             </div>
             <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-[28px]">{i.title}</h1>
             <p className="mt-1 text-sm text-fg-2">
-              {d.customer.name} · {d.customer.email} · due {formatDate(i.dueAt)}
+              {d.customer.name} · {d.customer.email} · {t(x.due, { date: date(i.dueAt) })}
             </p>
           </div>
           <ButtonLink href={`/pay/${i.id}`} target="_blank" variant="secondary">
-            Open payment page <ArrowUpRight className="size-4" />
+            {x.openPaymentPage} <ArrowUpRight className="size-4" />
           </ButtonLink>
         </div>
       </FadeIn>
@@ -56,9 +64,9 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
           <FadeIn delay={0.05}>
             <Card className="grid grid-cols-3 divide-x divide-veil/[0.06] overflow-hidden">
               {[
-                { label: "Amount", v: i.amount },
-                { label: "Applied", v: i.applied },
-                { label: "Remaining", v: i.remaining },
+                { label: x.amount, v: i.amount },
+                { label: x.applied, v: i.applied },
+                { label: x.remaining, v: i.remaining },
               ].map((s) => (
                 <div key={s.label} className="@container min-w-0 p-4 sm:p-5" title={formatUsd(BigInt(s.v))}>
                   <p className="text-xs text-fg-3">{s.label}</p>
@@ -70,28 +78,28 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
 
           <FadeIn delay={0.1}>
             <Card>
-              <CardHeader title="Payments and allocations" subtitle="Verified on chain; each signature counted once" />
+              <CardHeader title={x.payments.title} subtitle={x.payments.subtitle} />
               <div className="space-y-2 p-5">
-                {d.transfers.length === 0 && d.allocations.length === 0 && <p className="rounded-xl border border-dashed border-veil/10 px-4 py-6 text-center text-sm text-fg-3">No payments yet. Share the link below.</p>}
-                {d.transfers.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.025] px-3.5 py-3">
+                {d.transfers.length === 0 && d.allocations.length === 0 && <p className="rounded-xl border border-dashed border-veil/10 px-4 py-6 text-center text-sm text-fg-3">{x.payments.empty}</p>}
+                {d.transfers.map((tr) => (
+                  <div key={tr.id} className="flex items-center gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.025] px-3.5 py-3">
                     <span className="grid size-8 place-items-center rounded-lg bg-mint/10 text-mint">
                       <ArrowDownLeft className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="tabular text-sm font-medium">
-                        {formatUsd(BigInt(t.amount))}
-                        {BigInt(t.appliedHere) < BigInt(t.amount) && <span className="ml-2 text-xs font-normal text-amber">{formatUsd(BigInt(t.amount) - BigInt(t.appliedHere))} excess</span>}
-                        {t.flags.includes("late") && <span className="ml-2 text-xs font-normal text-rose">late</span>}
+                        {formatUsd(BigInt(tr.amount))}
+                        {BigInt(tr.appliedHere) < BigInt(tr.amount) && <span className="ml-2 text-xs font-normal text-amber">{t(x.payments.excess, { amount: formatUsd(BigInt(tr.amount) - BigInt(tr.appliedHere)) })}</span>}
+                        {tr.flags.includes("late") && <span className="ml-2 text-xs font-normal text-rose">{x.payments.late}</span>}
                       </p>
                       <p className="truncate text-xs text-fg-3">
-                        from {t.counterparty ? shortAddress(t.counterparty) : "unknown"} · {t.blockTime ? formatDateTime(t.blockTime) : ""}
+                        {t(x.payments.from, { address: tr.counterparty ? shortAddress(tr.counterparty) : x.payments.unknown })} · {tr.blockTime ? dateTime(tr.blockTime) : ""}
                       </p>
                     </div>
                     {config.simulated ? (
-                      <Mono className="text-[11px] text-fg-3">{shortAddress(t.signature)}</Mono>
+                      <Mono className="text-[11px] text-fg-3">{shortAddress(tr.signature)}</Mono>
                     ) : (
-                      <a href={explorerUrl("tx", t.signature, config.cluster)} target="_blank" rel="noreferrer" className="text-fg-3 hover:text-fg" aria-label="Explorer">
+                      <a href={explorerUrl("tx", tr.signature, config.cluster)} target="_blank" rel="noreferrer" className="text-fg-3 hover:text-fg" aria-label={x.payments.explorer}>
                         <ExternalLink className="size-4" />
                       </a>
                     )}
@@ -104,10 +112,10 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="tabular text-sm font-medium">
-                        {formatUsd(BigInt(a.amount))} {a.kind === "credit" ? "applied from customer credit" : "allocated from an overpayment"}
+                        {t(a.kind === "credit" ? x.payments.fromCredit : x.payments.fromOverpayment, { amount: formatUsd(BigInt(a.amount)) })}
                       </p>
                       <p className="truncate text-xs text-fg-3">
-                        {a.memo} · {formatDateTime(a.createdAt)}
+                        {renderMemo(i18n, a.memo)} · {dateTime(a.createdAt)}
                       </p>
                     </div>
                   </Link>
@@ -119,11 +127,11 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
           {d.cases.length > 0 && (
             <FadeIn delay={0.15}>
               <Card>
-                <CardHeader title="Exceptions" />
+                <CardHeader title={x.exceptions} />
                 <div className="space-y-2 p-5">
                   {d.cases.map((c) => (
                     <Link key={c.id} href={`/app/exceptions/${c.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-veil/[0.06] bg-veil/[0.025] px-3.5 py-3 hover:bg-veil/[0.05]">
-                      <span className="text-sm">{caseKindLabel[c.kind]}</span>
+                      <span className="text-sm">{m.cases.kind[c.kind]}</span>
                       <CaseStatusBadge status={c.status} />
                     </Link>
                   ))}
@@ -141,17 +149,17 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
           )}
           <FadeIn delay={0.08}>
             <Card className="p-5">
-              <h3 className="font-display text-[15px] font-semibold">Payment link</h3>
-              <p className="mt-1 text-xs text-fg-3">Send this to {d.customer.name}. It always asks for the exact remaining balance, and each payment carries a unique reference.</p>
+              <h3 className="font-display text-[15px] font-semibold">{x.paymentLink.title}</h3>
+              <p className="mt-1 text-xs text-fg-3">{t(x.paymentLink.body, { name: d.customer.name })}</p>
               <div className="mt-3 flex items-center gap-2 rounded-xl border border-veil/10 bg-ink-950/60 px-3 py-2">
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg-2">{payUrl}</span>
-                <CopyButton value={payUrl} label="Copy" />
+                <CopyButton value={payUrl} label={m.common.copy} />
               </div>
             </Card>
           </FadeIn>
           <FadeIn delay={0.12}>
             <Card>
-              <CardHeader title="Activity" />
+              <CardHeader title={x.activity} />
               <ActivityFeed events={d.activity} />
             </Card>
           </FadeIn>

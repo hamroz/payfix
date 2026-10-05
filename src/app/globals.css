@@ -84,7 +84,8 @@
 }
 
 @theme {
-  --font-display: "Sora Variable", ui-sans-serif, system-ui;
+  /* Sora has no Cyrillic: those glyphs fall through to Inter. CJK and Devanagari use system fonts (see :lang rules). */
+  --font-display: "Sora Variable", "Inter Variable", ui-sans-serif, system-ui;
   --font-sans: "Inter Variable", ui-sans-serif, system-ui;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
@@ -121,6 +122,19 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
+  }
+  /* Scripts our bundled fonts don't cover: prefer good system fonts over the browser's default fallback. */
+  :root:lang(zh) {
+    --font-display: "Sora Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", ui-sans-serif, system-ui;
+    --font-sans: "Inter Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", ui-sans-serif, system-ui;
+  }
+  :root:lang(hi) {
+    --font-display: "Sora Variable", "Kohinoor Devanagari", "Noto Sans Devanagari", "Nirmala UI", "Mangal", ui-sans-serif, system-ui;
+    --font-sans: "Inter Variable", "Kohinoor Devanagari", "Noto Sans Devanagari", "Nirmala UI", "Mangal", ui-sans-serif, system-ui;
+  }
+  /* Tight display tracking is tuned for Latin; it crowds Han characters and Devanagari conjuncts. */
+  :root:is(:lang(zh), :lang(hi)) :is(h1, h2, h3) {
+    letter-spacing: normal;
   }
   ::selection {
     background: color-mix(in srgb, var(--color-violet) 40%, transparent);

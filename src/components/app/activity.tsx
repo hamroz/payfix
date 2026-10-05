@@ -4,23 +4,26 @@ import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { eventIcon } from "./event-icons";
 import type { EventRow } from "@/lib/server/views";
-import { timeAgo } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/client";
+import { renderEvent } from "@/lib/i18n/events";
 import { cn } from "@/lib/cn";
 
 export function ActivityFeed({
   events,
-  empty = "Nothing has happened yet.",
+  empty,
   viewer = "business",
-  businessName = "Business",
+  businessName,
 }: {
   events: EventRow[];
   empty?: string;
   viewer?: "business" | "customer";
   businessName?: string;
 }) {
+  const i18n = useI18n();
+  const { m } = i18n;
   const who = (actor: string) =>
-    actor === "system" ? "PayFix" : actor === viewer ? "You" : actor === "business" ? businessName : "Customer";
-  if (events.length === 0) return <p className="px-5 py-8 text-center text-sm text-fg-3">{empty}</p>;
+    actor === "system" ? m.common.system : actor === viewer ? m.common.you : actor === "business" ? (businessName ?? m.common.business) : m.common.customer;
+  if (events.length === 0) return <p className="px-5 py-8 text-center text-sm text-fg-3">{empty ?? m.app.activity.empty}</p>;
   return (
     <ol className="relative px-5 py-4">
       <span className="absolute bottom-6 left-[35px] top-6 w-px bg-gradient-to-b from-veil/10 via-veil/[0.06] to-transparent" />
@@ -38,7 +41,7 @@ export function ActivityFeed({
               <meta.icon className="size-4" />
             </span>
             <div className="min-w-0 flex-1 pt-0.5">
-              <p className="text-[13.5px] leading-snug text-fg">{e.message}</p>
+              <p className="text-[13.5px] leading-snug text-fg">{renderEvent(i18n, e)}</p>
               <p className="mt-0.5 text-xs text-fg-3">
                 {who(e.actor)} · <TimeAgo date={e.createdAt} />
               </p>
@@ -53,6 +56,7 @@ export function ActivityFeed({
 /** Relative time that may differ between server and browser clocks; re-renders every 30 s. */
 export function TimeAgo({ date }: { date: Date | string }) {
   const [, tick] = useState(0);
+  const { timeAgo } = useI18n();
   useEffect(() => {
     const id = setInterval(() => tick((n) => n + 1), 30_000);
     return () => clearInterval(id);

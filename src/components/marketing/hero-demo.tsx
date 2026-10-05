@@ -4,17 +4,20 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowDownLeft, ArrowUpRight, Check, FileText, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n/client";
 
 // A scripted loop of the product's core story, all amounts from the demo scenario.
 const STAGES = [
-  { title: "Payments arrive", note: "Two transfers verified on Solana" },
-  { title: "Invoice settled, $100 extra", note: "The excess is flagged, not guessed" },
-  { title: "Customer proposes a split", note: "$60 → INV-0002 · $40 refund" },
-  { title: "Business approves v2", note: "Exact plan, hash-bound approval" },
-  { title: "Every dollar has a home", note: "Refund confirmed · $0 unresolved" },
-];
+  { key: "arrive", vars: {} },
+  { key: "excess", vars: { amount: "$100" } },
+  { key: "propose", vars: { applied: "$60", invoice: "INV-0002", refund: "$40" } },
+  { key: "approve", vars: { version: "v2" } },
+  { key: "settled", vars: { amount: "$0" } },
+] as const;
 
 export function HeroDemo() {
+  const { m, t, p } = useI18n();
+  const h = m.landing.heroDemo;
   const [stage, setStage] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setStage((s) => (s + 1) % STAGES.length), 2600);
@@ -24,8 +27,8 @@ export function HeroDemo() {
   const bars = [
     { key: "a", label: "INV-0001", amount: "$1,000", pct: 90.9, tone: "from-indigo to-[#818CF8]", show: stage >= 1 },
     { key: "b", label: "INV-0002", amount: "$60", pct: 5.45, tone: "from-violet to-[#C4B5FD]", show: stage >= 3 },
-    { key: "r", label: "Refunded", amount: "$40", pct: 3.64, tone: "from-[#34D399] to-mint", show: stage >= 4 },
-    { key: "x", label: "Unresolved", amount: stage >= 3 ? "$0" : "$100", pct: 9.09, tone: "from-amber to-[#FCD34D]", show: stage >= 1 && stage < 3 },
+    { key: "r", label: h.refunded, amount: "$40", pct: 3.64, tone: "from-[#34D399] to-mint", show: stage >= 4 },
+    { key: "x", label: h.unresolved, amount: stage >= 3 ? "$0" : "$100", pct: 9.09, tone: "from-amber to-[#FCD34D]", show: stage >= 1 && stage < 3 },
   ];
 
   return (
@@ -34,37 +37,37 @@ export function HeroDemo() {
       <div className="glass overflow-hidden rounded-3xl p-5 sm:p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-fg-3">
-            <FileText className="size-3.5" /> Acme Robotics · 2 invoices
+            <FileText className="size-3.5" /> Acme Robotics · {p(h.invoiceCount, 2)}
           </div>
-          <span className="rounded-full border border-veil/10 bg-veil/[0.04] px-2 py-0.5 text-[11px] text-fg-3">Test money</span>
+          <span className="rounded-full border border-veil/10 bg-veil/[0.04] px-2 py-0.5 text-[11px] text-fg-3">{m.common.testMoney}</span>
         </div>
 
         <div className="mt-5 space-y-2">
           {[
             { amt: "$600.00", t: 0 },
             { amt: "$500.00", t: 0.15 },
-          ].map((p) => (
+          ].map((tr) => (
             <motion.div
-              key={p.amt}
+              key={tr.amt}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: p.t + 0.3, duration: 0.5 }}
+              transition={{ delay: tr.t + 0.3, duration: 0.5 }}
               className="flex items-center justify-between rounded-xl border border-veil/[0.06] bg-veil/[0.03] px-3 py-2.5"
             >
               <div className="flex items-center gap-2.5">
                 <span className="grid size-7 place-items-center rounded-lg bg-mint/10 text-mint">
                   <ArrowDownLeft className="size-3.5" />
                 </span>
-                <span className="text-sm text-fg-2">Incoming transfer</span>
+                <span className="text-sm text-fg-2">{h.incomingTransfer}</span>
               </div>
-              <span className="tabular font-display text-sm font-semibold">{p.amt}</span>
+              <span className="tabular font-display text-sm font-semibold">{tr.amt}</span>
             </motion.div>
           ))}
         </div>
 
         <div className="mt-6">
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-xs uppercase tracking-[0.14em] text-fg-3">$1,100 received</span>
+            <span className="text-xs uppercase tracking-[0.14em] text-fg-3">{t(h.received, { amount: "$1,100" })}</span>
             <AnimatePresence mode="wait">
               <motion.span
                 key={stage >= 3 ? "ok" : "no"}
@@ -73,7 +76,7 @@ export function HeroDemo() {
                 exit={{ opacity: 0, y: -4 }}
                 className={cn("text-xs font-medium", stage >= 3 ? "text-mint" : "text-amber")}
               >
-                {stage >= 3 ? "Reconciled" : stage >= 1 ? "$100 needs resolution" : "Verifying…"}
+                {stage >= 3 ? h.reconciled : stage >= 1 ? t(h.needsResolution, { amount: "$100" }) : h.verifying}
               </motion.span>
             </AnimatePresence>
           </div>
@@ -117,8 +120,8 @@ export function HeroDemo() {
           <div className="min-w-0 flex-1">
             <AnimatePresence mode="wait">
               <motion.div key={stage} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
-                <div className="text-sm font-medium text-fg">{STAGES[stage].title}</div>
-                <div className="truncate text-xs text-fg-3">{STAGES[stage].note}</div>
+                <div className="text-sm font-medium text-fg">{t(h.stages[STAGES[stage].key].title, STAGES[stage].vars)}</div>
+                <div className="truncate text-xs text-fg-3">{t(h.stages[STAGES[stage].key].note, STAGES[stage].vars)}</div>
               </motion.div>
             </AnimatePresence>
           </div>

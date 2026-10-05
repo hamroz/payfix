@@ -45,7 +45,7 @@ async function assertTreasuryFunded(conn: Connection, treasury: PublicKey) {
   const lamports = await conn.getBalance(treasury, "confirmed");
   if (lamports < MIN_TREASURY_SOL * LAMPORTS_PER_SOL) {
     console.error(`[payfix] demo treasury ${treasury.toBase58()} is low on SOL (${lamports / LAMPORTS_PER_SOL}). Top it up at faucet.solana.com.`);
-    throw new InputError("The demo has run out of devnet SOL for new wallets. Please try again later.");
+    throw new InputError("demoOutOfSol");
   }
 }
 
@@ -123,11 +123,9 @@ export async function demoPay(db: Db, p: { invoiceId: string; amount: bigint }) 
     balance = await tokenBalance(customer);
   }
   if (balance < p.amount)
-    throw new InputError(
-      `The demo customer wallet only holds ${formatUsd(balance)} test USD and tops up to at most ${formatUsd(DEMO_TOP_UP_LIMIT)} per payment, so it can’t pay ${formatUsd(p.amount)}. Pay a smaller amount.`,
-    );
+    throw new InputError("demoCustomerTooPoor", { balance: formatUsd(balance), limit: formatUsd(DEMO_TOP_UP_LIMIT), amount: formatUsd(p.amount) });
   const [inv] = await db.select().from(invoices).where(eq(invoices.id, p.invoiceId));
-  if (!inv) throw new InputError("Invoice not found.");
+  if (!inv) throw new InputError("invoiceNotFound");
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, inv.businessId));
   const req = await createPaymentRequest(db, { invoiceId: p.invoiceId, amount: p.amount });
   const { blockhash, lastValidBlockHeight } = await chain().getLatestBlockhash();
@@ -184,7 +182,7 @@ export async function serverHeldKey(db: Db, businessId: string, walletAddress: s
 /** Signs a prepared refund with the company's server-held demo wallet. */
 export async function demoSignRefund(db: Db, p: { businessId: string; unsignedB64: string; walletAddress: string }) {
   const kp = await serverHeldKey(db, p.businessId, p.walletAddress);
-  if (!kp) throw new InputError("This wallet's key isn't held by PayFix. Sign the refund in that wallet.");
+  if (!kp) throw new InputError("walletKeyNotHeld");
   const tx = Transaction.from(Buffer.from(p.unsignedB64, "base64"));
   tx.partialSign(kp);
   return tx.serialize().toString("base64");

@@ -23,6 +23,7 @@ import { shortAddress } from "@/lib/solana/tx";
 import type { CaseDetail } from "@/lib/server/views";
 import { cn } from "@/lib/cn";
 import { amountFit } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/client";
 
 type Props = { token: string; businessName: string; customerName: string; config: PublicConfig; detail: CaseDetail };
 
@@ -32,6 +33,8 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
   const declined = current?.status === "declined";
   const [editing, setEditing] = useState((!current || declined) && editable);
   const available = BigInt(current && !editable ? current.available : d.available);
+  const { m, t } = useI18n();
+  const P = m.resolve.panel;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
@@ -41,14 +44,14 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
             <CaseStatusBadge status={d.case.status} customerView />
           </div>
           <h1 className="mt-3 font-display text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">
-            {d.case.status === "resolved" ? "All settled. Thank you!" : `You sent ${businessName} a little extra`}
+            {d.case.status === "resolved" ? P.headingResolved : t(P.heading, { business: businessName })}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-fg-2">
             {d.case.status === "resolved"
-              ? "Every dollar you sent has a confirmed destination. Your receipt is below."
+              ? P.bodyResolved
               : d.invoice
-                ? `${customerName}, you paid ${formatUsd(BigInt(d.invoicePaid))} toward ${d.invoice.number}, which was ${formatUsd(BigInt(d.invoice.amount))}. You decide what happens to the extra — nothing moves until ${businessName} approves your exact plan.`
-                : `${customerName}, ${formatUsd(BigInt(d.received))} reached ${businessName} without an invoice reference. You decide what happens to it — nothing moves until ${businessName} approves your exact plan.`}
+                ? t(P.bodyInvoice, { customer: customerName, paid: formatUsd(BigInt(d.invoicePaid)), invoice: d.invoice.number, total: formatUsd(BigInt(d.invoice.amount)), business: businessName })
+                : t(P.bodyUnmatched, { customer: customerName, amount: formatUsd(BigInt(d.received)), business: businessName })}
           </p>
         </FadeIn>
 
@@ -56,15 +59,15 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
           <Card className="p-5">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="@container min-w-0 flex-1">
-                <p className="text-xs uppercase tracking-[0.14em] text-fg-3">{d.case.status === "resolved" ? "Extra, now resolved" : "Extra to allocate"}</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-fg-3">{d.case.status === "resolved" ? P.extraResolved : P.extraToAllocate}</p>
                 <AnimatedAmount units={(d.case.status === "resolved" || !editable ? (current?.available ?? d.available) : d.available).toString()} className="tabular mt-1 block whitespace-nowrap font-display font-semibold tracking-tight text-gradient" style={amountFit(d.available, 2.25)} />
               </div>
               <div className="flex flex-col gap-1.5">
                 {d.transfers
-                  .filter((t) => t.direction === "in")
-                  .map((t) => (
-                    <span key={t.id} className="inline-flex items-center gap-2 text-xs text-fg-3">
-                      <ArrowDownLeft className="size-3.5 text-mint" /> {formatUsd(BigInt(t.amount))} received
+                  .filter((tr) => tr.direction === "in")
+                  .map((tr) => (
+                    <span key={tr.id} className="inline-flex items-center gap-2 text-xs text-fg-3">
+                      <ArrowDownLeft className="size-3.5 text-mint" /> {t(P.received, { amount: formatUsd(BigInt(tr.amount)) })}
                     </span>
                   ))}
               </div>
@@ -75,8 +78,8 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
         {declined && editable && (
           <FadeIn delay={0.05}>
             <div className="rounded-2xl border border-amber/25 bg-amber/[0.07] p-4">
-              <p className="text-sm font-medium text-amber">{businessName} asked for a change to version {current!.version}</p>
-              <p className="mt-1 text-sm text-fg-2">“{current!.businessNote}”</p>
+              <p className="text-sm font-medium text-amber">{t(P.changeRequested, { business: businessName, version: String(current!.version) })}</p>
+              <p className="mt-1 text-sm text-fg-2">{t(m.resolve.quoted, { text: current!.businessNote ?? "" })}</p>
             </div>
           </FadeIn>
         )}
@@ -90,17 +93,17 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
             <motion.div key="status" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <Card>
                 <CardHeader
-                  title={`Your plan · version ${current.version}`}
+                  title={t(P.yourPlan, { version: String(current.version) })}
                   subtitle={
                     current.status === "submitted"
-                      ? `Waiting for ${businessName} to approve this exact plan`
+                      ? t(P.planSubmitted, { business: businessName })
                       : current.status === "approved"
-                        ? `${businessName} approved it. They’ll carry it out next.`
+                        ? t(P.planApproved, { business: businessName })
                         : current.status === "executed"
                           ? d.case.status === "resolved"
-                            ? "Carried out and confirmed"
-                            : `Allocations posted. ${businessName} is signing your refund.`
-                          : current.status
+                            ? P.planExecutedResolved
+                            : t(P.planExecuted, { business: businessName })
+                          : m.cases.proposalStatus[current.status]
                   }
                   action={
                     current.status === "submitted" ? (
@@ -121,16 +124,16 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
                     <div className="flex items-center gap-3 rounded-xl border border-cyan/20 bg-cyan/[0.05] px-3.5 py-3 text-sm">
                       <LogoSpinner size={22} />
                       <span className="text-fg-2">
-                        {formatUsd(BigInt(d.refund.amount))} refund {d.refund.status === "submitted" ? "is confirming on chain" : `is reserved and waiting for ${businessName}’s wallet signature`}
+                        {t(d.refund.status === "submitted" ? P.refundConfirming : P.refundReserved, { amount: formatUsd(BigInt(d.refund.amount)), business: businessName })}
                       </span>
                     </div>
                   )}
                   {editable && (
                     <Button variant="secondary" className="w-full" onClick={() => setEditing(true)}>
-                      <PencilLine className="size-4" /> Change plan
+                      <PencilLine className="size-4" /> {P.changePlan}
                     </Button>
                   )}
-                  {editable && current.status === "approved" && <p className="text-center text-xs text-fg-3">Changing an approved plan voids the approval. {businessName} would need to approve the new version.</p>}
+                  {editable && current.status === "approved" && <p className="text-center text-xs text-fg-3">{t(P.changeApprovedNote, { business: businessName })}</p>}
                 </div>
               </Card>
             </motion.div>
@@ -141,12 +144,12 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
           <FadeIn delay={0.1}>
             <Card className="flex flex-col items-center p-8 text-center">
               <LogoMark size={72} animate />
-              <p className="mt-5 font-display text-xl font-semibold">Loop closed</p>
+              <p className="mt-5 font-display text-xl font-semibold">{P.loopClosed}</p>
               <p className="mt-1 max-w-sm text-sm text-fg-2">
-                {available > 0n ? `${formatUsd(available)} placed exactly as you asked. ` : ""}You and {businessName} share the same receipt.
+                {available > 0n ? t(P.placedAndShared, { amount: formatUsd(available), business: businessName }) : t(P.shared, { business: businessName })}
               </p>
               <Link href={`/receipt/${d.case.id}`} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-veil/[0.06] px-4 py-2.5 text-sm font-medium hover:bg-veil/[0.1]">
-                <ReceiptText className="size-4" /> View receipt
+                <ReceiptText className="size-4" /> {P.viewReceipt}
               </Link>
             </Card>
           </FadeIn>
@@ -156,17 +159,12 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
       <div className="flex flex-col gap-5">
         <FadeIn delay={0.1}>
           <Card className="p-5">
-            <h3 className="font-display text-[15px] font-semibold">How this works</h3>
+            <h3 className="font-display text-[15px] font-semibold">{P.howTitle}</h3>
             <ol className="mt-3 space-y-3 text-[13px] text-fg-2">
-              {[
-                "Choose where the extra goes: another open invoice, credit for next time, a refund, or a mix.",
-                "For a refund, sign a message with the receiving wallet so no one can redirect it.",
-                `${businessName} approves your exact plan. If you change anything, they approve again.`,
-                `${businessName} signs the refund from their wallet. You both get the same receipt.`,
-              ].map((t, i) => (
+              {[P.how.choose, P.how.sign, t(P.how.approve, { business: businessName }), t(P.how.refund, { business: businessName })].map((step, i) => (
                 <li key={i} className="flex gap-3">
                   <span className="grid size-5 shrink-0 place-items-center rounded-full bg-veil/[0.06] text-[11px] font-semibold text-fg">{i + 1}</span>
-                  {t}
+                  {step}
                 </li>
               ))}
             </ol>
@@ -174,7 +172,7 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
         </FadeIn>
         <FadeIn delay={0.15}>
           <Card>
-            <CardHeader title="Timeline" />
+            <CardHeader title={P.timeline} />
             <ActivityFeed events={d.activity} viewer="customer" businessName={businessName} />
           </Card>
         </FadeIn>
@@ -183,7 +181,7 @@ export function ResolvePanel({ token, businessName, customerName, config, detail
   );
 }
 
-type Row = { key: string; type: ProposalLine["type"]; invoiceId?: string; label: string; hint?: string; max?: bigint; value: string };
+type Row = { key: string; type: ProposalLine["type"]; invoice?: CaseDetail["openInvoices"][number]; invoiceId?: string; max?: bigint; value: string };
 
 function PlanBuilder({ token, available, openInvoices, current, config, businessName, onDone, onCancel }: { token: string; available: bigint; openInvoices: CaseDetail["openInvoices"]; current: CaseDetail["proposals"][number] | null; config: PublicConfig; businessName: string; onDone: () => void; onCancel?: () => void }) {
   const initial = (type: string, invoiceId?: string) => {
@@ -191,9 +189,9 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
     return l ? fromUnits(BigInt(l.amount)) : "";
   };
   const [rows, setRows] = useState<Row[]>([
-    ...openInvoices.map((i) => ({ key: i.id, type: "invoice" as const, invoiceId: i.id, label: `Apply to ${i.number}`, hint: `${i.title} · ${formatUsd(BigInt(i.remaining))} remaining`, max: BigInt(i.remaining), value: initial("invoice", i.id) })),
-    { key: "credit", type: "credit" as const, label: "Keep as credit", hint: `Use it on a future ${businessName} invoice`, value: initial("credit") },
-    { key: "refund", type: "refund" as const, label: "Refund to me", hint: "Sent from their wallet to yours", value: initial("refund") },
+    ...openInvoices.map((i) => ({ key: i.id, type: "invoice" as const, invoice: i, invoiceId: i.id, max: BigInt(i.remaining), value: initial("invoice", i.id) })),
+    { key: "credit", type: "credit" as const, value: initial("credit") },
+    { key: "refund", type: "refund" as const, value: initial("refund") },
   ]);
   const [destination, setDestination] = useState<{ address: string; proof: DestinationProof } | null>(null);
   const [note, setNote] = useState("");
@@ -201,8 +199,16 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
+  const { m, t } = useI18n();
+  const B = m.resolve.builder;
 
-  const parsed = rows.map((r) => ({ ...r, units: r.value ? tryToUnits(r.value) : 0n }));
+  const describe = (r: Row) =>
+    r.type === "invoice"
+      ? { label: t(B.applyTo, { invoice: r.invoice!.number }), hint: t(B.invoiceHint, { title: r.invoice!.title, amount: formatUsd(BigInt(r.invoice!.remaining)) }) }
+      : r.type === "credit"
+        ? { label: B.keepAsCredit, hint: t(B.creditHint, { business: businessName }) }
+        : { label: B.refundToMe, hint: B.refundHint };
+  const parsed = rows.map((r) => ({ ...r, ...describe(r), units: r.value ? tryToUnits(r.value) : 0n }));
   const invalid = parsed.some((r) => r.units === null);
   const total = parsed.reduce((a, r) => a + (r.units ?? 0n), 0n);
   const left = available - total;
@@ -228,11 +234,11 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
     return values;
   })();
   const presets: { label: string; values: Record<string, bigint> }[] = [
-    ...(openInvoices.length > 1 ? [{ label: "Oldest invoices first", values: oldestFirst }] : []),
-    ...(firstInv ? [{ label: `All to ${firstInv.number}`, values: { [firstInv.id]: available < BigInt(firstInv.remaining) ? available : BigInt(firstInv.remaining), refund: available > BigInt(firstInv.remaining) ? available - BigInt(firstInv.remaining) : 0n } }] : []),
-    ...(firstInv ? [{ label: "Split 60 / 40", values: { [firstInv.id]: (available * 60n) / 100n, refund: available - (available * 60n) / 100n } }] : []),
-    { label: "Keep as credit", values: { credit: available } },
-    { label: "Refund all", values: { refund: available } },
+    ...(openInvoices.length > 1 ? [{ label: B.presets.oldestFirst, values: oldestFirst }] : []),
+    ...(firstInv ? [{ label: t(B.presets.allTo, { invoice: firstInv.number }), values: { [firstInv.id]: available < BigInt(firstInv.remaining) ? available : BigInt(firstInv.remaining), refund: available > BigInt(firstInv.remaining) ? available - BigInt(firstInv.remaining) : 0n } }] : []),
+    ...(firstInv ? [{ label: B.presets.split, values: { [firstInv.id]: (available * 60n) / 100n, refund: available - (available * 60n) / 100n } }] : []),
+    { label: B.presets.credit, values: { credit: available } },
+    { label: B.presets.refundAll, values: { refund: available } },
   ];
 
   const submit = () =>
@@ -248,7 +254,7 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
         note,
       });
       if (!res.ok) return setError(res.error);
-      toast.push({ tone: "success", title: `Plan v${res.version} sent to ${businessName}`, body: "They’ll approve this exact version." });
+      toast.push({ tone: "success", title: t(B.sentToast, { version: String(res.version), business: businessName }), body: B.sentToastBody });
       onDone();
       router.refresh();
     });
@@ -257,7 +263,7 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
 
   return (
     <Card>
-      <CardHeader title={current ? `Revise your plan (becomes v${current.version + 1})` : "Choose where the extra goes"} subtitle={`Allocate all ${formatUsd(available)}. Mix and match.`} />
+      <CardHeader title={current ? t(B.reviseTitle, { version: String(current.version + 1) }) : B.chooseTitle} subtitle={t(B.subtitle, { amount: formatUsd(available) })} />
       <div className="space-y-4 p-5">
         <div className="flex flex-wrap gap-2">
           {presets.map((p) => (
@@ -299,12 +305,12 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
           <p className={cn("mt-2 text-sm", left === 0n && total > 0n ? "text-mint" : left < 0n ? "text-rose" : "text-fg-3")}>
             {left === 0n && total > 0n ? (
               <>
-                <Check className="mr-1 inline size-4" /> All {formatUsd(available)} allocated
+                <Check className="mr-1 inline size-4" /> {t(B.allAllocated, { amount: formatUsd(available) })}
               </>
             ) : left > 0n ? (
-              `${formatUsd(left)} left to allocate`
+              t(B.leftToAllocate, { amount: formatUsd(left) })
             ) : (
-              `${formatUsd(-left)} more than the extra`
+              t(B.overAllocated, { amount: formatUsd(-left) })
             )}
           </p>
         </div>
@@ -317,21 +323,21 @@ function PlanBuilder({ token, available, openInvoices, current, config, business
           )}
         </AnimatePresence>
 
-        <Input placeholder={`Add a note for ${businessName} (optional)`} value={note} onChange={(e) => setNote(e.target.value)} />
+        <Input placeholder={t(B.notePlaceholder, { business: businessName })} value={note} onChange={(e) => setNote(e.target.value)} />
 
         {error && <Alert tone="rose">{error}</Alert>}
 
         <div className="flex gap-2">
           {onCancel && (
             <Button variant="secondary" onClick={onCancel} disabled={pending}>
-              Cancel
+              {m.common.cancel}
             </Button>
           )}
           <Button size="lg" className="flex-1" disabled={!ready || pending} onClick={submit}>
-            {pending ? <LogoSpinner size={20} /> : <ShieldCheck className="size-4" />} {current ? `Send revised plan (v${current.version + 1})` : `Send plan to ${businessName}`}
+            {pending ? <LogoSpinner size={20} /> : <ShieldCheck className="size-4" />} {current ? t(B.sendRevised, { version: String(current.version + 1) }) : t(B.sendPlan, { business: businessName })}
           </Button>
         </div>
-        {needsDestination && <p className="text-center text-xs text-fg-3">Verify a refund wallet to continue.</p>}
+        {needsDestination && <p className="text-center text-xs text-fg-3">{B.needsWallet}</p>}
       </div>
     </Card>
   );
@@ -341,9 +347,11 @@ function DestinationPicker({ token, config, value, onChange }: { token: string; 
   const { publicKey, signMessage } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { m, t } = useI18n();
+  const W = m.resolve.destination;
 
   const viaWallet = async () => {
-    if (!publicKey || !signMessage) return setError("This wallet can’t sign messages.");
+    if (!publicKey || !signMessage) return setError(W.cantSign);
     setBusy("wallet");
     setError(null);
     try {
@@ -353,7 +361,7 @@ function DestinationPicker({ token, config, value, onChange }: { token: string; 
       const sig = await signMessage(new TextEncoder().encode(ch.message));
       onChange({ address, proof: { method: "wallet_signature", message: ch.message, signature: bs58.encode(sig), verifiedAt: new Date().toISOString() } });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Signing was cancelled.");
+      setError(e instanceof Error ? e.message : W.signingCancelled);
     } finally {
       setBusy(null);
     }
@@ -372,18 +380,18 @@ function DestinationPicker({ token, config, value, onChange }: { token: string; 
 
   return (
     <div className="rounded-2xl border border-veil/[0.08] bg-ink-950/40 p-4">
-      <p className="text-sm font-medium">Refund wallet</p>
-      <p className="mt-0.5 text-xs text-fg-3">Sign a short message with the wallet that should receive the refund. Exchange deposit addresses won’t work — you must control the wallet.</p>
+      <p className="text-sm font-medium">{W.title}</p>
+      <p className="mt-0.5 text-xs text-fg-3">{W.body}</p>
 
       {value ? (
         <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mt-3 flex items-center gap-3 rounded-xl border border-mint/25 bg-mint/[0.06] px-3.5 py-3">
           <ShieldCheck className="size-5 shrink-0 text-mint" />
           <div className="min-w-0 flex-1">
             <p className="truncate font-mono text-[13px] text-fg">{shortAddress(value.address, 8)}</p>
-            <p className="text-xs text-mint">Ownership verified by signature{value.proof.method === "demo_wallet" ? " (demo wallet)" : ""}</p>
+            <p className="text-xs text-mint">{value.proof.method === "demo_wallet" ? W.verifiedDemo : W.verified}</p>
           </div>
           <button onClick={() => onChange(null)} className="text-xs text-fg-3 hover:text-fg">
-            Change
+            {W.change}
           </button>
         </motion.div>
       ) : (
@@ -391,14 +399,14 @@ function DestinationPicker({ token, config, value, onChange }: { token: string; 
           {!config.simulated &&
             (publicKey ? (
               <Button className="w-full" variant="secondary" onClick={viaWallet} disabled={!!busy}>
-                {busy === "wallet" ? <LogoSpinner size={18} /> : <Wallet className="size-4" />} Verify {shortAddress(publicKey.toBase58())} by signing
+                {busy === "wallet" ? <LogoSpinner size={18} /> : <Wallet className="size-4" />} {t(W.verifyBySigning, { wallet: shortAddress(publicKey.toBase58()) })}
               </Button>
             ) : (
-              <WalletButton className="w-full" label="Connect refund wallet" />
+              <WalletButton className="w-full" label={W.connect} />
             ))}
           {choices.map((w) => (
             <Button key={w} className="w-full" variant="secondary" onClick={() => viaDemo(w)} disabled={!!busy}>
-              {busy === w ? <LogoSpinner size={18} /> : <Sparkles className="size-4 text-violet" />} Use demo wallet {w === "primary" ? "A" : "B"}
+              {busy === w ? <LogoSpinner size={18} /> : <Sparkles className="size-4 text-violet" />} {w === "primary" ? W.demoA : W.demoB}
             </Button>
           ))}
         </div>

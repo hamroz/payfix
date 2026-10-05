@@ -2,11 +2,13 @@ import Link from "next/link";
 import { Eye } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { LiveSync } from "@/components/app/live-sync";
-import { SideNav, TabBar } from "@/components/app/nav";
+import { LegalLinks, SideNav, TabBar } from "@/components/app/nav";
 import { NetworkPill } from "@/components/app/network-pill";
 import { NotificationBell } from "@/components/app/notifications";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { ThemeToggle } from "@/components/theme/theme";
 import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
+import { getI18n } from "@/lib/i18n/server";
 import { deps, requireWorkspace } from "@/lib/server/context";
 import { listNotifications, unreadCount, type NotificationRow } from "@/lib/server/notifications";
 import { openCaseCount } from "@/lib/server/queries";
@@ -14,6 +16,7 @@ import { openCaseCount } from "@/lib/server/queries";
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const { biz, role, user, workspaces } = await requireWorkspace();
   const { db } = await deps();
+  const { m } = await getI18n();
   const open = await openCaseCount(db, biz.id);
   // Notifications must never take the app shell down with them.
   let notifications: { items: NotificationRow[]; unread: number } = { items: [], unread: 0 };
@@ -34,6 +37,10 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           <SideNav openCases={open} />
         </div>
         <WorkspaceSwitcher current={{ businessId: biz.id, name: biz.name, role }} workspaces={workspaces} email={user.email} />
+        <div className="mt-3 flex items-end justify-between gap-2 px-1">
+          <LegalLinks className="px-1" />
+          <LanguageSwitcher compact up className="shrink-0" />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -45,7 +52,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           <div className="flex items-center gap-2 sm:gap-3">
             {role === "viewer" && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-veil/10 bg-veil/[0.04] px-2.5 py-1 text-[11px] font-medium text-fg-2">
-                <Eye className="size-3.5" /> View only
+                <Eye className="size-3.5" /> {m.app.header.viewOnly}
               </span>
             )}
             <LiveSync scope={{ b: biz.id }} />

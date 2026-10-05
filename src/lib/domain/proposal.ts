@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import type { ProposalLine } from "@/lib/db/schema";
+import type { ErrorInit } from "@/lib/i18n/errors";
+import { englishI18n } from "@/lib/i18n/english";
+import { changeText, type PlanChange, type PlanLineData } from "@/lib/i18n/events";
 import { formatUsd, sum, tryToUnits } from "@/lib/money";
 
 export type OpenInvoice = { id: string; number: string; remaining: bigint };
@@ -14,11 +17,11 @@ export type ProposalInput = {
  * Converts lines entered by a person (decimal amounts like "60" or "40.50") into stored
  * lines with base-unit amounts. Invalid or non-positive amounts are reported, not guessed.
  */
-export function parseLines(draft: ProposalLine[]): { ok: true; lines: ProposalLine[] } | { ok: false; errors: string[] } {
+export function parseLines(draft: ProposalLine[]): { ok: true; lines: ProposalLine[] } | { ok: false; errors: ErrorInit[] } {
   const lines: ProposalLine[] = [];
   for (const l of draft) {
     const units = tryToUnits(l.amount);
-    if (units === null || units <= 0n) return { ok: false, errors: ["Every allocation needs a positive amount."] };
+    if (units === null || units <= 0n) return { ok: false, errors: [{ key: "allocationAmountPositive" }] };
     lines.push({ ...l, amount: units.toString() });
   }
   return { ok: true, lines };
@@ -26,7 +29,7 @@ export function parseLines(draft: ProposalLine[]): { ok: true; lines: ProposalLi
 
 const units = (l: ProposalLine) => BigInt(l.amount);
 
-export type Validation = { ok: true } | { ok: false; errors: string[] };
+export type Validation = { ok: true } | { ok: false; errors: ErrorInit[] };
 
 /**
  * A proposal must place every unit of the available excess exactly once:
@@ -41,9 +44,9 @@ export function validateProposal(
     isValidDestination: (address: string) => boolean;
   },
 ): Validation {
-  const errors: string[] = [];
+  const errors: ErrorInit[] = [];
   const { lines } = input;
-  if (lines.length === 0) errors.push("Add at least one allocation.");
+  if (lines.length === 0) errors.push({ key: "allocationRequired" });
 
   const seenInvoices = new Set<string>();
   let credits = 0;
@@ -51,15 +54,14 @@ export function validateProposal(
   for (const line of lines) {
     const amount = /^\d+$/.test(line.amount) ? BigInt(line.amount) : 0n;
     if (amount <= 0n) {
-      errors.push("Every allocation needs a positive amount.");
+      errors.push({ key: "allocationAmountPositive" });
       continue;
     }
     if (line.type === "invoice") {
       const inv = ctx.openInvoices.find((i) => i.id === line.invoiceId);
-      if (!inv) errors.push("That invoice isn't open for this customer.");
-      else if (amount > inv.remaining)
-        errors.push(`${inv.number} only has ${formatUsd(inv.remaining)} remaining.`);
-      if (seenInvoices.has(line.invoiceId)) errors.push("Each invoice can appear only once.");
+      if (!inv) errors.push({ key: "invoiceNotOpenForCustomer" });
+      else if (amount > inv.remaining) errors.push({ key: "invoiceOnlyHasRemaining", vars: { number: inv.number, remaining: formatUsd(inv.remaining) } });
+      if (seenInvoices.has(line.invoiceId)) errors.push({ key: "invoiceOnce" });
       seenInvoices.add(line.invoiceId);
     } else if (line.type === "credit") {
       credits++;
@@ -67,24 +69,25 @@ export function validateProposal(
       refunds++;
     }
   }
-  if (credits > 1) errors.push("Use a single credit line.");
-  if (refunds > 1) errors.push("Use a single refund line.");
+  if (credits > 1) errors.push({ key: "singleCreditLine" });
+  if (refunds > 1) errors.push({ key: "singleRefundLine" });
 
   const refundTotal = sum(lines.filter((l) => l.type === "refund").map(units));
   if (refundTotal > 0n) {
-    if (!input.refundDestination) errors.push("A refund needs a destination wallet.");
-    else if (!ctx.isValidDestination(input.refundDestination)) errors.push("The refund destination isn't a valid wallet address.");
+    if (!input.refundDestination) errors.push({ key: "refundNeedsDestination" });
+    else if (!ctx.isValidDestination(input.refundDestination)) errors.push({ key: "refundDestinationInvalid" });
   }
 
   const total = sum(lines.map((l) => (/^\d+$/.test(l.amount) ? BigInt(l.amount) : 0n)));
   if (errors.length === 0 && total !== ctx.available) {
     errors.push(
       total > ctx.available
-        ? `That's ${formatUsd(total - ctx.available)} more than the ${formatUsd(ctx.available)} available.`
-        : `${formatUsd(ctx.available - total)} is still unallocated.`,
+        ? { key: "overAllocated", vars: { over: formatUsd(total - ctx.available), available: formatUsd(ctx.available) } }
+        : { key: "stillUnallocated", vars: { amount: formatUsd(ctx.available - total) } },
     );
   }
-  return errors.length ? { ok: false, errors: [...new Set(errors)] } : { ok: true };
+  const unique = [...new Map(errors.map((e) => [JSON.stringify(e), e])).values()];
+  return unique.length ? { ok: false, errors: unique } : { ok: true };
 }
 
 /** Canonical, order-independent representation of a plan (amounts in base units). */
@@ -123,31 +126,37 @@ export const lineAmount = (lines: ProposalLine[], type: ProposalLine["type"]) =>
 
 const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`;
 
-/** Human-readable list of what changed between two versions; used in the timeline. */
-export function describeChanges(
-  prev: ProposalInput,
-  next: ProposalInput,
-  invoiceNumber: (id: string) => string,
-): string[] {
-  const changes: string[] = [];
+/** A plan's lines for display, amounts formatted; `invoiceNumber` returns null for an unknown invoice. */
+export function planLineData(lines: ProposalLine[], invoiceNumber: (id: string) => string | null): PlanLineData[] {
+  return lines.map((l) => ({ type: l.type, amount: formatUsd(BigInt(l.amount)), ...(l.type === "invoice" ? { number: invoiceNumber(l.invoiceId) } : {}) }));
+}
+
+/** What changed between two versions, as codes `renderEvent` turns into sentences; used in the timeline. */
+export function planChanges(prev: ProposalInput, next: ProposalInput, invoiceNumber: (id: string) => string | null): PlanChange[] {
+  const changes: PlanChange[] = [];
   const prevLines = new Map(canonicalLines(prev.lines).map((l) => [l.type === "invoice" ? `invoice:${l.invoiceId}` : l.type, l]));
   const nextLines = new Map(canonicalLines(next.lines).map((l) => [l.type === "invoice" ? `invoice:${l.invoiceId}` : l.type, l]));
-  const label = (key: string) =>
-    key.startsWith("invoice:") ? `Allocation to ${invoiceNumber(key.slice(8))}` : key === "credit" ? "Credit" : "Refund";
+  const subject = (key: string) => (key.startsWith("invoice:") ? "allocation" : (key as "credit" | "refund"));
+  const number = (key: string) => (key.startsWith("invoice:") ? { number: invoiceNumber(key.slice(8)) } : {});
+  const usd = (l: ProposalLine) => formatUsd(BigInt(l.amount));
 
   for (const key of new Set([...prevLines.keys(), ...nextLines.keys()])) {
     const a = prevLines.get(key);
     const b = nextLines.get(key);
-    if (a && !b) changes.push(`${label(key)} removed (was ${formatUsd(BigInt(a.amount))})`);
-    else if (!a && b) changes.push(`${label(key)} added: ${formatUsd(BigInt(b.amount))}`);
-    else if (a && b && a.amount !== b.amount)
-      changes.push(`${label(key)} changed from ${formatUsd(BigInt(a.amount))} to ${formatUsd(BigInt(b.amount))}`);
+    if (a && !b) changes.push({ code: `${subject(key)}Removed`, ...number(key), amount: usd(a) });
+    else if (!a && b) changes.push({ code: `${subject(key)}Added`, ...number(key), amount: usd(b) });
+    else if (a && b && a.amount !== b.amount) changes.push({ code: `${subject(key)}Changed`, ...number(key), from: usd(a), to: usd(b) });
   }
   if ((prev.refundDestination ?? null) !== (next.refundDestination ?? null)) {
     if (prev.refundDestination && next.refundDestination)
-      changes.push(`Refund destination changed from ${short(prev.refundDestination)} to ${short(next.refundDestination)}`);
-    else if (next.refundDestination) changes.push(`Refund destination set to ${short(next.refundDestination)}`);
-    else changes.push("Refund destination removed");
+      changes.push({ code: "destinationChanged", from: short(prev.refundDestination), to: short(next.refundDestination) });
+    else if (next.refundDestination) changes.push({ code: "destinationSet", to: short(next.refundDestination) });
+    else changes.push({ code: "destinationRemoved" });
   }
   return changes;
+}
+
+/** The changes between two versions as English sentences. */
+export function describeChanges(prev: ProposalInput, next: ProposalInput, invoiceNumber: (id: string) => string): string[] {
+  return planChanges(prev, next, invoiceNumber).map((c) => changeText(englishI18n, c)!);
 }

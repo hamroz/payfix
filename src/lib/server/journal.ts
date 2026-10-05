@@ -2,6 +2,8 @@ import { journalEntries, postings, events } from "@/lib/db/schema";
 import { invoiceWithBalance } from "./queries";
 import type { Executor } from "@/lib/db/client";
 import { assertBalanced, type PostingDraft } from "@/lib/domain/ledger";
+import { englishEvent } from "@/lib/i18n/english";
+import type { EventType, EventVars } from "@/lib/i18n/events";
 import { newId } from "@/lib/ids";
 
 /**
@@ -38,26 +40,35 @@ export async function postEntry(
   return true;
 }
 
+type EventBase = {
+  businessId: string;
+  actor: "system" | "business" | "customer";
+  caseId?: string | null;
+  invoiceId?: string | null;
+  customerId?: string | null;
+  actorUserId?: string | null;
+  dedupeKey?: string | null;
+};
+
+/** A known event type with the data its sentence needs (see `EventVars`), plus anything else worth keeping. */
+type TypedEvent = {
+  [K in EventType]: { type: K; message?: never } & (Record<string, never> extends EventVars[K]
+    ? { data?: EventVars[K] & Record<string, unknown> }
+    : { data: EventVars[K] & Record<string, unknown> });
+}[EventType];
+
+/** An event with a literal message (tests, or types without a sentence in `m.events`). */
+type LiteralEvent = { type: string; message: string; data?: Record<string, unknown> };
+
 /**
  * Appends to the company's activity log, which is also what notifications read. `actorUserId`
  * is the member who caused it (so they aren't notified of it). With a `dedupeKey`, the event
- * is written at most once per company; returns false when it already existed.
+ * is written at most once per company; returns false when it already existed. `data` is kept
+ * with the event so `renderEvent` can show it in each viewer's language; the stored `message`
+ * is its English sentence.
  */
-export async function logEvent(
-  db: Executor,
-  e: {
-    businessId: string;
-    actor: "system" | "business" | "customer";
-    type: string;
-    message: string;
-    caseId?: string | null;
-    invoiceId?: string | null;
-    customerId?: string | null;
-    actorUserId?: string | null;
-    dedupeKey?: string | null;
-    data?: Record<string, unknown>;
-  },
-): Promise<boolean> {
+export async function logEvent(db: Executor, e: EventBase & (TypedEvent | LiteralEvent)): Promise<boolean> {
+  const message = e.message ?? englishEvent(e.type, e.data);
   const inserted = await db
     .insert(events)
     .values({
@@ -66,7 +77,7 @@ export async function logEvent(
       actor: e.actor,
       actorUserId: e.actorUserId ?? null,
       type: e.type,
-      message: e.message,
+      message,
       caseId: e.caseId ?? null,
       invoiceId: e.invoiceId ?? null,
       customerId: e.customerId ?? null,
@@ -89,7 +100,7 @@ export async function logInvoicePaid(db: Executor, p: { businessId: string; invo
     actor: p.actorUserId ? "business" : "system",
     actorUserId: p.actorUserId,
     type: "invoice.paid",
-    message: `${inv.number} is paid in full`,
+    data: { number: inv.number },
     dedupeKey: `paid:${inv.id}`,
   });
 }

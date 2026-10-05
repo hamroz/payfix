@@ -3,15 +3,17 @@ import { and, eq, gt, lt, sql } from "drizzle-orm";
 import type { Executor } from "@/lib/db/client";
 import { rateEvents } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
+import type { ErrorKey } from "@/lib/i18n/errors";
 import { InputError } from "./invoices";
 
-export type Limit = { key: string; max: number; windowMs: number; message: string };
+/** `error` is the message shown when the limit is used up. A literal `message` is for tests only (it surfaces as a generic error). */
+export type Limit = { key: string; max: number; windowMs: number } & ({ error: ErrorKey; message?: never } | { message: string; error?: never });
 
 /** Hashes identifiers (emails, IPs) so the table never stores them in the clear. */
 export const rateKey = (action: string, subject: string) => `${action}:${createHash("sha256").update(subject.toLowerCase()).digest("hex").slice(0, 32)}`;
 
 /**
- * Records one use of each limit, or throws the first limit's message if it's already used up.
+ * Records one use of each limit, or throws the first limit's error if it's already used up.
  * Counting then inserting isn't atomic, so a burst can overshoot by a request or two; that's
  * fine for abuse control, which is all this is for.
  */
@@ -21,7 +23,7 @@ export async function consume(db: Executor, limits: Limit[]) {
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(rateEvents)
       .where(and(eq(rateEvents.key, l.key), gt(rateEvents.createdAt, new Date(Date.now() - l.windowMs))));
-    if ((row?.n ?? 0) >= l.max) throw new InputError(l.message);
+    if ((row?.n ?? 0) >= l.max) throw l.error ? new InputError(l.error) : new Error(l.message);
   }
   await db.insert(rateEvents).values(limits.map((l) => ({ id: newId("rl"), key: l.key })));
   // Opportunistic cleanup keeps the table small without a cron job.

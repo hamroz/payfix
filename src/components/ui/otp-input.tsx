@@ -3,9 +3,11 @@
 import { motion } from "motion/react";
 import { useRef } from "react";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n/client";
 
 /** Six-box one-time-code input with paste support. Calls onComplete when all digits are entered. */
 export function OtpInput({ value, onChange, onComplete, disabled, error }: { value: string; onChange: (v: string) => void; onComplete?: (v: string) => void; disabled?: boolean; error?: boolean }) {
+  const { m, t } = useI18n();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const digits = value.padEnd(6, " ").slice(0, 6).split("");
 
@@ -26,7 +28,7 @@ export function OtpInput({ value, onChange, onComplete, disabled, error }: { val
           }}
           inputMode="numeric"
           autoComplete={i === 0 ? "one-time-code" : "off"}
-          aria-label={`Digit ${i + 1}`}
+          aria-label={t(m.ui.otp.digit, { number: String(i + 1) })}
           disabled={disabled}
           value={d.trim()}
           autoFocus={i === 0}

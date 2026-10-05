@@ -8,6 +8,7 @@ import { createCustomerAction, createInvoiceAction } from "@/app/actions/busines
 import { LogoSpinner } from "@/components/brand/logo";
 import { Button, Card, Input, Label, Select } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
+import { useI18n } from "@/lib/i18n/client";
 
 type Customer = { id: string; name: string; email: string };
 
@@ -24,6 +25,8 @@ export function InvoiceForm({ customers }: { customers: Customer[] }) {
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
+  const { m, t } = useI18n();
+  const f = m.invoices.new;
 
   const addCustomer = () =>
     start(async () => {
@@ -43,7 +46,7 @@ export function InvoiceForm({ customers }: { customers: Customer[] }) {
       setError(null);
       const res = await createInvoiceAction({ customerId, title, amount, dueDate: due });
       if (!res.ok) return setError(res.error);
-      toast.push({ tone: "success", title: `${res.number} created`, body: "Share its payment link with your customer." });
+      toast.push({ tone: "success", title: t(f.created, { number: res.number }), body: f.createdBody });
       router.push(`/app/invoices/${res.id}`);
     });
 
@@ -52,26 +55,26 @@ export function InvoiceForm({ customers }: { customers: Customer[] }) {
       <div className="space-y-5">
         <div>
           <div className="flex items-center justify-between">
-            <Label>Customer</Label>
+            <Label>{f.customer}</Label>
             {!adding && (
               <button onClick={() => setAdding(true)} className="mb-1.5 inline-flex items-center gap-1 text-xs text-violet hover:underline">
-                <Plus className="size-3.5" /> New customer
+                <Plus className="size-3.5" /> {f.newCustomer}
               </button>
             )}
           </div>
           <AnimatePresence mode="wait" initial={false}>
             {adding ? (
               <motion.div key="add" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-2 rounded-2xl border border-veil/[0.07] bg-veil/[0.02] p-3">
-                <Input placeholder="Company or person" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                <Input placeholder={f.customerNamePlaceholder} value={newName} onChange={(e) => setNewName(e.target.value)} />
                 <Input placeholder="billing@company.com" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
                 <div className="flex gap-2">
                   {list.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>
-                      Cancel
+                      {m.common.cancel}
                     </Button>
                   )}
                   <Button size="sm" variant="secondary" onClick={addCustomer} disabled={pending || !newName || !newEmail}>
-                    <UserPlus className="size-4" /> Add customer
+                    <UserPlus className="size-4" /> {f.addCustomer}
                   </Button>
                 </div>
               </motion.div>
@@ -89,25 +92,25 @@ export function InvoiceForm({ customers }: { customers: Customer[] }) {
           </AnimatePresence>
         </div>
         <div>
-          <Label htmlFor="title">What’s it for</Label>
-          <Input id="title" placeholder="Brand refresh — phase 2" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Label htmlFor="title">{f.whatFor}</Label>
+          <Input id="title" placeholder={f.whatForPlaceholder} value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="amount">Amount (USD stablecoin)</Label>
+            <Label htmlFor="amount">{f.amount}</Label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-3">$</span>
               <Input id="amount" inputMode="decimal" placeholder="1,000" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} className="pl-7 font-display font-semibold tabular" />
             </div>
           </div>
           <div>
-            <Label htmlFor="due">Due date</Label>
+            <Label htmlFor="due">{f.dueDate}</Label>
             <Input id="due" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           </div>
         </div>
         {error && <p className="text-sm text-rose">{error}</p>}
         <Button size="lg" className="w-full" onClick={submit} disabled={pending || adding || !customerId || !title || !amount}>
-          {pending ? <LogoSpinner size={20} /> : "Create invoice"}
+          {pending ? <LogoSpinner size={20} /> : f.create}
         </Button>
       </div>
     </Card>

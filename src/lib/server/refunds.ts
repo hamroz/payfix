@@ -5,6 +5,7 @@ import type { Db } from "@/lib/db/client";
 import { businesses, cases, refundAttempts, refunds } from "@/lib/db/schema";
 import { move } from "@/lib/domain/ledger";
 import { env } from "@/lib/env";
+import { englishI18n } from "@/lib/i18n/english";
 import { newId } from "@/lib/ids";
 import { formatUsd } from "@/lib/money";
 import { buildRefundTransaction, shortAddress } from "@/lib/solana/tx";
@@ -18,7 +19,7 @@ const toB64 = (b: Uint8Array) => Buffer.from(b).toString("base64");
 
 async function loadRefund(db: Db, refundId: string, businessId: string) {
   const [refund] = await db.select().from(refunds).where(and(eq(refunds.id, refundId), eq(refunds.businessId, businessId)));
-  if (!refund) throw new ResolutionError("Refund not found");
+  if (!refund) throw new ResolutionError("refundNotFound");
   return refund;
 }
 
@@ -30,8 +31,8 @@ async function loadRefund(db: Db, refundId: string, businessId: string) {
 export async function prepareRefund(deps: Deps, p: { businessId: string; refundId: string }) {
   await reconcileRefund(deps, p.refundId);
   const refund = await loadRefund(deps.db, p.refundId, p.businessId);
-  if (refund.status === "confirmed") throw new ResolutionError("This refund is already confirmed.");
-  if (refund.status === "submitted") throw new ResolutionError("A refund transaction is already in flight. Wait for it to confirm or expire.");
+  if (refund.status === "confirmed") throw new ResolutionError("refundAlreadyConfirmed");
+  if (refund.status === "submitted") throw new ResolutionError("refundInFlight");
 
   const [active] = await deps.db
     .select()
@@ -74,14 +75,14 @@ async function unsignedFromMessage(messageB64: string) {
  */
 export async function submitSignedRefund(deps: Deps, p: { businessId: string; attemptId: string; signedTransaction: string; actorUserId?: string }) {
   const [attempt] = await deps.db.select().from(refundAttempts).where(eq(refundAttempts.id, p.attemptId));
-  if (!attempt) throw new ResolutionError("Refund attempt not found");
+  if (!attempt) throw new ResolutionError("refundAttemptNotFound");
   const refund = await loadRefund(deps.db, attempt.refundId, p.businessId);
-  if (attempt.status !== "prepared") throw new ResolutionError(`This attempt is already ${attempt.status}.`);
+  if (attempt.status !== "prepared") throw new ResolutionError("attemptAlready", { status: attempt.status });
 
   const bytes = Buffer.from(p.signedTransaction, "base64");
   const tx = Transaction.from(bytes);
-  if (toB64(tx.serializeMessage()) !== attempt.message) throw new ResolutionError("The signed transaction doesn't match the prepared refund.");
-  if (!tx.signature || !tx.verifySignatures()) throw new ResolutionError("The transaction isn't signed by the business wallet.");
+  if (toB64(tx.serializeMessage()) !== attempt.message) throw new ResolutionError("signedTxMismatch");
+  if (!tx.signature || !tx.verifySignatures()) throw new ResolutionError("txNotSignedByBusiness");
   const signature = bs58.encode(tx.signature);
 
   const claimed = await deps.db.transaction(async (t) => {
@@ -98,12 +99,11 @@ export async function submitSignedRefund(deps: Deps, p: { businessId: string; at
       actor: "business",
       actorUserId: p.actorUserId,
       type: "refund.submitted",
-      message: `Business signed the ${formatUsd(refund.amount)} refund to ${shortAddress(refund.destinationOwner)}`,
-      data: { signature },
+      data: { signature, amount: formatUsd(refund.amount), destination: shortAddress(refund.destinationOwner) },
     });
     return true;
   });
-  if (!claimed) throw new ResolutionError("This attempt was already submitted.");
+  if (!claimed) throw new ResolutionError("attemptAlreadySubmitted");
 
   try {
     await deps.chain.sendRawTransaction(bytes);
@@ -112,11 +112,7 @@ export async function submitSignedRefund(deps: Deps, p: { businessId: string; at
     const msg = err instanceof Error ? err.message : String(err);
     if (/simulation failed|insufficient|custom program error/i.test(msg)) {
       await markFailed(deps.db, refund, attempt.id, msg);
-      throw new ResolutionError(
-        /insufficient|0x1\b/i.test(msg)
-          ? "The refund wasn’t sent: the business wallet doesn’t have enough funds or SOL for fees. Nothing moved; top it up and sign again."
-          : "The network rejected the refund, so nothing moved. You can sign it again.",
-      );
+      throw new ResolutionError(/insufficient|0x1\b/i.test(msg) ? "refundInsufficientFunds" : "refundRejected");
     }
   }
   return { signature };
@@ -131,7 +127,6 @@ async function markFailed(db: Db, refund: typeof refunds.$inferSelect, attemptId
       caseId: refund.caseId,
       actor: "system",
       type: "refund.failed",
-      message: `Refund transaction failed and did not move funds. It can be retried.`,
       data: { error: error.slice(0, 300) },
     });
   });
@@ -167,7 +162,7 @@ export async function reconcileRefund(deps: Deps, refundId: string) {
         key: `refund-confirmed:${refund.id}`,
         kind: "refund",
         caseId: refund.caseId,
-        memo: `Refund of ${formatUsd(refund.amount)} confirmed`,
+        memo: englishI18n.t(englishI18n.m.events.memos.refundConfirmed, { amount: formatUsd(refund.amount) }),
         postings: move("refund_pending", "refunded", refund.amount, { refundId: refund.id, caseId: refund.caseId }),
       });
       if (posted) {
@@ -177,15 +172,14 @@ export async function reconcileRefund(deps: Deps, refundId: string) {
           caseId: refund.caseId,
           actor: "system",
           type: "refund.confirmed",
-          message: `Refund of ${formatUsd(refund.amount)} confirmed on chain. Case resolved.`,
-          data: { signature: attempt.signature },
+          data: { signature: attempt.signature, amount: formatUsd(refund.amount) },
         });
         await logEvent(t, {
           businessId: refund.businessId,
           caseId: refund.caseId,
           actor: "system",
           type: "case.resolved",
-          message: `Exception resolved: ${formatUsd(refund.amount)} refunded`,
+          data: { variant: "refunded", amount: formatUsd(refund.amount) },
         });
       }
     });
@@ -202,7 +196,6 @@ export async function reconcileRefund(deps: Deps, refundId: string) {
           caseId: refund.caseId,
           actor: "system",
           type: "refund.expired",
-          message: "The refund transaction expired without landing. No funds moved; it's safe to sign again.",
         });
       });
       return "awaiting_signature";

@@ -6,12 +6,15 @@ import { applyCreditAction } from "@/app/actions/business";
 import { LogoSpinner } from "@/components/brand/logo";
 import { Button, Card } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
+import { useI18n } from "@/lib/i18n/client";
 import { formatUsd } from "@/lib/money";
 
 /** Spend a customer's stored credit on this invoice — up to whatever is still owed. */
 export function ApplyCredit({ invoiceId, credit, remaining, customerName }: { invoiceId: string; credit: string; remaining: string; customerName: string }) {
   const [pending, start] = useTransition();
   const toast = useToast();
+  const { m, t } = useI18n();
+  const a = m.invoices.applyCredit;
   const amount = BigInt(credit) < BigInt(remaining) ? BigInt(credit) : BigInt(remaining);
   return (
     <Card className="border-violet/20 p-5">
@@ -20,8 +23,8 @@ export function ApplyCredit({ invoiceId, credit, remaining, customerName }: { in
           <PiggyBank className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-display text-[15px] font-semibold">{formatUsd(BigInt(credit))} of credit available</h3>
-          <p className="mt-0.5 text-xs text-fg-3">{customerName} chose to keep this as credit with you. Applying it settles part of this invoice without a new payment.</p>
+          <h3 className="font-display text-[15px] font-semibold">{t(a.available, { amount: formatUsd(BigInt(credit)) })}</h3>
+          <p className="mt-0.5 text-xs text-fg-3">{t(a.body, { name: customerName })}</p>
         </div>
       </div>
       <Button
@@ -30,11 +33,11 @@ export function ApplyCredit({ invoiceId, credit, remaining, customerName }: { in
         onClick={() =>
           start(async () => {
             const res = await applyCreditAction(invoiceId);
-            toast.push(res.ok ? { tone: "success", title: `${formatUsd(BigInt(res.applied))} of credit applied` } : { tone: "error", title: "Credit not applied", body: res.error });
+            toast.push(res.ok ? { tone: "success", title: t(a.applied, { amount: formatUsd(BigInt(res.applied)) }) } : { tone: "error", title: a.failed, body: res.error });
           })
         }
       >
-        {pending ? <LogoSpinner size={18} /> : <PiggyBank className="size-4" />} Apply {formatUsd(amount)} credit
+        {pending ? <LogoSpinner size={18} /> : <PiggyBank className="size-4" />} {t(a.button, { amount: formatUsd(amount) })}
       </Button>
     </Card>
   );

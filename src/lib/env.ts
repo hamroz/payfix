@@ -30,6 +30,8 @@ const schema = z.object({
   EMAIL_FROM: z.string().optional().transform((v) => v || "PayFix <onboarding@resend.dev>"),
   // Where the production site sends people who want to try the devnet demo.
   DEMO_URL: z.string().optional().transform((v) => v || undefined),
+  // Shown on the legal pages for privacy requests and security reports. Unset = a generic contact sentence.
+  CONTACT_EMAIL: z.string().optional().transform((v) => v?.trim() || undefined),
 });
 
 export type Env = Omit<z.infer<typeof schema>, "SOLANA_CLUSTER" | "SOLANA_RPC_URL" | "PAYFIX_TOKEN_LABEL"> & {
