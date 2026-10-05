@@ -178,7 +178,8 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
       }${plan.late ? " (late)" : ""}`,
       data: { signature, applied: plan.apply.toString(), excess: plan.excess.toString() },
     });
-    if (settled) await logInvoicePaid(t, { businessId: biz.id, invoiceId: invoice.id });
+    // Only the payment that takes the balance to zero; a duplicate on a settled invoice isn't news.
+    if (settled && balance.applied < invoice.amount) await logInvoicePaid(t, { businessId: biz.id, invoiceId: invoice.id });
 
     if (plan.exception) {
       const caseId = newId("case");

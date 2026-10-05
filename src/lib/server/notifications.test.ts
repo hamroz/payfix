@@ -78,6 +78,14 @@ describe("notifications", () => {
     expect(await ofType("invoice.paid", { businessId: b.businessId })).toHaveLength(0);
   });
 
+  it("doesn't call a duplicate payment 'paid in full' for an invoice settled before notifications existed", async () => {
+    const inv = await createInvoice(db, { businessId: a.businessId, customerId: (await acme()).id, title: "Settled long ago", amount: $("30"), dueAt: new Date(Date.now() + 864e5) });
+    await pay(inv.id, "30");
+    await db.delete(events).where(and(eq(events.type, "invoice.paid"), eq(events.invoiceId, inv.id))); // as if paid before this release
+    await pay(inv.id, "30");
+    expect(await ofType("invoice.paid", { invoiceId: inv.id })).toHaveLength(0);
+  });
+
   it("logs invoice.paid and case.resolved when a plan settles an invoice, and when credit settles one", async () => {
     const customerId = (await acme()).id;
     const x = await createInvoice(db, { businessId: a.businessId, customerId, title: "Overpaid", amount: $("100"), dueAt: new Date(Date.now() + 864e5) });
