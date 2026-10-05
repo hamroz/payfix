@@ -9,7 +9,7 @@ import { formatUsd } from "@/lib/money";
 import { parseTokenMovement } from "@/lib/solana/parse";
 import { ata, shortAddress } from "@/lib/solana/tx";
 import type { ChainClient } from "./chain";
-import { logEvent, postEntry } from "./journal";
+import { logEvent, logInvoicePaid, postEntry } from "./journal";
 import { invoiceWithBalance } from "./queries";
 import { listWallets } from "./wallets";
 
@@ -178,6 +178,8 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
       }${plan.late ? " (late)" : ""}`,
       data: { signature, applied: plan.apply.toString(), excess: plan.excess.toString() },
     });
+    // Only the payment that takes the balance to zero; a duplicate on a settled invoice isn't news.
+    if (settled && balance.applied < invoice.amount) await logInvoicePaid(t, { businessId: biz.id, invoiceId: invoice.id });
 
     if (plan.exception) {
       const caseId = newId("case");

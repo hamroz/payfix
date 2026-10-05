@@ -23,7 +23,7 @@ There are no background workers. Open pages poll `POST /api/sync?b=<businessId>`
 - **Resolution:** `cases` (kind, status), `case_transfers`, `resolution_links` (SHA-256 token hash, `expires_at`, `revoked_at`), `proposals` (immutable versions: lines, destination, proof, available, hash, status), `approvals` (proposal hash, invalidation).
 - **Refunds:** `refunds` (unique per proposal; source wallet, destination, status), `refund_attempts` (exact message, blockhash, last valid height, signature; partial unique index `refund_attempts_one_active`).
 - **Ledger:** `journal_entries` (unique `idempotency_key`), `postings` (account, signed amount, plus transfer/invoice/customer/refund/case dimensions).
-- **Activity/auth:** `events` (timeline), `otp_codes` (HMAC'd, 10-min TTL, 5 attempts), `sessions` (hashed tokens, 7 days), `outbox` (emails; shown in the demo inbox).
+- **Activity/auth:** `events` (timeline; also the source of notifications — `actor_user_id` hides a member's own actions, `dedupe_key` makes once-only events like `overdue:<invoice>` idempotent), `notification_reads` (per-member read marks; `memberships.notifications_read_at` is the "mark all read" cursor and `memberships.notification_muted` the categories a member turned off), `otp_codes` (HMAC'd, 10-min TTL, 5 attempts), `sessions` (hashed tokens, 7 days), `outbox` (emails; shown in the demo inbox).
 
 ## Double-entry ledger
 

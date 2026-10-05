@@ -5,7 +5,7 @@ import { move } from "@/lib/domain/ledger";
 import { newId } from "@/lib/ids";
 import { formatUsd, min } from "@/lib/money";
 import { InputError } from "./invoices";
-import { logEvent, postEntry } from "./journal";
+import { logEvent, logInvoicePaid, postEntry } from "./journal";
 import { customerCredit, invoiceWithBalance } from "./queries";
 
 /**
@@ -13,7 +13,7 @@ import { customerCredit, invoiceWithBalance } from "./queries";
  * customer, re-reading both balances, so double clicks or concurrent requests can never
  * spend the same credit twice or push an invoice past its amount.
  */
-export async function applyCredit(db: Db, p: { businessId: string; invoiceId: string; amount?: bigint }) {
+export async function applyCredit(db: Db, p: { businessId: string; invoiceId: string; amount?: bigint; actorUserId?: string }) {
   return db.transaction(async (t) => {
     const [inv] = await t.select().from(invoices).where(and(eq(invoices.id, p.invoiceId), eq(invoices.businessId, p.businessId)));
     if (!inv) throw new InputError("Invoice not found.");
@@ -34,9 +34,11 @@ export async function applyCredit(db: Db, p: { businessId: string; invoiceId: st
       invoiceId: inv.id,
       customerId: inv.customerId,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "credit.applied",
       message: `${formatUsd(amount)} of customer credit applied to ${inv.number}`,
     });
+    await logInvoicePaid(t, { businessId: p.businessId, invoiceId: inv.id, actorUserId: p.actorUserId });
     return { applied: amount };
   });
 }

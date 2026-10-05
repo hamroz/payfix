@@ -22,7 +22,7 @@ import { formatUsd } from "@/lib/money";
 import { destinationProofMessage, verifyWalletSignature } from "@/lib/solana/proof";
 import { ata, isWalletAddress } from "@/lib/solana/tx";
 import { deliverOutbox, queueEmail } from "./email";
-import { logEvent, postEntry } from "./journal";
+import { logEvent, logInvoicePaid, postEntry } from "./journal";
 import { caseAvailable, caseSources, invoicesWithBalances } from "./queries";
 
 export class ResolutionError extends Error {}
@@ -54,7 +54,7 @@ export async function activeApproval(db: Executor, proposalId: string) {
 // ── Unmatched transfers ────────────────────────────────────────────────────
 
 /** The business attributes an unmatched transfer to a customer so the customer can resolve it. */
-export async function assignCustomer(db: Db, p: { businessId: string; caseId: string; customerId: string }) {
+export async function assignCustomer(db: Db, p: { businessId: string; caseId: string; customerId: string; actorUserId?: string }) {
   await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
     if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
@@ -69,6 +69,7 @@ export async function assignCustomer(db: Db, p: { businessId: string; caseId: st
       caseId: c.id,
       customerId: cust.id,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "case.assigned",
       message: `Payment attributed to ${cust.name}`,
     });
@@ -78,7 +79,7 @@ export async function assignCustomer(db: Db, p: { businessId: string; caseId: st
 // ── Resolution links ───────────────────────────────────────────────────────
 
 /** Issues a fresh link (revoking earlier ones) and emails it to the invoice customer. Returns the URL. */
-export async function sendResolutionLink(db: Db, p: { businessId: string; caseId: string }): Promise<string> {
+export async function sendResolutionLink(db: Db, p: { businessId: string; caseId: string; actorUserId?: string }): Promise<string> {
   const url = await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
     if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
@@ -109,6 +110,7 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
       caseId: c.id,
       customerId: cust.id,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "link.sent",
       message: `Resolution link sent to ${cust.email}`,
     });
@@ -239,7 +241,7 @@ export function summarize(lines: ProposalLine[], invoiceNumber: (id: string) => 
  * it is voided and the case goes back to the customer, who can submit a new version.
  * The business never edits the customer's plan itself: it's the customer's money.
  */
-export async function requestChanges(db: Db, p: { businessId: string; caseId: string; proposalId: string; note: string }) {
+export async function requestChanges(db: Db, p: { businessId: string; caseId: string; proposalId: string; note: string; actorUserId?: string }) {
   const note = p.note.trim();
   if (note.length < 3) throw new ResolutionError("Tell the customer what to change.");
   await db.transaction(async (t) => {
@@ -265,6 +267,7 @@ export async function requestChanges(db: Db, p: { businessId: string; caseId: st
       caseId: c.id,
       customerId: c.customerId,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "proposal.declined",
       message: `Business asked for changes to v${latest.version}: “${note}”`,
     });
@@ -273,7 +276,7 @@ export async function requestChanges(db: Db, p: { businessId: string; caseId: st
 }
 
 /** The business approves one exact version, bound by its hash. */
-export async function approveProposal(db: Db, p: { businessId: string; caseId: string; proposalId: string; approvedBy: string }) {
+export async function approveProposal(db: Db, p: { businessId: string; caseId: string; proposalId: string; approvedBy: string; actorUserId?: string }) {
   await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
     if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
@@ -291,6 +294,7 @@ export async function approveProposal(db: Db, p: { businessId: string; caseId: s
       caseId: c.id,
       customerId: c.customerId,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "proposal.approved",
       message: `Business approved plan v${latest.version} (${latest.hash.slice(0, 10)})`,
       data: { version: latest.version, hash: latest.hash },
@@ -304,7 +308,7 @@ export async function approveProposal(db: Db, p: { businessId: string; caseId: s
  * and credit post immediately; a refund is reserved in refund_pending until its on-chain
  * transfer confirms.
  */
-export async function executePlan(db: Db, p: { businessId: string; caseId: string }): Promise<{ refundId: string | null }> {
+export async function executePlan(db: Db, p: { businessId: string; caseId: string; actorUserId?: string }): Promise<{ refundId: string | null }> {
   return db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
     if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
@@ -391,11 +395,24 @@ export async function executePlan(db: Db, p: { businessId: string; caseId: strin
       caseId: c.id,
       customerId: c.customerId,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "plan.executed",
       message: refundId
         ? `Allocations recorded. ${formatUsd(refundAmount)} refund reserved and waiting for the business wallet signature.`
         : "Allocations recorded. Case resolved.",
     });
+    for (const line of prop.lines)
+      if (line.type === "invoice") await logInvoicePaid(t, { businessId: c.businessId, invoiceId: line.invoiceId, actorUserId: p.actorUserId });
+    if (!refundId)
+      await logEvent(t, {
+        businessId: c.businessId,
+        caseId: c.id,
+        customerId: c.customerId,
+        actor: "business",
+        actorUserId: p.actorUserId,
+        type: "case.resolved",
+        message: `Exception resolved: ${formatUsd(prop.available)} settled as agreed`,
+      });
     return { refundId };
   });
 }

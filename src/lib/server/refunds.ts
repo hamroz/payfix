@@ -72,7 +72,7 @@ async function unsignedFromMessage(messageB64: string) {
  * Accepts the wallet-signed transaction, checks it is byte-for-byte the prepared one,
  * records its signature *before* broadcasting, then broadcasts.
  */
-export async function submitSignedRefund(deps: Deps, p: { businessId: string; attemptId: string; signedTransaction: string }) {
+export async function submitSignedRefund(deps: Deps, p: { businessId: string; attemptId: string; signedTransaction: string; actorUserId?: string }) {
   const [attempt] = await deps.db.select().from(refundAttempts).where(eq(refundAttempts.id, p.attemptId));
   if (!attempt) throw new ResolutionError("Refund attempt not found");
   const refund = await loadRefund(deps.db, attempt.refundId, p.businessId);
@@ -96,6 +96,7 @@ export async function submitSignedRefund(deps: Deps, p: { businessId: string; at
       businessId: refund.businessId,
       caseId: refund.caseId,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "refund.submitted",
       message: `Business signed the ${formatUsd(refund.amount)} refund to ${shortAddress(refund.destinationOwner)}`,
       data: { signature },
@@ -178,6 +179,13 @@ export async function reconcileRefund(deps: Deps, refundId: string) {
           type: "refund.confirmed",
           message: `Refund of ${formatUsd(refund.amount)} confirmed on chain. Case resolved.`,
           data: { signature: attempt.signature },
+        });
+        await logEvent(t, {
+          businessId: refund.businessId,
+          caseId: refund.caseId,
+          actor: "system",
+          type: "case.resolved",
+          message: `Exception resolved: ${formatUsd(refund.amount)} refunded`,
         });
       }
     });
