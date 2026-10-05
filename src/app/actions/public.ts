@@ -22,19 +22,19 @@ export async function createPaymentRequestAction(invoiceId: string, amount: stri
   return run(async () => {
     const { db } = await deps();
     const units = amount === null || amount === "" ? null : tryToUnits(amount);
-    if (amount && units === null) throw new InputError("Enter an amount like 400 or 49.99.");
+    if (amount && units === null) throw new InputError("paymentAmountFormat");
     return createPaymentRequest(db, { invoiceId, amount: units });
   });
 }
 
 export async function demoPayAction(invoiceId: string, amount: string) {
   return run(async () => {
-    if (!env().DEMO_MODE) throw new InputError("Demo payments are only available in demo mode.");
+    if (!env().DEMO_MODE) throw new InputError("demoPaymentsOnly");
     const units = tryToUnits(amount);
-    if (units === null || units <= 0n) throw new InputError("Enter an amount like 400 or 49.99.");
+    if (units === null || units <= 0n) throw new InputError("paymentAmountFormat");
     const { db } = await deps();
     const [inv] = await db.select({ businessId: invoices.businessId }).from(invoices).where(eq(invoices.id, invoiceId));
-    if (!inv) throw new InputError("Invoice not found.");
+    if (!inv) throw new InputError("invoiceNotFound");
     const res = await demoPay(db, { invoiceId, amount: units });
     await syncCompany(inv.businessId, true);
     refresh();
@@ -46,9 +46,9 @@ export async function demoPayAction(invoiceId: string, amount: string) {
 async function authorizedCase(token: string) {
   const { db } = await deps();
   const found = await findLink(db, token);
-  if (!found.ok) throw new ResolutionError(found.reason);
+  if (!found.ok) throw new ResolutionError(found.error);
   const customerId = await currentCustomerId();
-  if (customerId !== found.link.customerId) throw new ResolutionError("Verify your email to continue.");
+  if (customerId !== found.link.customerId) throw new ResolutionError("verifyEmailToContinue");
   const [c] = await db.select().from(cases).where(eq(cases.id, found.link.caseId));
   return { db, c, customerId };
 }
@@ -57,14 +57,14 @@ async function authorizedCase(token: string) {
 export async function destinationChallengeAction(token: string, destination: string) {
   return run(async () => {
     const { c } = await authorizedCase(token);
-    if (!isWalletAddress(destination)) throw new InputError("That isn't a valid Solana wallet address.");
+    if (!isWalletAddress(destination)) throw new InputError("invalidWalletAddress");
     return { message: destinationProofMessage({ caseId: c.id, destination, nonce: newToken().slice(0, 16) }) };
   });
 }
 
 export async function demoProofAction(token: string, which: "primary" | "alternate") {
   return run(async () => {
-    if (!env().DEMO_MODE) throw new InputError("Demo wallets are only available in demo mode.");
+    if (!env().DEMO_MODE) throw new InputError("demoWalletsOnly");
     const { c } = await authorizedCase(token);
     return demoDestinationProof(c.id, which);
   });

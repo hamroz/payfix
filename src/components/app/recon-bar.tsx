@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/cn";
 import { formatUsd } from "@/lib/money";
 
@@ -69,9 +70,10 @@ export function ReconBar({ segments, className, showLegend = true, height = 12 }
 export function Equation({ received, parts, className }: { received: string; parts: { label: string; units: string; tone?: Segment["tone"] }[]; className?: string }) {
   const sum = parts.reduce((a, p) => a + BigInt(p.units), 0n);
   const balanced = sum === BigInt(received);
+  const { m } = useI18n();
   return (
     <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-2 font-display text-sm", className)}>
-      <Chip tone="slate" label="received" units={received} />
+      <Chip tone="slate" label={m.app.equation.received} units={received} />
       <span className={cn("px-1 text-lg", balanced ? "text-mint" : "text-rose")}>{balanced ? "=" : "≠"}</span>
       {parts.map((p, i) => (
         <span key={p.label} className="flex items-center gap-2">

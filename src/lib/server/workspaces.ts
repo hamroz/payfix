@@ -25,11 +25,11 @@ import {
   type Role,
 } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import type { Locale } from "@/lib/i18n/config";
 import { newId } from "@/lib/ids";
 import { toUnits } from "@/lib/money";
-import { roleLabel } from "@/lib/roles";
 import { createCustomer, createInvoice, InputError } from "./invoices";
-import { deliverOutbox, queueEmail } from "./email";
+import { deliverOutbox, emailI18n, queueEmail } from "./email";
 import { logEvent } from "./journal";
 
 const normalizeEmail = (e: string) => e.trim().toLowerCase();
@@ -37,7 +37,7 @@ const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 export async function findOrCreateUser(db: Executor, email: string) {
   const e = normalizeEmail(email);
-  if (!isEmail(e)) throw new InputError("Enter a valid email address.");
+  if (!isEmail(e)) throw new InputError("invalidEmail");
   await db.insert(users).values({ id: newId("usr"), email: e }).onConflictDoNothing();
   const [u] = await db.select().from(users).where(eq(users.email, e));
   return u;
@@ -72,9 +72,9 @@ export async function createWorkspace(
   p: { userId: string; email: string; name: string; wallet: { address: string; label: string; secretEnc?: string | null } },
 ) {
   const name = p.name.trim();
-  if (name.length < 2) throw new InputError("Enter your company name.");
+  if (name.length < 2) throw new InputError("companyNameRequired");
   const mint = env().PAYFIX_MINT;
-  if (!mint) throw new InputError("This deployment has no test token configured.");
+  if (!mint) throw new InputError("noTestToken");
   const businessId = newId("biz");
   await db.transaction(async (t) => {
     await t.insert(businesses).values({ id: businessId, name, ownerEmail: p.email, walletAddress: p.wallet.address, mint });
@@ -145,23 +145,26 @@ export async function listMembers(db: Executor, businessId: string) {
     .orderBy(asc(memberships.createdAt));
 }
 
-export async function addMember(db: Db, p: { businessId: string; email: string; role: Role; invitedBy: string; actorUserId?: string }) {
+/** Adds a person to the team and emails them, in `locale` (the inviting owner's language). */
+export async function addMember(db: Db, p: { businessId: string; email: string; role: Role; invitedBy: string; actorUserId?: string; locale?: Locale }) {
   const user = await findOrCreateUser(db, p.email);
   const inserted = await db
     .insert(memberships)
     .values({ id: newId("mem"), businessId: p.businessId, userId: user.id, role: p.role })
     .onConflictDoNothing()
     .returning();
-  if (inserted.length === 0) throw new InputError("That person is already on the team.");
+  if (inserted.length === 0) throw new InputError("alreadyOnTeam");
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, p.businessId));
+  const { m, t } = emailI18n(p.locale);
+  const vars = { business: biz.name, invitedBy: p.invitedBy, role: m.roles[p.role].label };
   await queueEmail(db, {
     businessId: p.businessId,
     to: user.email,
-    subject: `You've been added to ${biz.name} on PayFix`,
-    body: `${p.invitedBy} added you as ${p.role}. Sign in with this email address to open the workspace.`,
+    subject: t(m.emails.memberAdded.subject, vars),
+    body: t(m.emails.memberAdded.body, vars),
     link: `${env().APP_URL}/login`,
   });
-  await logEvent(db, { businessId: p.businessId, actor: "business", actorUserId: p.actorUserId, type: "member.added", message: `${user.email} joined as ${p.role}` });
+  await logEvent(db, { businessId: p.businessId, actor: "business", actorUserId: p.actorUserId, type: "member.added", data: { email: user.email, role: p.role } });
   // New members start caught up: earlier history (and their own arrival) is already read.
   await db.update(memberships).set({ notificationsReadAt: sql`now()` }).where(eq(memberships.id, inserted[0].id));
   await deliverOutbox(db);
@@ -175,8 +178,8 @@ async function ownerCount(db: Executor, businessId: string) {
 export async function setMemberRole(db: Db, p: { businessId: string; userId: string; role: Role; actorUserId?: string }) {
   return db.transaction(async (t) => {
     const [m] = await t.select().from(memberships).where(and(eq(memberships.businessId, p.businessId), eq(memberships.userId, p.userId))).for("update");
-    if (!m) throw new InputError("That person isn't on the team.");
-    if (m.role === "owner" && p.role !== "owner" && (await ownerCount(t, p.businessId)) <= 1) throw new InputError("A company needs at least one owner.");
+    if (!m) throw new InputError("notOnTeam");
+    if (m.role === "owner" && p.role !== "owner" && (await ownerCount(t, p.businessId)) <= 1) throw new InputError("lastOwner");
     if (m.role === p.role) return;
     await t.update(memberships).set({ role: p.role }).where(eq(memberships.id, m.id));
     const user = await userById(t, p.userId);
@@ -185,7 +188,7 @@ export async function setMemberRole(db: Db, p: { businessId: string; userId: str
       actor: "business",
       actorUserId: p.actorUserId,
       type: "member.role_changed",
-      message: `${user?.email ?? "A member"} is now ${roleLabel(p.role)}`,
+      data: { email: user?.email ?? null, role: p.role },
     });
   });
 }
@@ -193,8 +196,8 @@ export async function setMemberRole(db: Db, p: { businessId: string; userId: str
 export async function removeMember(db: Db, p: { businessId: string; userId: string; actorUserId?: string }) {
   return db.transaction(async (t) => {
     const [m] = await t.select().from(memberships).where(and(eq(memberships.businessId, p.businessId), eq(memberships.userId, p.userId))).for("update");
-    if (!m) throw new InputError("That person isn't on the team.");
-    if (m.role === "owner" && (await ownerCount(t, p.businessId)) <= 1) throw new InputError("A company needs at least one owner.");
+    if (!m) throw new InputError("notOnTeam");
+    if (m.role === "owner" && (await ownerCount(t, p.businessId)) <= 1) throw new InputError("lastOwner");
     await t.delete(memberships).where(eq(memberships.id, m.id));
     const user = await userById(t, p.userId);
     await logEvent(t, {
@@ -202,7 +205,7 @@ export async function removeMember(db: Db, p: { businessId: string; userId: stri
       actor: "business",
       actorUserId: p.actorUserId,
       type: "member.removed",
-      message: `${user?.email ?? "A member"} was removed from the team`,
+      data: { email: user?.email ?? null },
     });
   });
 }

@@ -2,11 +2,17 @@ import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import type { Db, Executor } from "@/lib/db/client";
 import { outbox } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import type { Locale } from "@/lib/i18n/config";
+import { dictionaries } from "@/lib/i18n/dictionaries";
+import { createTranslator } from "@/lib/i18n/translate";
 import { newId } from "@/lib/ids";
 
 export type Email = { businessId?: string | null; to: string; subject: string; body: string; link?: string | null; code?: string | null };
 
 const MAX_ATTEMPTS = 5;
+
+/** Translator for an email written in `locale` (the language of whoever triggered it). */
+export const emailI18n = (locale: Locale = "en") => createTranslator(locale, dictionaries[locale]);
 
 /**
  * Queues an email. Call it inside the same transaction as the change it announces, then call

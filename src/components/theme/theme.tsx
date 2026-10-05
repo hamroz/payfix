@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n/client";
 
 export type ThemePref = "light" | "dark" | "system";
 const KEY = "pf-theme";
@@ -29,14 +30,11 @@ function readPref(): ThemePref {
 }
 
 const order: ThemePref[] = ["system", "light", "dark"];
-const meta = {
-  system: { icon: Monitor, label: "System theme" },
-  light: { icon: Sun, label: "Light theme" },
-  dark: { icon: Moon, label: "Dark theme" },
-};
+const icons = { system: Monitor, light: Sun, dark: Moon };
 
 /** Cycles System → Light → Dark. Follows the OS setting live while on System. */
 export function ThemeToggle({ className }: { className?: string }) {
+  const { m, t } = useI18n();
   const [pref, setPref] = useState<ThemePref | null>(null);
 
   useEffect(() => {
@@ -61,13 +59,14 @@ export function ThemeToggle({ className }: { className?: string }) {
     setPref(p);
   };
 
-  const current = meta[pref ?? "system"];
+  const Icon = icons[pref ?? "system"];
+  const label = m.ui.theme[pref ?? "system"];
   return (
     <button
       type="button"
       onClick={next}
-      aria-label={`${current.label}. Switch theme`}
-      title={current.label}
+      aria-label={t(m.ui.theme.switch, { current: label })}
+      title={label}
       className={cn(
         "relative grid size-8 place-items-center overflow-hidden rounded-lg border border-veil/10 bg-veil/[0.04] text-fg-2 transition hover:bg-veil/[0.08] hover:text-fg",
         className,
@@ -81,7 +80,7 @@ export function ThemeToggle({ className }: { className?: string }) {
           exit={{ y: -10, opacity: 0, rotate: 45 }}
           transition={{ duration: 0.2 }}
         >
-          <current.icon className="size-4" />
+          <Icon className="size-4" />
         </motion.span>
       </AnimatePresence>
     </button>

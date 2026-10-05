@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { businessWallets, cases, refunds } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
 import { toUnits, tryToUnits } from "@/lib/money";
 import type { Role } from "@/lib/roles";
 import { isWalletAddress } from "@/lib/solana/tx";
@@ -44,20 +45,20 @@ const MAX_INVOICE = tryToUnits("1000000000")!;
 export async function createWorkspaceAction(input: { name: string; walletAddress?: string; walletProof?: OwnershipProof; sampleData?: boolean }) {
   const res = await run(async () => {
     const user = await currentUser();
-    if (!user) throw new InputError("Sign in first.");
+    if (!user) throw new InputError("signInFirst");
     const { db } = await deps();
     let wallet: { address: string; label: string; secretEnc?: string };
     if (env().DEMO_MODE && !input.walletAddress) {
       // Each demo wallet costs the treasury devnet SOL, so creation is limited.
       await consume(db, [
-        { key: rateKey("demo-company", user.id), max: 5, windowMs: DAY, message: "You’ve created several demo companies today. Reuse one from the company menu, or try again tomorrow." },
-        { key: "demo-company:global", max: 60, windowMs: HOUR, message: "Lots of people are trying the demo right now. Try again in a few minutes." },
+        { key: rateKey("demo-company", user.id), max: 5, windowMs: DAY, error: "rateDemoCompanies" },
+        { key: "demo-company:global", max: 60, windowMs: HOUR, error: "rateDemoCompaniesGlobal" },
       ]);
       const w = await provisionDemoWallet();
       wallet = { address: w.address, label: "Demo merchant wallet", secretEnc: w.secretEnc };
     } else {
       const address = (input.walletAddress ?? "").trim();
-      if (!isWalletAddress(address)) throw new InputError("Enter the Solana wallet address payments should go to.");
+      if (!isWalletAddress(address)) throw new InputError("receivingWalletRequired");
       assertWalletOwnership(address, input.walletProof);
       wallet = { address, label: "Primary wallet" };
     }
@@ -73,9 +74,9 @@ export async function createWorkspaceAction(input: { name: string; walletAddress
 export async function switchWorkspaceAction(businessId: string) {
   const res = await run(async () => {
     const user = await currentUser();
-    if (!user) throw new InputError("Sign in first.");
+    if (!user) throw new InputError("signInFirst");
     const { db } = await deps();
-    if (!(await listWorkspaces(db, user.id)).some((w) => w.businessId === businessId)) throw new InputError("You’re not a member of that company.");
+    if (!(await listWorkspaces(db, user.id)).some((w) => w.businessId === businessId)) throw new InputError("notMemberOfThatCompany");
     await setWorkspaceCookie(businessId);
     return {};
   });
@@ -86,7 +87,7 @@ export async function switchWorkspaceAction(businessId: string) {
 /** Clears this company's demo data (never another company's) and recreates the sample invoices. */
 export async function resetWorkspaceAction() {
   return run(async () => {
-    if (!env().DEMO_MODE) throw new InputError("Reset is only available in demo mode.");
+    if (!env().DEMO_MODE) throw new InputError("resetDemoOnly");
     const { biz, user } = await requireRole("owner");
     const { db } = await deps();
     await clearWorkspaceData(db, biz.id);
@@ -104,7 +105,8 @@ export async function addMemberAction(input: { email: string; role: Role }) {
   return run(async () => {
     const { biz, user } = await requireRole("owner");
     const { db } = await deps();
-    await addMember(db, { businessId: biz.id, email: input.email, role: input.role, invitedBy: user.email, actorUserId: user.id });
+    const { locale } = await getI18n();
+    await addMember(db, { businessId: biz.id, email: input.email, role: input.role, invitedBy: user.email, actorUserId: user.id, locale });
     refresh();
     return {};
   });
@@ -147,10 +149,10 @@ export async function createInvoiceAction(input: { customerId: string; title: st
     const { biz, user } = await requireRole("editor");
     const { db } = await deps();
     const amount = tryToUnits(input.amount);
-    if (amount === null) throw new InputError("Enter an amount like 1000 or 49.99.");
-    if (amount > MAX_INVOICE) throw new InputError("Invoices are limited to $1,000,000,000.");
+    if (amount === null) throw new InputError("invoiceAmountFormat");
+    if (amount > MAX_INVOICE) throw new InputError("invoiceAmountMax");
     const dueAt = new Date(`${input.dueDate}T23:59:59Z`);
-    if (Number.isNaN(dueAt.getTime())) throw new InputError("Choose a due date.");
+    if (Number.isNaN(dueAt.getTime())) throw new InputError("dueDateRequired");
     return createInvoice(db, { businessId: biz.id, customerId: input.customerId, title: input.title, amount, dueAt, actorUserId: user.id });
   });
 }
@@ -171,14 +173,15 @@ async function ownedCase(caseId: string) {
   const { biz, user } = await requireRole("editor");
   const { db } = await deps();
   const [c] = await db.select().from(cases).where(and(eq(cases.id, caseId), eq(cases.businessId, biz.id)));
-  if (!c) throw new ResolutionError("Case not found");
+  if (!c) throw new ResolutionError("caseNotFound");
   return { biz, user, db, c };
 }
 
 export async function sendLinkAction(caseId: string) {
   return run(async () => {
     const { biz, user, db } = await ownedCase(caseId);
-    const url = await sendResolutionLink(db, { businessId: biz.id, caseId, actorUserId: user.id });
+    const { locale } = await getI18n();
+    const url = await sendResolutionLink(db, { businessId: biz.id, caseId, actorUserId: user.id, locale });
     refresh();
     // In demo mode the presenter needs the link without a real inbox.
     return { url: env().DEMO_MODE ? url : null };
@@ -206,7 +209,8 @@ export async function approveAction(caseId: string, proposalId: string) {
 export async function requestChangesAction(caseId: string, proposalId: string, note: string) {
   return run(async () => {
     const { biz, user, db } = await ownedCase(caseId);
-    await requestChanges(db, { businessId: biz.id, caseId, proposalId, note, actorUserId: user.id });
+    const { locale } = await getI18n();
+    await requestChanges(db, { businessId: biz.id, caseId, proposalId, note, actorUserId: user.id, locale });
     refresh();
     return {};
   });
@@ -259,7 +263,7 @@ export async function checkRefundAction(refundId: string) {
     const { biz } = await requireRole("viewer");
     const d = await deps();
     const [r] = await d.db.select().from(refunds).where(and(eq(refunds.id, refundId), eq(refunds.businessId, biz.id)));
-    if (!r) throw new ResolutionError("Refund not found");
+    if (!r) throw new ResolutionError("refundNotFound");
     const status = await reconcileRefund(d, refundId);
     if (status === "confirmed") refresh();
     return { status };
@@ -302,7 +306,7 @@ export async function setNotificationPrefsAction(muted: string[]) {
   return run(async () => {
     const { biz, user } = await requireRole("viewer");
     const { db } = await deps();
-    if (!Array.isArray(muted) || muted.some((m) => typeof m !== "string")) throw new InputError("Choose notification categories.");
+    if (!Array.isArray(muted) || muted.some((m) => typeof m !== "string")) throw new InputError("chooseNotificationCategories");
     await setMuted(db, { businessId: biz.id, userId: user.id, muted });
     refresh();
     return {};
@@ -349,19 +353,19 @@ export async function removeWalletAction(address: string) {
  */
 export async function faucetAction(address: string) {
   return run(async () => {
-    if (!env().DEMO_MODE) throw new InputError("The faucet is only available in demo mode.");
+    if (!env().DEMO_MODE) throw new InputError("faucetDemoOnly");
     address = address.trim();
-    if (!isWalletAddress(address)) throw new InputError("That isn't a valid Solana wallet address.");
+    if (!isWalletAddress(address)) throw new InputError("invalidWalletAddress");
     const { db } = await deps();
     // Test USD minted straight into a receiving wallet would show up as an unmatched payment.
     const [receiving] = await db.select({ id: businessWallets.id }).from(businessWallets).where(eq(businessWallets.address, address)).limit(1);
-    if (receiving) throw new InputError("That’s a company’s receiving wallet. Test USD sent there would appear as an unmatched payment, so use a customer wallet.");
-    if ((await tokenBalance(address)) >= toUnits("10000")) throw new InputError("This wallet already has plenty of test USD.");
+    if (receiving) throw new InputError("faucetReceivingWallet");
+    if ((await tokenBalance(address)) >= toUnits("10000")) throw new InputError("faucetPlenty");
     await consume(db, [
-      { key: rateKey("faucet", address), max: 1, windowMs: 10 * MINUTE, message: "This wallet just received test USD. Try again in 10 minutes." },
-      { key: rateKey("faucet-day", address), max: 5, windowMs: DAY, message: "This wallet has reached today’s test USD limit." },
-      { key: rateKey("faucet-ip", await clientIp()), max: 10, windowMs: HOUR, message: "Too many faucet requests from this network. Try again in an hour." },
-      { key: "faucet:global", max: 120, windowMs: HOUR, message: "The faucet is busy. Try again in a few minutes." },
+      { key: rateKey("faucet", address), max: 1, windowMs: 10 * MINUTE, error: "rateFaucetWallet" },
+      { key: rateKey("faucet-day", address), max: 5, windowMs: DAY, error: "rateFaucetWalletDay" },
+      { key: rateKey("faucet-ip", await clientIp()), max: 10, windowMs: HOUR, error: "rateFaucetNetwork" },
+      { key: "faucet:global", max: 120, windowMs: HOUR, error: "rateFaucetGlobal" },
     ]);
     return { signature: await faucet(address) };
   });

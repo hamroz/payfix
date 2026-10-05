@@ -1,0 +1,35 @@
+import type { Messages } from "../types";
+
+const common: Messages["common"] = {
+  brand: "PayFix",
+  justNow: "ahora mismo",
+  loading: "Cargando…",
+  cancel: "Cancelar",
+  save: "Guardar",
+  saving: "Guardando…",
+  close: "Cerrar",
+  back: "Volver",
+  continue: "Continuar",
+  confirm: "Confirmar",
+  edit: "Editar",
+  remove: "Quitar",
+  delete: "Eliminar",
+  copy: "Copiar",
+  copied: "Copiado",
+  copyLink: "Copiar enlace",
+  retry: "Reintentar",
+  done: "Listo",
+  learnMore: "Más información",
+  viewAll: "Ver todo",
+  optional: "Opcional",
+  required: "Obligatorio",
+  you: "Tú",
+  customer: "Cliente",
+  business: "Empresa",
+  system: "PayFix",
+  language: "Idioma",
+  chooseLanguage: "Elegir idioma",
+  testMoney: "Dinero de prueba",
+};
+
+export default common;

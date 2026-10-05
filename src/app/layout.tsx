@@ -6,14 +6,21 @@ import "@fontsource-variable/jetbrains-mono";
 import { Backdrop } from "@/components/ui/background";
 import { ToastProvider } from "@/components/ui/toast";
 import { themeScript } from "@/components/theme/theme";
+import { I18nProvider } from "@/lib/i18n/client";
+import { LOCALES } from "@/lib/i18n/config";
+import { dictionaries } from "@/lib/i18n/dictionaries";
+import { getI18n } from "@/lib/i18n/server";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: { default: "PayFix — stablecoin payments, made right", template: "%s · PayFix" },
-  description:
-    "PayFix turns incorrect stablecoin payments into an agreed, completed settlement through one shared resolution link.",
-  applicationName: "PayFix",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { m, locale } = await getI18n();
+  return {
+    title: { default: m.meta.title, template: "%s · PayFix" },
+    description: m.meta.description,
+    applicationName: "PayFix",
+    openGraph: { locale, alternateLocale: LOCALES.filter((l) => l !== locale) },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: [
@@ -24,16 +31,19 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const { locale } = await getI18n();
   return (
     // data-theme is set by the inline script before hydration.
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang={locale} className="h-full antialiased" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full">
         <Backdrop />
-        <ToastProvider>{children}</ToastProvider>
+        <I18nProvider locale={locale} messages={dictionaries[locale]}>
+          <ToastProvider>{children}</ToastProvider>
+        </I18nProvider>
       </body>
     </html>
   );

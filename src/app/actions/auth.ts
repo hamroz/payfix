@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
 import { endSession, sendCode, verifyCode } from "@/lib/server/auth";
 import { clientIp, COOKIES, deps, setDemoInboxCookie, setSessionCookie } from "@/lib/server/context";
 import { consume, HOUR, rateKey } from "@/lib/server/ratelimit";
@@ -16,14 +17,15 @@ import { eq } from "drizzle-orm";
 import { run } from "./result";
 
 /** Sign in or sign up: the same email code either way. New users create a company next. */
-const ipLimit = (ip: string) => ({ key: rateKey("code-ip", ip), max: 30, windowMs: HOUR, message: "Too many sign-in attempts from this network. Try again in an hour." });
+const ipLimit = (ip: string) => ({ key: rateKey("code-ip", ip), max: 30, windowMs: HOUR, error: "rateSignInNetwork" as const });
 
 export async function requestBusinessCode(email: string) {
   return run(async () => {
     const { db } = await deps();
     await consume(db, [ipLimit(await clientIp())]);
     const user = await findOrCreateUser(db, email);
-    const { maskedEmail } = await sendCode(db, { purpose: "business", subjectId: user.id, email: user.email });
+    const { locale } = await getI18n();
+    const { maskedEmail } = await sendCode(db, { purpose: "business", subjectId: user.id, email: user.email, locale });
     if (env().DEMO_MODE) await setDemoInboxCookie(user.email);
     return { maskedEmail, sent: true };
   });
@@ -56,11 +58,12 @@ export async function requestCustomerCode(token: string) {
     const { db } = await deps();
     await consume(db, [ipLimit(await clientIp())]);
     const found = await findLink(db, token);
-    if (!found.ok) throw new InputError(found.reason);
+    if (!found.ok) throw new InputError(found.error);
     const customer = await customerById(db, found.link.customerId);
-    if (!customer) throw new InputError("This link isn't valid.");
+    if (!customer) throw new InputError("linkInvalid");
     if (env().DEMO_MODE) await setDemoInboxCookie(customer.email, customer.businessId);
-    return sendCode(db, { purpose: "customer", subjectId: customer.id, email: customer.email, businessId: customer.businessId });
+    const { locale } = await getI18n();
+    return sendCode(db, { purpose: "customer", subjectId: customer.id, email: customer.email, businessId: customer.businessId, locale });
   });
 }
 
@@ -68,7 +71,7 @@ export async function verifyCustomerCode(token: string, code: string) {
   return run(async () => {
     const { db } = await deps();
     const found = await findLink(db, token);
-    if (!found.ok) throw new InputError(found.reason);
+    if (!found.ok) throw new InputError(found.error);
     const out = await verifyCode(db, { purpose: "customer", subjectId: found.link.customerId, code });
     if (!out.ok) throw new InputError(out.error);
     await setSessionCookie("customer", out.token, out.expiresAt);
@@ -80,7 +83,6 @@ export async function verifyCustomerCode(token: string, code: string) {
         customerId: found.link.customerId,
         actor: "customer",
         type: "customer.verified",
-        message: "Customer verified their email and opened the resolution link",
         dedupeKey: `verified:${found.link.id}`,
       });
     return {};

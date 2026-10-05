@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db/client";
 import { businesses, events } from "@/lib/db/schema";
 import { env } from "@/lib/env";
-import { can, roleLabel, type Role } from "@/lib/roles";
+import { can, type Role } from "@/lib/roles";
 import { sessionSubject, type SessionKind } from "./auth";
 import { chain } from "./chain";
 import { InputError } from "./invoices";
@@ -87,7 +87,7 @@ export async function requireBusiness() {
 /** For mutations: the workspace, if the user's role there is at least `min`. */
 export async function requireRole(min: Role) {
   const ws = await requireWorkspace();
-  if (!can(ws.role, min)) throw new InputError(`Your role (${roleLabel(ws.role)}) can’t do this. Ask an owner for access.`);
+  if (!can(ws.role, min)) throw new InputError("roleForbidden", { role: ws.role });
   return ws;
 }
 

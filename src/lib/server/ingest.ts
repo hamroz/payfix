@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db/client";
 import { businesses, caseTransfers, cases, chainSignatures, customers, invoices, paymentRequests, transfers } from "@/lib/db/schema";
 import { planIncoming } from "@/lib/domain/allocation";
 import { move, receipt } from "@/lib/domain/ledger";
+import { englishI18n } from "@/lib/i18n/english";
 import { newId } from "@/lib/ids";
 import { formatUsd } from "@/lib/money";
 import { parseTokenMovement } from "@/lib/solana/parse";
@@ -108,8 +109,7 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
         businessId: biz.id,
         actor: "system",
         type: "transfer.out",
-        message: `${formatUsd(movement.amount)} sent to ${shortAddress(movement.counterpartyOwner ?? "unknown")}`,
-        data: { signature, memos: movement.memos },
+        data: { signature, memos: movement.memos, amount: formatUsd(movement.amount), address: shortAddress(movement.counterpartyOwner ?? "unknown") },
       });
       return true;
     }
@@ -119,7 +119,7 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
       businessId: biz.id,
       key: `receipt:${biz.id}:${signature}`,
       kind: "receipt",
-      memo: `Received ${formatUsd(movement.amount)}`,
+      memo: englishI18n.t(englishI18n.m.events.memos.received, { amount: formatUsd(movement.amount) }),
       postings: receipt(movement.amount, dims),
     });
 
@@ -132,8 +132,7 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
         caseId,
         actor: "system",
         type: "transfer.unmatched",
-        message: `${formatUsd(movement.amount)} arrived from ${shortAddress(movement.counterpartyOwner ?? "unknown")} without an invoice reference`,
-        data: { signature },
+        data: { signature, amount: formatUsd(movement.amount), address: shortAddress(movement.counterpartyOwner ?? "unknown") },
       });
       return true;
     }
@@ -159,7 +158,7 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
         businessId: biz.id,
         key: `apply:${biz.id}:${signature}`,
         kind: "apply",
-        memo: `Applied to ${invoice.number}`,
+        memo: englishI18n.t(englishI18n.m.events.memos.applied, { number: invoice.number }),
         postings: move("unresolved", "invoice", plan.apply, dims, { invoiceId: invoice.id }),
       });
     }
@@ -167,16 +166,21 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
 
     const [customer] = await t.select().from(customers).where(eq(customers.id, invoice.customerId));
     const settled = balance.applied + plan.apply >= invoice.amount;
+    const paid = { customer: customer?.name ?? null, amount: formatUsd(movement.amount), number: invoice.number };
     await logEvent(t, {
       businessId: biz.id,
       invoiceId: invoice.id,
       customerId: invoice.customerId,
       actor: "system",
       type: "payment.received",
-      message: `${customer?.name ?? "Customer"} paid ${formatUsd(movement.amount)} toward ${invoice.number}${
-        settled ? " — invoice settled" : ` — ${formatUsd(invoice.amount - balance.applied - plan.apply)} remaining`
-      }${plan.late ? " (late)" : ""}`,
-      data: { signature, applied: plan.apply.toString(), excess: plan.excess.toString() },
+      data: {
+        signature,
+        applied: plan.apply.toString(),
+        excess: plan.excess.toString(),
+        ...(settled
+          ? { variant: plan.late ? "settledLate" : "settled", ...paid }
+          : { variant: plan.late ? "partialLate" : "partial", ...paid, remaining: formatUsd(invoice.amount - balance.applied - plan.apply) }),
+      },
     });
     // Only the payment that takes the balance to zero; a duplicate on a settled invoice isn't news.
     if (settled && balance.applied < invoice.amount) await logInvoicePaid(t, { businessId: biz.id, invoiceId: invoice.id });
@@ -192,11 +196,7 @@ export async function ingestTransaction(db: Db, biz: Business, wallet: string, s
         customerId: invoice.customerId,
         actor: "system",
         type: "case.opened",
-        message:
-          plan.exception === "duplicate"
-            ? `Apparent duplicate: ${formatUsd(plan.excess)} arrived after ${invoice.number} was already settled`
-            : `${formatUsd(plan.excess)} over the balance of ${invoice.number} needs resolution`,
-        data: { signature, excess: plan.excess.toString() },
+        data: { signature, excess: plan.excess.toString(), variant: plan.exception === "duplicate" ? "duplicate" : "overpayment", amount: formatUsd(plan.excess), number: invoice.number },
       });
     }
     return true;

@@ -5,15 +5,20 @@ import { Logo } from "@/components/brand/logo";
 import { NetworkPill } from "@/components/app/network-pill";
 import { ThemeToggle } from "@/components/theme/theme";
 import { DemoInbox } from "@/components/app/demo-inbox";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { WalletProviders } from "@/components/wallet/providers";
 import { businesses, customers } from "@/lib/db/schema";
 import { publicConfig } from "@/lib/env";
 import { deps } from "@/lib/server/context";
 import { invoiceWithBalance } from "@/lib/server/queries";
 import { transferRows } from "@/lib/server/views";
+import { getI18n } from "@/lib/i18n/server";
 import { PayPanel } from "./pay-panel";
 
-export const metadata: Metadata = { title: "Pay invoice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getI18n();
+  return { title: m.pay.title };
+}
 
 export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">) {
   const { invoiceId } = await params;
@@ -24,6 +29,7 @@ export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">)
   const [cust] = await db.select().from(customers).where(eq(customers.id, inv.customerId));
   const payments = (await transferRows(db, { invoiceId })).filter((t) => t.direction === "in");
   const config = publicConfig();
+  const { m, t } = await getI18n();
 
   return (
     <WalletProviders rpcUrl={config.rpcUrl}>
@@ -48,13 +54,12 @@ export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">)
               dueAt: inv.dueAt.toISOString(),
             }}
             business={{ id: biz.id, name: biz.name, wallet: biz.walletAddress }}
-            customerName={cust?.name ?? "Customer"}
+            customerName={cust?.name ?? m.common.customer}
             payments={payments}
           />
         </main>
-        <p className="pb-2 text-center text-xs text-fg-3">
-          Payments go directly to {biz.name}’s wallet. PayFix never holds funds. Test money only.
-        </p>
+        <p className="pb-2 text-center text-xs text-fg-3">{t(m.pay.directNote, { business: biz.name })}</p>
+        <SiteFooter minimal />
       </div>
       {config.demoMode && <DemoInbox />}
     </WalletProviders>
