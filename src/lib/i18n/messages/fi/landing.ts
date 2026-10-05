@@ -4,6 +4,7 @@ const landing: Messages["landing"] = {
   nav: {
     howItWorks: "Näin se toimii",
     signIn: "Kirjaudu sisään",
+    dashboard: "Hallintapaneeli",
   },
   hero: {
     simulatedChain: "Simuloitu ketju",

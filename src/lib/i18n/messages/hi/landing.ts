@@ -4,6 +4,7 @@ const landing: Messages["landing"] = {
   nav: {
     howItWorks: "यह कैसे काम करता है",
     signIn: "साइन इन",
+    dashboard: "डैशबोर्ड",
   },
   hero: {
     simulatedChain: "सिम्युलेटेड चेन",

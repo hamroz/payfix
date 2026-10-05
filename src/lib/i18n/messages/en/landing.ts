@@ -3,6 +3,7 @@ const landing = {
   nav: {
     howItWorks: "How it works",
     signIn: "Sign in",
+    dashboard: "Dashboard",
   },
   hero: {
     simulatedChain: "Simulated chain",
