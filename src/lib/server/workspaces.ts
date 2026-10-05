@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import type { Db, Executor } from "@/lib/db/client";
 import {
   approvals,
@@ -78,7 +78,7 @@ export async function createWorkspace(
   const businessId = newId("biz");
   await db.transaction(async (t) => {
     await t.insert(businesses).values({ id: businessId, name, ownerEmail: p.email, walletAddress: p.wallet.address, mint });
-    await t.insert(memberships).values({ id: newId("mem"), businessId, userId: p.userId, role: "owner" });
+    await t.insert(memberships).values({ id: newId("mem"), businessId, userId: p.userId, role: "owner", notificationsReadAt: sql`now()` });
     await t.insert(businessWallets).values({ id: newId("bw"), businessId, address: p.wallet.address, label: p.wallet.label, secretEnc: p.wallet.secretEnc ?? null });
   });
   return businessId;
@@ -162,6 +162,8 @@ export async function addMember(db: Db, p: { businessId: string; email: string; 
     link: `${env().APP_URL}/login`,
   });
   await logEvent(db, { businessId: p.businessId, actor: "business", actorUserId: p.actorUserId, type: "member.added", message: `${user.email} joined as ${p.role}` });
+  // New members start caught up: earlier history (and their own arrival) is already read.
+  await db.update(memberships).set({ notificationsReadAt: sql`now()` }).where(eq(memberships.id, inserted[0].id));
   await deliverOutbox(db);
 }
 
