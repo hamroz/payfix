@@ -9,7 +9,7 @@ import { can, roleLabel, type Role } from "@/lib/roles";
 import { sessionSubject, type SessionKind } from "./auth";
 import { chain } from "./chain";
 import { syncBusiness } from "./ingest";
-import { InputError } from "./invoices";
+import { flagOverdueInvoices, InputError } from "./invoices";
 import { reconcileBusinessRefunds } from "./refunds";
 import { listWorkspaces, userById } from "./workspaces";
 
@@ -116,6 +116,7 @@ export async function syncCompany(businessId: string, force = false) {
     state.running = (async () => {
       await syncBusiness({ db, chain: c }, businessId);
       await reconcileBusinessRefunds({ db, chain: c }, businessId);
+      await flagOverdueInvoices(db, businessId);
     })()
       .catch((err) => console.error("[payfix] sync failed:", err instanceof Error ? err.message : err))
       .finally(() => {
