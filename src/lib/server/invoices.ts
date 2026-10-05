@@ -1,12 +1,12 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, lt, sql } from "drizzle-orm";
 import { Keypair } from "@solana/web3.js";
 import type { Db, Executor } from "@/lib/db/client";
-import { businesses, customers, invoices, paymentRequests } from "@/lib/db/schema";
+import { businesses, customers, events, invoices, paymentRequests } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
 import { formatUsd, fromUnits } from "@/lib/money";
 import { solanaPayUrl } from "@/lib/solana/tx";
 import { logEvent } from "./journal";
-import { invoicesWithBalances, invoiceWithBalance } from "./queries";
+import { appliedByInvoice, invoiceWithBalance } from "./queries";
 
 export class InputError extends Error {}
 
@@ -81,18 +81,34 @@ export async function createPaymentRequest(db: Db, p: { invoiceId: string; amoun
   };
 }
 
-/** Logs `invoice.overdue` once for each unpaid invoice whose due time has passed. Runs with every company sync. */
+/**
+ * Logs `invoice.overdue` once for each unpaid invoice whose due time has passed. Runs from the
+ * company sync, so it only loads past-due invoices not flagged yet.
+ */
 export async function flagOverdueInvoices(db: Executor, businessId: string, now = new Date()) {
+  const candidates = await db
+    .select()
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.businessId, businessId),
+        lt(invoices.dueAt, now),
+        sql`not exists (select 1 from ${events} where ${events.businessId} = ${businessId} and ${events.dedupeKey} = 'overdue:' || ${invoices.id})`,
+      ),
+    );
+  if (candidates.length === 0) return 0;
+  const applied = await appliedByInvoice(db, candidates.map((i) => i.id));
   let flagged = 0;
-  for (const inv of await invoicesWithBalances(db, { businessId })) {
-    if (inv.remaining === 0n || inv.dueAt >= now) continue;
+  for (const inv of candidates) {
+    const remaining = inv.amount - (applied.get(inv.id) ?? 0n);
+    if (remaining <= 0n) continue;
     const logged = await logEvent(db, {
       businessId,
       invoiceId: inv.id,
       customerId: inv.customerId,
       actor: "system",
       type: "invoice.overdue",
-      message: `${inv.number} is overdue: ${formatUsd(inv.remaining)} remaining`,
+      message: `${inv.number} is overdue: ${formatUsd(remaining)} remaining`,
       dedupeKey: `overdue:${inv.id}`,
     });
     if (logged) flagged++;

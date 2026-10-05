@@ -8,9 +8,8 @@ import { env } from "@/lib/env";
 import { can, roleLabel, type Role } from "@/lib/roles";
 import { sessionSubject, type SessionKind } from "./auth";
 import { chain } from "./chain";
-import { syncBusiness } from "./ingest";
-import { flagOverdueInvoices, InputError } from "./invoices";
-import { reconcileBusinessRefunds } from "./refunds";
+import { InputError } from "./invoices";
+import { refreshCompany } from "./sync";
 import { listWorkspaces, userById } from "./workspaces";
 
 /** Database + chain for request handlers. */
@@ -99,13 +98,14 @@ export async function currentCustomerId() {
   return sessionSubject(db, "customer", token);
 }
 
-type SyncState = { last: number; running?: Promise<unknown> };
+type SyncState = { last: number; lastOverdue?: number; running?: Promise<unknown> };
 const holder = globalThis as typeof globalThis & { __payfixSync?: Map<string, SyncState> };
 holder.__payfixSync ??= new Map();
 
 /**
  * Syncs one company with the chain — at most every ~2.5 seconds per process however many
- * tabs are polling — and reconciles its in-flight refunds. Returns a change marker.
+ * tabs are polling — reconciles its in-flight refunds, and flags overdue invoices about once a
+ * minute. Returns a change marker.
  */
 export async function syncCompany(businessId: string, force = false) {
   const { db, chain: c } = await deps();
@@ -114,9 +114,10 @@ export async function syncCompany(businessId: string, force = false) {
   if (!state.running && (force || Date.now() - state.last > 2500)) {
     state.last = Date.now();
     state.running = (async () => {
-      await syncBusiness({ db, chain: c }, businessId);
-      await reconcileBusinessRefunds({ db, chain: c }, businessId);
-      await flagOverdueInvoices(db, businessId);
+      // Overdue only changes as time passes, so once a minute per company is plenty.
+      const checkOverdue = Date.now() - (state.lastOverdue ?? 0) > 60_000;
+      if (checkOverdue) state.lastOverdue = Date.now();
+      await refreshCompany({ db, chain: c }, businessId, { checkOverdue });
     })()
       .catch((err) => console.error("[payfix] sync failed:", err instanceof Error ? err.message : err))
       .finally(() => {
