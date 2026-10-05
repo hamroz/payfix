@@ -15,6 +15,7 @@ import { createCustomer, createInvoice, InputError } from "@/lib/server/invoices
 import { consume, DAY, HOUR, MINUTE, rateKey } from "@/lib/server/ratelimit";
 import { prepareRefund, reconcileRefund, submitSignedRefund } from "@/lib/server/refunds";
 import { approveProposal, assignCustomer, executePlan, requestChanges, ResolutionError, sendResolutionLink } from "@/lib/server/resolution";
+import { markAllRead, markRead, setMuted } from "@/lib/server/notifications";
 import { addWallet, assertWalletOwnership, removeWallet, setActiveWallet } from "@/lib/server/wallets";
 import type { OwnershipProof } from "@/lib/solana/proof";
 import {
@@ -269,6 +270,40 @@ export async function syncNowAction() {
   return run(async () => {
     const { biz } = await requireRole("viewer");
     await syncCompany(biz.id, true);
+    refresh();
+    return {};
+  });
+}
+
+// ── Notifications ───────────────────────────────────────────────────────────
+// Every role may use these: they only change the signed-in member's own read state and preferences.
+
+export async function markNotificationReadAction(eventId: string) {
+  return run(async () => {
+    const { biz, user } = await requireRole("viewer");
+    const { db } = await deps();
+    await markRead(db, { businessId: biz.id, userId: user.id, eventId });
+    refresh();
+    return {};
+  });
+}
+
+export async function markAllNotificationsReadAction() {
+  return run(async () => {
+    const { biz, user } = await requireRole("viewer");
+    const { db } = await deps();
+    await markAllRead(db, { businessId: biz.id, userId: user.id });
+    refresh();
+    return {};
+  });
+}
+
+export async function setNotificationPrefsAction(muted: string[]) {
+  return run(async () => {
+    const { biz, user } = await requireRole("viewer");
+    const { db } = await deps();
+    if (!Array.isArray(muted) || muted.some((m) => typeof m !== "string")) throw new InputError("Choose notification categories.");
+    await setMuted(db, { businessId: biz.id, userId: user.id, muted });
     refresh();
     return {};
   });
