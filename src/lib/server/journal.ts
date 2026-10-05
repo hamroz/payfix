@@ -37,6 +37,11 @@ export async function postEntry(
   return true;
 }
 
+/**
+ * Appends to the company's activity log, which is also what notifications read. `actorUserId`
+ * is the member who caused it (so they aren't notified of it). With a `dedupeKey`, the event
+ * is written at most once per company; returns false when it already existed.
+ */
 export async function logEvent(
   db: Executor,
   e: {
@@ -47,18 +52,27 @@ export async function logEvent(
     caseId?: string | null;
     invoiceId?: string | null;
     customerId?: string | null;
+    actorUserId?: string | null;
+    dedupeKey?: string | null;
     data?: Record<string, unknown>;
   },
-) {
-  await db.insert(events).values({
-    id: newId("ev"),
-    businessId: e.businessId,
-    actor: e.actor,
-    type: e.type,
-    message: e.message,
-    caseId: e.caseId ?? null,
-    invoiceId: e.invoiceId ?? null,
-    customerId: e.customerId ?? null,
-    data: e.data ?? null,
-  });
+): Promise<boolean> {
+  const inserted = await db
+    .insert(events)
+    .values({
+      id: newId("ev"),
+      businessId: e.businessId,
+      actor: e.actor,
+      actorUserId: e.actorUserId ?? null,
+      type: e.type,
+      message: e.message,
+      caseId: e.caseId ?? null,
+      invoiceId: e.invoiceId ?? null,
+      customerId: e.customerId ?? null,
+      dedupeKey: e.dedupeKey ?? null,
+      data: e.data ?? null,
+    })
+    .onConflictDoNothing()
+    .returning({ id: events.id });
+  return inserted.length > 0;
 }
