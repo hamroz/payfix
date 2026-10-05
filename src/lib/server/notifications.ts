@@ -80,7 +80,14 @@ export async function unreadCount(db: Executor, p: Viewer): Promise<number> {
     .select({ n: count() })
     .from(events)
     .leftJoin(notificationReads, and(eq(notificationReads.eventId, events.id), eq(notificationReads.userId, p.userId)))
-    .where(and(visibleTo(p, types), isNull(notificationReads.eventId), sql`not ${beforeCursor(m.id)}`));
+    .where(
+      and(
+        visibleTo(p, types),
+        isNull(notificationReads.eventId),
+        // A plain range on created_at, so the (business_id, created_at) index bounds the scan.
+        sql`${events.createdAt} > coalesce((select ${memberships.notificationsReadAt} from ${memberships} where ${memberships.id} = ${m.id}), '-infinity'::timestamptz)`,
+      ),
+    );
   return row?.n ?? 0;
 }
 

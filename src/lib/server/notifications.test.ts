@@ -236,6 +236,17 @@ describe("notification feed", () => {
     expect((await listNotifications(db, owner()))[0]).toMatchObject({ message: "Refund failed", read: false });
   });
 
+  it("starts members added later with the earlier history already read", async () => {
+    await addMember(db, { businessId: a.businessId, email: "late@feed.test", role: "viewer", invitedBy: a.user.email, actorUserId: a.user.id });
+    const late = { businessId: a.businessId, userId: (await listMembers(db, a.businessId)).find((m) => m.email === "late@feed.test")!.userId };
+    const feed = await listNotifications(db, late);
+    expect(feed.find((n) => n.message === "Acme paid $10")).toMatchObject({ read: true });
+    expect(await unreadCount(db, late)).toBe(0);
+    await new Promise((r) => setTimeout(r, 5));
+    await log("refund.expired", "Refund expired after join");
+    expect(await unreadCount(db, late)).toBe(1);
+  });
+
   it("keeps companies apart", async () => {
     await expect(listNotifications(db, { businessId: a.businessId, userId: b.user.id })).rejects.toThrow(/not a member/);
     const [ev] = await listNotifications(db, owner());
