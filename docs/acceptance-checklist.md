@@ -1,14 +1,14 @@
 # Acceptance checklist (M1 / M6)
 
-Updated Oct 5, 2026 for `main` with production mode (PR #8) and the audit fixes (PR #9).
+Updated Oct 5, 2026 for `main` with production mode (PR #8), the audit fixes (PR #9), and notifications (PR #11).
 
 Each item maps to how it is verified today. Tick a box only after running the check on the build being released, and write the date and the commit next to it.
 
-- **Unit/flow tests** (`npm test`): `src/lib/domain/domain.test.ts`, `src/lib/server/flow.test.ts`, `src/lib/server/workspaces.test.ts`. These run on in-memory PGlite plus `SimChain`, not devnet.
+- **Unit/flow tests** (`npm test`): `src/lib/domain/*.test.ts`, `src/lib/solana/parse.test.ts`, `src/lib/server/*.test.ts` (flow, workspaces, production, notifications), and `src/app/actions/business.test.ts` (role enforcement in the server actions). These run on in-memory PGlite plus `SimChain`, not devnet.
 - **e2e** (`node scripts/e2e.mjs <url>`): headless Chrome against a running app in demo mode. Steps are named by the `▸` headings it prints.
 - **Manual**: no automated check exists. A person must look.
 
-Run on: ________  Commit: ________  `npm test`: __/30 passed  e2e target: ________  result: ________
+Run on: ________  Commit: ________  `npm test`: __/63 passed  e2e target: ________  result: ________
 
 ## The final demonstration (MILESTONES.md, 9 steps)
 
@@ -82,6 +82,6 @@ Run on: ________  Commit: ________  `npm test`: __/30 passed  e2e target: ______
 ## Roles and tenancy (built beyond the plan)
 
 - [ ] Viewer sees the company read-only and can't create invoices. e2e "Owner invites a viewer; the viewer gets read-only access".
-- [ ] Server rejects editor-only actions from a viewer. **Manual.** `requireRole` in the server actions has no unit test; `workspaces.test.ts` only tests `can()` and membership rules.
+- [ ] Server rejects editor-only actions from a viewer, and owner-only actions from an editor. `business.test.ts` calls every editor and owner server action as a signed-in viewer (and the owner actions as an editor), checks each is refused, and checks nothing was written.
 - [ ] Team always keeps at least one owner. `workspaces.test.ts` "manages the team and never leaves a company without an owner".
 - [ ] Reset clears one company only. `workspaces.test.ts` "resets one company without touching another".

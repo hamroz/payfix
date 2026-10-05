@@ -80,9 +80,9 @@ Recorded Oct 2, updated Oct 5. Build work started Sep 30 (three days after the p
 | **M6** | AI side done | [Runbook](docs/runbook.md) (reset, treasury top-up, stuck refund, rollback); `/api/health`; e2e rehearsal passes on the live site | Two independent human rehearsals; feature freeze after Oct 8 |
 | **M7** | Drafts ready | [Architecture](docs/architecture.md), [pitch draft](docs/submission/pitch-draft.md), [≤3-min recording script](docs/submission/demo-recording-script.md), [submission copy](docs/submission/submission-copy.md), [development disclosure](docs/submission/development-disclosure.md) | Fill `[TEAM TO FILL]` with real evidence, record the video, make the repo accessible to judges, submit |
 
-Built beyond the plan: Docker setup, light theme, multiple receiving wallets per company, companies with Owner/Editor/Viewer roles, Vercel deployment with Neon Postgres, and a production mode (real email, rate limits, proven receiving wallets, mainnet USDC config, security headers). Mainnet launch remains a separate decision, per the note under Reliability gates.
+Built beyond the plan: Docker setup, light theme, multiple receiving wallets per company, companies with Owner/Editor/Viewer roles, in-app notifications with per-member preferences, a process walkthrough film on the landing page, Vercel deployment with Neon Postgres, and a production mode (real email, rate limits, proven receiving wallets, mainnet USDC config, security headers). Mainnet launch remains a separate decision, per the note under Reliability gates.
 
-Automated checks: `npm test` (39 tests: the full demo scenario offline, payment verification, tenant isolation, role and team rules, single-use credit, rate limits, wallet proofs, email delivery) and `npm run e2e [url]` (9-step, 11-check browser rehearsal on devnet, including an approval voided by a change).
+Automated checks: `npm test` (63 tests: the full demo scenario offline, payment verification, tenant isolation, role and team rules, server-side role enforcement in every business action, single-use credit, rate limits, wallet proofs, email delivery, notifications) and `npm run e2e [url]` (9-step, 11-check browser rehearsal on devnet, including an approval voided by a change).
 
 ## Who does what
 

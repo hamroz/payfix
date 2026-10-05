@@ -4,7 +4,7 @@
 
 PayFix is a payment-resolution app for small agencies that accept USDC on Solana from repeat clients. It connects invoices to on-chain payments, flags payments that don't match (overpayments, apparent duplicates, transfers without a reference), and gives the customer and the business one place to agree on what happens to the extra money: apply it to another invoice, keep it as credit, refund it, or split it.
 
-> **Status:** working beta (M4 build scope). Live demo: **https://payfix-mu.vercel.app** (Solana devnet, test money only). Runs locally with Docker, on devnet or a simulated chain.
+> **Status:** working beta. Build and documentation deliverables for every milestone are done; external walkthroughs, rehearsals, and the submission remain (see [MILESTONES.md](MILESTONES.md#progress-and-evidence)). Live demo: **https://payfix-mu.vercel.app** (Solana devnet, test money only). Runs locally with Docker, on devnet or a simulated chain.
 
 ## The demonstration
 
@@ -85,7 +85,7 @@ The server checks the role on every action; the UI also hides what a role can't 
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Unit tests plus the demo scenario, payment verification, tenant isolation, role and team rules, credit, rate limits, wallet proofs, and email delivery, against in-memory Postgres and a simulated chain |
+| `npm test` | Unit tests plus the demo scenario, payment verification, tenant isolation, role and team rules, role enforcement in every business server action, notifications, credit, rate limits, wallet proofs, and email delivery, against in-memory Postgres and a simulated chain |
 | `npm run setup:token-metadata` | Names the devnet test token "PayFix Test USD" with the PayFix logo, so wallets recognize it |
 | `npm run e2e [url]` | Rehearses the whole demo in headless Chrome against a running app (default `http://localhost:3300`), on devnet |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |
