@@ -7,7 +7,6 @@ import {
   caseTransfers,
   cases,
   customers,
-  outbox,
   proposals,
   refunds,
   resolutionLinks,
@@ -22,6 +21,7 @@ import { newId, newToken } from "@/lib/ids";
 import { formatUsd } from "@/lib/money";
 import { destinationProofMessage, verifyWalletSignature } from "@/lib/solana/proof";
 import { ata, isWalletAddress } from "@/lib/solana/tx";
+import { deliverOutbox, queueEmail } from "./email";
 import { logEvent, postEntry } from "./journal";
 import { caseAvailable, caseSources, invoicesWithBalances } from "./queries";
 
@@ -79,7 +79,7 @@ export async function assignCustomer(db: Db, p: { businessId: string; caseId: st
 
 /** Issues a fresh link (revoking earlier ones) and emails it to the invoice customer. Returns the URL. */
 export async function sendResolutionLink(db: Db, p: { businessId: string; caseId: string }): Promise<string> {
-  return db.transaction(async (t) => {
+  const url = await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
     if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
     if (!c.customerId) throw new ResolutionError("Attribute this payment to a customer first");
@@ -97,8 +97,7 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
       expiresAt: new Date(Date.now() + LINK_TTL_MS),
     });
     const url = `${env().APP_URL}/r/${token}`;
-    await t.insert(outbox).values({
-      id: newId("ml"),
+    await queueEmail(t, {
       businessId: c.businessId,
       to: cust.email,
       subject: `Let's settle the extra ${formatUsd(available)} you sent`,
@@ -115,6 +114,8 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
     });
     return url;
   });
+  await deliverOutbox(db);
+  return url;
 }
 
 /** Resolves a link token. Knowing the link alone doesn't grant access — the customer also verifies by email. */
@@ -253,8 +254,7 @@ export async function requestChanges(db: Db, p: { businessId: string; caseId: st
     await t.update(cases).set({ status: "open" }).where(eq(cases.id, c.id));
     const [cust] = await t.select().from(customers).where(eq(customers.id, c.customerId!));
     const [biz] = await t.select().from(businesses).where(eq(businesses.id, c.businessId));
-    await t.insert(outbox).values({
-      id: newId("ml"),
+    await queueEmail(t, {
       businessId: c.businessId,
       to: cust.email,
       subject: `${biz.name} asked for a change to your plan`,
@@ -269,6 +269,7 @@ export async function requestChanges(db: Db, p: { businessId: string; caseId: st
       message: `Business asked for changes to v${latest.version}: “${note}”`,
     });
   });
+  await deliverOutbox(db);
 }
 
 /** The business approves one exact version, bound by its hash. */

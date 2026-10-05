@@ -2,7 +2,7 @@ import bs58 from "bs58";
 import nacl from "tweetnacl";
 import { and, eq } from "drizzle-orm";
 import { createAssociatedTokenAccountIdempotentInstruction, createMintToInstruction } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { type Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import type { Db } from "@/lib/db/client";
 import { businesses, businessWallets, invoices, type DestinationProof } from "@/lib/db/schema";
 import { env } from "@/lib/env";
@@ -38,6 +38,24 @@ export function demoReady() {
  * workspace receives into its own account and never sees anyone else's payments.
  * The treasury opens its test-token account and gives it a little SOL for refund fees.
  */
+/** Below this the treasury refuses new demo wallets and faucet SOL, rather than failing mid-transaction. */
+const MIN_TREASURY_SOL = 0.05;
+
+async function assertTreasuryFunded(conn: Connection, treasury: PublicKey) {
+  const lamports = await conn.getBalance(treasury, "confirmed");
+  if (lamports < MIN_TREASURY_SOL * LAMPORTS_PER_SOL) {
+    console.error(`[payfix] demo treasury ${treasury.toBase58()} is low on SOL (${lamports / LAMPORTS_PER_SOL}). Top it up at faucet.solana.com.`);
+    throw new InputError("The demo has run out of devnet SOL for new wallets. Please try again later.");
+  }
+}
+
+/** Devnet SOL left in the demo treasury, or null when there's no real treasury (simulated chain). */
+export async function treasurySol(): Promise<number | null> {
+  const keys = demoKeys();
+  if (sim() || !keys?.treasury) return null;
+  return (await connection().getBalance(keys.treasury.publicKey, "confirmed")) / LAMPORTS_PER_SOL;
+}
+
 export async function provisionDemoWallet(): Promise<{ address: string; secretEnc: string }> {
   const kp = Keypair.generate();
   const address = kp.publicKey.toBase58();
@@ -50,6 +68,7 @@ export async function provisionDemoWallet(): Promise<{ address: string; secretEn
     if (!keys?.treasury || !mint) throw new Error("Demo wallets aren't configured. Run `npm run setup:devnet`.");
     const mintPk = new PublicKey(mint);
     const conn = connection();
+    await assertTreasuryFunded(conn, keys.treasury.publicKey);
     const tx = new Transaction().add(
       createAssociatedTokenAccountIdempotentInstruction(keys.treasury.publicKey, ata(mintPk, kp.publicKey), kp.publicKey, mintPk),
       SystemProgram.transfer({ fromPubkey: keys.treasury.publicKey, toPubkey: kp.publicKey, lamports: 0.01 * LAMPORTS_PER_SOL }),
@@ -214,8 +233,10 @@ export async function faucet(address: string, amount = toUnits("2000")) {
     createAssociatedTokenAccountIdempotentInstruction(keys.treasury.publicKey, ata(mintPk, owner), owner, mintPk),
     createMintToInstruction(mintPk, ata(mintPk, owner), keys.treasury.publicKey, amount),
   );
-  if ((await conn.getBalance(owner)) < 0.01 * LAMPORTS_PER_SOL)
+  if ((await conn.getBalance(owner)) < 0.01 * LAMPORTS_PER_SOL) {
+    await assertTreasuryFunded(conn, keys.treasury.publicKey);
     tx.add(SystemProgram.transfer({ fromPubkey: keys.treasury.publicKey, toPubkey: owner, lamports: 0.02 * LAMPORTS_PER_SOL }));
+  }
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = keys.treasury.publicKey;

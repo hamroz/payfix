@@ -35,7 +35,6 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
-  const toast = useToast();
 
   const units = tryToUnits(amount || "0");
   const over = units !== null && units > remaining && remaining > 0n ? units - remaining : 0n;
@@ -214,11 +213,12 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
                   </div>
                 )}
                 {method === "wallet" && <WalletPay invoiceId={invoice.id} amount={units} business={business} config={config} onPaid={onPaid} onError={setError} />}
-                {method === "qr" && <QrPay invoiceId={invoice.id} amount={amount} />}
+                {method === "qr" && <QrPay invoiceId={invoice.id} amount={amount} config={config} />}
               </div>
 
               {error && <p className="mt-3 text-sm text-rose">{error}</p>}
-              {config.demoMode && !config.simulated && method === "wallet" && <FaucetHint onDone={() => toast.push({ tone: "success", title: "Test USD sent to your wallet" })} />}
+              {config.demoMode && !config.simulated && method === "wallet" && <FaucetHint />}
+              {config.demoMode && !config.simulated && method === "qr" && <PhoneFaucet />}
             </motion.div>
           )}
         </AnimatePresence>
@@ -302,7 +302,7 @@ function walletErrorMessage(e: unknown): string {
   return "The payment didn’t go through. Nothing was charged — try again.";
 }
 
-function QrPay({ invoiceId, amount }: { invoiceId: string; amount: string }) {
+function QrPay({ invoiceId, amount, config }: { invoiceId: string; amount: string; config: PublicConfig }) {
   const [svg, setSvg] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -332,7 +332,9 @@ function QrPay({ invoiceId, amount }: { invoiceId: string; amount: string }) {
           <LogoMark size={34} />
         </span>
       </div>
-      <p className="mt-4 text-center text-sm text-fg-2">Scan with Phantom or Solflare (devnet). This page updates by itself when the payment lands.</p>
+      <p className="mt-4 text-center text-sm text-fg-2">
+        Scan with Phantom or Solflare{config.mainnet ? "" : ` on ${config.cluster}`}. This page updates by itself when the payment lands.
+      </p>
       {url && (
         <a href={url} className="mt-2 text-xs text-violet hover:underline">
           Open in wallet app
@@ -343,23 +345,69 @@ function QrPay({ invoiceId, amount }: { invoiceId: string; amount: string }) {
   );
 }
 
-function FaucetHint({ onDone }: { onDone: () => void }) {
-  const { publicKey } = useWallet();
+/** Asks the devnet faucet for test USD and reports the outcome, including rate-limit messages. */
+function useFaucet() {
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const request = async (address: string) => {
+    setBusy(true);
+    const res = await faucetAction(address);
+    setBusy(false);
+    toast.push(res.ok ? { tone: "success", title: "2,000 test USD sent", body: "It shows in the wallet within a few seconds." } : { tone: "error", title: "No test USD sent", body: res.error });
+    return res.ok;
+  };
+  return { busy, request };
+}
+
+function FaucetHint() {
+  const { publicKey } = useWallet();
+  const { busy, request } = useFaucet();
   if (!publicKey) return null;
   return (
     <button
-      onClick={async () => {
-        setBusy(true);
-        const res = await faucetAction(publicKey.toBase58());
-        setBusy(false);
-        if (res.ok) onDone();
-      }}
+      onClick={() => request(publicKey.toBase58())}
       disabled={busy}
       className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-veil/10 py-2.5 text-xs text-fg-3 transition hover:border-violet/40 hover:text-fg"
     >
       <Droplets className="size-3.5" /> {busy ? "Sending test USD…" : "Need test USD? Get 2,000 from the devnet faucet"}
     </button>
+  );
+}
+
+/** For phone wallets, which can't connect to this page: fund the address before scanning. */
+function PhoneFaucet() {
+  const [open, setOpen] = useState(false);
+  const [address, setAddress] = useState("");
+  const { busy, request } = useFaucet();
+  if (!open)
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-veil/10 py-2.5 text-xs text-fg-3 transition hover:border-violet/40 hover:text-fg"
+      >
+        <Droplets className="size-3.5" /> Paying from a phone wallet? Get test USD first
+      </button>
+    );
+  return (
+    <form
+      className="mt-4 space-y-2.5 rounded-xl border border-veil/10 bg-veil/[0.03] p-3.5 text-xs text-fg-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (await request(address)) setAddress("");
+      }}
+    >
+      <ol className="list-decimal space-y-1 pl-4">
+        <li>In Phantom: Settings → Developer Settings → turn on Testnet Mode and pick Solana Devnet.</li>
+        <li>Copy your wallet address and paste it below.</li>
+        <li>After the test USD arrives, scan the code above.</li>
+      </ol>
+      <div className="flex gap-2">
+        <Input value={address} onChange={(e) => setAddress(e.target.value.trim())} placeholder="Your wallet address" className="h-9 font-mono text-xs" aria-label="Your wallet address" />
+        <Button type="submit" size="sm" disabled={busy || address.length < 32}>
+          {busy ? <LogoSpinner size={14} /> : <Droplets className="size-3.5" />} Send
+        </Button>
+      </div>
+    </form>
   );
 }
 

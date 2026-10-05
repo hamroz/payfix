@@ -1,9 +1,12 @@
 import { createHash, createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { customers, otpCodes, outbox, sessions } from "@/lib/db/schema";
+import { customers, otpCodes, sessions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { newId, newToken } from "@/lib/ids";
+import { deliverOutbox, emailFailed, queueEmail } from "./email";
+import { InputError } from "./invoices";
+import { consume, DAY, MINUTE, rateKey } from "./ratelimit";
 
 export type SessionKind = "business" | "customer";
 
@@ -22,6 +25,10 @@ const mask = (email: string) => email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => 
  * code always goes to the invoice customer's address on file.
  */
 export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: string; email: string; businessId?: string | null }) {
+  await consume(db, [
+    { key: rateKey("code", p.email), max: 5, windowMs: 15 * MINUTE, message: "Too many codes sent to this address. Wait 15 minutes and try again." },
+    { key: rateKey("code-day", p.email), max: 20, windowMs: DAY, message: "Too many codes sent to this address today. Try again tomorrow." },
+  ]);
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const id = newId("otp");
   await db.insert(otpCodes).values({
@@ -32,15 +39,16 @@ export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: str
     codeHash: codeHash(id, code),
     expiresAt: new Date(Date.now() + CODE_TTL_MS),
   });
-  await db.insert(outbox).values({
-    id: newId("ml"),
+  const mailId = await queueEmail(db, {
     businessId: p.businessId ?? null,
     to: p.email,
     subject: `${code} is your PayFix code`,
     body: `Enter ${code} to continue. It expires in 10 minutes. If you didn't ask for this, you can ignore it.`,
     code,
   });
-  if (env().DEMO_MODE || process.env.NODE_ENV !== "production") console.log(`[payfix] sign-in code for ${p.email}: ${code}`);
+  if (env().DEMO_MODE) console.log(`[payfix] sign-in code for ${p.email}: ${code}`);
+  await deliverOutbox(db);
+  if (await emailFailed(db, mailId)) throw new InputError("We couldn’t send the email just now. Try again in a minute.");
   return { maskedEmail: mask(p.email) };
 }
 

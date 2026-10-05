@@ -68,7 +68,7 @@ export default async function SettingsPage() {
             <TeamSettings members={members} canManage={isOwner} me={user.email} />
           </FadeIn>
           <FadeIn delay={0.08}>
-            <WalletSettings wallets={wallets} canManage={isOwner} cluster={config.cluster} simulated={config.simulated} />
+            <WalletSettings wallets={wallets} canManage={isOwner} cluster={config.cluster} simulated={config.simulated} demoMode={config.demoMode} />
           </FadeIn>
           {config.demoMode && (
             <FadeIn delay={0.1}>

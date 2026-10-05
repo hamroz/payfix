@@ -64,6 +64,10 @@ Then restart: `npm run docker:up` for Docker (the container reads `.env.local`),
 
 To use your own Phantom as the customer from the start, run `npm run setup:devnet -- --to <your devnet address>`.
 
+To make wallets show the test token as **PayFix Test USD (tUSD)** with the PayFix logo instead of an unknown token, run `npm run setup:token-metadata` once (it writes Metaplex token metadata pointing at `/token/test-usd.json` on the live demo; rerun to update).
+
+**Paying from a phone wallet:** in Phantom, open Settings → Developer Settings, turn on Testnet Mode, and choose Solana Devnet. On the pay page, choose **Scan QR** → "Paying from a phone wallet? Get test USD first", paste the phone wallet's address, then scan. The faucet is limited per wallet, per network, and overall, and it stops handing out SOL when the treasury runs low.
+
 ### Companies, teams, and roles
 
 Each user can belong to several companies and switch between them from the sidebar. In **Settings → Team**, owners invite people by email:
@@ -81,6 +85,7 @@ The server checks the role on every action; the UI also hides what a role can't 
 | Command | What it does |
 | --- | --- |
 | `npm test` | Unit tests plus the demo scenario, tenant isolation, roles, and credit rules against in-memory Postgres and a simulated chain |
+| `npm run setup:token-metadata` | Names the devnet test token "PayFix Test USD" with the PayFix logo, so wallets recognize it |
 | `npm run e2e [url]` | Rehearses the whole demo in headless Chrome against a running app (default `http://localhost:3300`), on devnet |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |
 | `npm run build` | Production build |
@@ -89,6 +94,32 @@ The server checks the role on every action; the UI also hides what a role can't 
 | `npm run db:generate` | Generate a migration after editing `src/lib/db/schema.ts` (migrations apply automatically at startup) |
 
 For deployment, set `DATABASE_URL` to a hosted Postgres (for example Neon on Vercel). Migrations run automatically on first connection.
+
+## Production deployment
+
+PayFix runs as **two deployments of the same code**: a public **demo** on devnet (what judges and testers use) and a **production** site on mainnet with demo features off. They never share a database or keys.
+
+| Setting | Demo (devnet) | Production (mainnet) |
+| --- | --- | --- |
+| `SOLANA_CLUSTER` | `devnet` | `mainnet-beta` |
+| `SOLANA_RPC_URL` | public devnet | a paid RPC (Helius, Triton, QuickNode…); the public endpoint is rate limited |
+| `PAYFIX_MINT` / label | test mint / "Test USD" | empty → Circle's USDC / "USDC" |
+| `DEMO_MODE` | `true` | `false` (startup refuses demo mode on mainnet) |
+| Email | demo inbox in the app | `RESEND_API_KEY` + `EMAIL_FROM` on a verified domain |
+| `SESSION_SECRET` | random | random and different (startup refuses the default on mainnet) |
+| `DEMO_URL` | — | the demo's URL, for the landing page's "Try the live demo" |
+| `DATABASE_URL` | its own Neon database | its own Neon database, in the **same region** as the functions |
+
+What production mode changes:
+
+- **No demo machinery:** no demo inbox, demo wallets, faucet, server-held keys, or reset. Refunds are always signed in the business's own wallet.
+- **Real email:** codes and links are queued in the same transaction as the change they announce, delivered through Resend after commit, retried on failure, and erased from the database once sent.
+- **Proven receiving wallets:** a business can only add a wallet it signs for, so a mistyped address can't receive customers' payments.
+- **Abuse limits:** sign-in codes are limited per address and per network.
+- **Security headers:** no framing (clickjacking), HSTS, nosniff, strict referrer policy.
+- **Health check:** `GET /api/health` reports database status, the function and database regions, and a warm query time. A large `dbMs` means they're in different regions.
+
+Before launching on mainnet: give preview deployments their own database (a Neon branch), not production's; verify the email domain in Resend; set the Vercel function region to the Neon region; add Terms and Privacy pages reviewed by someone qualified; and run the full flow with a small real USDC amount.
 
 ## How it works
 

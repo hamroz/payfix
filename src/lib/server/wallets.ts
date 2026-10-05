@@ -2,6 +2,8 @@ import { and, asc, eq } from "drizzle-orm";
 import type { Db, Executor } from "@/lib/db/client";
 import { businesses, businessWallets, refunds, transfers } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
+import { env } from "@/lib/env";
+import { verifyWalletSignature, walletOwnershipMessage, type OwnershipProof } from "@/lib/solana/proof";
 import { isWalletAddress, shortAddress } from "@/lib/solana/tx";
 import { InputError } from "./invoices";
 import { logEvent } from "./journal";
@@ -25,9 +27,28 @@ export async function listWallets(db: Executor, businessId: string): Promise<Wal
     .sort((a, b) => Number(b.active) - Number(a.active));
 }
 
-export async function addWallet(db: Db, p: { businessId: string; address: string; label: string; makeActive?: boolean }) {
+const PROOF_MAX_AGE_MS = 15 * 60 * 1000;
+
+/**
+ * Outside demo mode a receiving wallet needs a fresh signature from that wallet. Demo mode
+ * also accepts a pasted address, since demo wallets only ever hold test tokens.
+ */
+export function assertWalletOwnership(address: string, proof: OwnershipProof | undefined) {
+  if (!proof) {
+    if (env().DEMO_MODE) return;
+    throw new InputError("Connect the wallet and sign the message to prove it’s yours.");
+  }
+  const issuedAt = proof.message.match(/^Issued: (.+)$/m)?.[1] ?? "";
+  const age = Date.now() - Date.parse(issuedAt);
+  if (proof.message !== walletOwnershipMessage({ address, issuedAt }) || !(age >= -60_000 && age < PROOF_MAX_AGE_MS))
+    throw new InputError("That signature is for a different wallet or has expired. Sign again.");
+  if (!verifyWalletSignature(proof.message, proof.signature, address)) throw new InputError("The signature doesn’t match this wallet.");
+}
+
+export async function addWallet(db: Db, p: { businessId: string; address: string; label: string; makeActive?: boolean; proof?: OwnershipProof }) {
   const address = p.address.trim();
   if (!isWalletAddress(address)) throw new InputError("That isn't a valid Solana wallet address.");
+  assertWalletOwnership(address, p.proof);
   const label = p.label.trim() || `Wallet ${shortAddress(address)}`;
   await listWallets(db, p.businessId);
   const inserted = await db
