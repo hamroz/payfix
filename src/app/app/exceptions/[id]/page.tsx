@@ -87,7 +87,7 @@ export default async function CasePage({ params }: PageProps<"/app/exceptions/[i
           </Card>
         </FadeIn>
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <div className="mt-5 grid gap-5 *:min-w-0 lg:grid-cols-[1.4fr_1fr]">
           <div className="flex flex-col gap-5">
             <FadeIn delay={0.08}>
               <Card>

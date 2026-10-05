@@ -2,7 +2,7 @@
 
 Created September 26, 2026. Internal deadline: **Saturday, October 10, 2026, at 23:59 Europe/Berlin**.
 
-Status (Oct 2): **M1–M3 complete; M4 build work complete, its external-tester gate still open.** Live demo: https://payfix-mu.vercel.app. See [Progress and evidence](#progress-and-evidence) below. Dates are delivery targets, not scheduled background runs.
+Status (Oct 5): **All AI-side deliverables for M1–M7 are drafted or built; every remaining gate needs people** (external walkthroughs, rehearsals, recording, submission). Live demo: https://payfix-mu.vercel.app. See [Progress and evidence](#progress-and-evidence) below. Dates are delivery targets, not scheduled background runs.
 
 If entering Crypto World's Fair, its published submission date is October 12, 2026. The internal deadline leaves a two-day contingency window. Confirm the precise cutoff in the submission portal. [Event page](https://colosseum.com/worldsfair).
 
@@ -68,19 +68,21 @@ Milestones are acceptance gates. If AI work finishes early, advance immediately 
 
 ## Progress and evidence
 
-Recorded Oct 2. Build work started Sep 30 (three days after the plan) and caught up by Oct 1.
+Recorded Oct 2, updated Oct 5. Build work started Sep 30 (three days after the plan) and caught up by Oct 1.
 
 | Milestone | Build status | Evidence | Still open |
 |---|---|---|---|
-| **M1** | Done | Runnable app, data model (`src/lib/db/schema.ts`), payment and resolution states, README architecture section | No standalone product brief, screen-flow doc, or written acceptance checklist; human items (registration, five businesses, decision-maker) not recorded here |
+| **M1** | Done | Runnable app, data model, states; [product brief](docs/product-brief.md), [screen flows](docs/screen-flows.md), [acceptance checklist](docs/acceptance-checklist.md) | Human items (registration, five businesses, decision-maker) not recorded here |
 | **M2** | Done | Devnet: $1,000 invoice tracks $600 then $500, Explorer links per transfer; re-sync never double-counts (`flow.test.ts`) | First discovery conversations not recorded here |
 | **M3** | Done | $60 to B + $40 refund end to end on devnet and on the live site; destination change voids approval; pending/failed refunds stay visible (tests + e2e) | Language review by the team; interviewee-suggested case |
-| **M4** | Build done | Exceptions inbox (overpayment, duplicate, unmatched, late); customer credit kept and applied once; receipts and CSV; role checks; phone layout; every visitor gets an isolated company with its own devnet wallet; `npm run e2e` rehearses the whole demo in a real browser | **Three external walkthroughs on real phones** — the gate is "another person completes the flow without developer intervention" |
-| M5–M7 | Not started | — | External evidence, release candidate, submission package (repo is still private) |
+| **M4** | Build done | Exceptions inbox (overpayment, duplicate, unmatched, late); customer credit kept and applied once; receipts and CSV; role checks; phone layout with every section and the company menu; every visitor gets an isolated company with its own devnet wallet; phone wallets can get test USD and see it as "PayFix Test USD"; [tester walkthrough](docs/tester-walkthrough.md) | **Three external walkthroughs on real phones** — the gate is "another person completes the flow without developer intervention" |
+| **M5** | AI side done | [Evidence log template](docs/evidence-log.md), [competitor comparison](docs/submission/competitor-comparison.md) with sources, tester walkthrough and follow-up questions | Run the walkthroughs, fill the evidence log, fix what testers hit |
+| **M6** | AI side done | [Runbook](docs/runbook.md) (reset, treasury top-up, stuck refund, rollback); `/api/health`; e2e rehearsal passes on the live site | Two independent human rehearsals; feature freeze after Oct 8 |
+| **M7** | Drafts ready | [Architecture](docs/architecture.md), [pitch draft](docs/submission/pitch-draft.md), [≤3-min recording script](docs/submission/demo-recording-script.md), [submission copy](docs/submission/submission-copy.md), [development disclosure](docs/submission/development-disclosure.md) | Fill `[TEAM TO FILL]` with real evidence, record the video, make the repo accessible to judges, submit |
 
-Built beyond the plan: Docker setup, light theme, multiple receiving wallets per company, companies with Owner/Editor/Viewer roles, Vercel deployment with Neon Postgres.
+Built beyond the plan: Docker setup, light theme, multiple receiving wallets per company, companies with Owner/Editor/Viewer roles, Vercel deployment with Neon Postgres, and a production mode (real email, rate limits, proven receiving wallets, mainnet USDC config, security headers). Mainnet launch remains a separate decision, per the note under Reliability gates.
 
-Automated checks: `npm test` (30 tests including the full demo scenario offline, tenant isolation, roles, single-use credit) and `npm run e2e [url]` (11-step browser rehearsal on devnet).
+Automated checks: `npm test` (39 tests: the full demo scenario offline, payment verification, tenant isolation, role and team rules, single-use credit, rate limits, wallet proofs, email delivery) and `npm run e2e [url]` (9-step, 11-check browser rehearsal on devnet, including an approval voided by a change).
 
 ## Who does what
 

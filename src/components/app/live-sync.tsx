@@ -4,11 +4,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
+/** What the page already holds that entitles it to sync: a member's company, a pay link's invoice, or a resolution link. */
+export type SyncScope = { b: string } | { invoice: string } | { link: string };
+
 /**
  * Polls /api/sync while the page is visible and refreshes server components when
  * anything changed. Renders a small live indicator.
  */
-export function LiveSync({ businessId, interval = 4000, label = true, className }: { businessId: string; interval?: number; label?: boolean; className?: string }) {
+export function LiveSync({ scope, interval = 4000, label = true, className }: { scope: SyncScope; interval?: number; label?: boolean; className?: string }) {
+  const query = new URLSearchParams(scope).toString();
   const router = useRouter();
   const version = useRef<number | null>(null);
   const [state, setState] = useState<"live" | "syncing" | "offline">("live");
@@ -20,7 +24,7 @@ export function LiveSync({ businessId, interval = 4000, label = true, className 
       if (document.visibilityState === "visible") {
         setState("syncing");
         try {
-          const res = await fetch(`/api/sync?b=${encodeURIComponent(businessId)}`, { method: "POST" });
+          const res = await fetch(`/api/sync?${query}`, { method: "POST" });
           const data = (await res.json()) as { version?: number };
           if (!res.ok || data.version === undefined) throw new Error();
           if (version.current !== null && data.version !== version.current) router.refresh();
@@ -37,7 +41,7 @@ export function LiveSync({ businessId, interval = 4000, label = true, className 
       stopped = true;
       clearTimeout(timer);
     };
-  }, [interval, router, businessId]);
+  }, [interval, router, query]);
 
   return (
     <span className={cn("inline-flex items-center gap-2 text-xs text-fg-3", className)} title="PayFix checks the chain every few seconds">
@@ -45,7 +49,7 @@ export function LiveSync({ businessId, interval = 4000, label = true, className 
         {state !== "offline" && <span className="absolute inset-0 animate-pulse-ring rounded-full bg-mint" />}
         <span className={cn("relative size-2 rounded-full", state === "offline" ? "bg-rose" : "bg-mint")} />
       </span>
-      {label && (state === "offline" ? "Reconnecting…" : "Live")}
+      {label && <span className="hidden sm:inline">{state === "offline" ? "Reconnecting…" : "Live"}</span>}
     </span>
   );
 }

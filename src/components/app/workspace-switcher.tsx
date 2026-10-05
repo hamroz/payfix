@@ -12,7 +12,8 @@ import { cn } from "@/lib/cn";
 
 type W = { businessId: string; name: string; role: Role };
 
-export function WorkspaceSwitcher({ current, workspaces, email }: { current: W; workspaces: W[]; email: string }) {
+/** Company menu: switch company, create one, sign out. `compact` is the phone header's avatar-only version. */
+export function WorkspaceSwitcher({ current, workspaces, email, compact = false }: { current: W; workspaces: W[]; email: string; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
@@ -32,7 +33,10 @@ export function WorkspaceSwitcher({ current, workspaces, email }: { current: W; 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6 }}
             transition={{ duration: 0.15 }}
-            className="glass absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-2xl bg-ink-850/95 p-1.5"
+            className={cn(
+              "glass absolute z-50 overflow-hidden rounded-2xl bg-ink-850/95 p-1.5",
+              compact ? "right-0 top-full mt-2 w-64 bg-ink-850" : "bottom-full left-0 right-0 mb-2",
+            )}
           >
             <p className="truncate px-2.5 pb-1.5 pt-1 text-[11px] text-fg-3">{email}</p>
             {workspaces.map((w) => (
@@ -62,6 +66,16 @@ export function WorkspaceSwitcher({ current, workspaces, email }: { current: W; 
           </motion.div>
         )}
       </AnimatePresence>
+      {compact ? (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="grid size-8 place-items-center rounded-lg bg-[linear-gradient(135deg,#6366F1,#A78BFA)] font-display text-xs font-semibold text-white"
+          aria-expanded={open}
+          aria-label="Switch company"
+        >
+          {initials(current.name)}
+        </button>
+      ) : (
       <button
         onClick={() => setOpen((o) => !o)}
         className={cn("flex w-full items-center gap-3 rounded-2xl border border-veil/[0.07] bg-veil/[0.03] p-3 text-left transition hover:bg-veil/[0.06]", open && "bg-veil/[0.06]")}
@@ -75,6 +89,7 @@ export function WorkspaceSwitcher({ current, workspaces, email }: { current: W; 
         </span>
         <ChevronsUpDown className="size-4 shrink-0 text-fg-3" />
       </button>
+      )}
     </div>
   );
 }
