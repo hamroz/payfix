@@ -8,6 +8,8 @@ import { applyCredit } from "./credit";
 import { syncBusiness } from "./ingest";
 import { createCustomer, createInvoice, createPaymentRequest, flagOverdueInvoices } from "./invoices";
 import { logEvent } from "./journal";
+import { getMuted, listNotifications, markAllRead, markRead, setMuted, unreadCount } from "./notifications";
+import { CATEGORIES } from "@/lib/domain/notifications";
 import { approveProposal, executePlan, submitProposal } from "./resolution";
 import { removeWallet } from "./wallets";
 import { SimChain } from "./sim-chain";
@@ -71,6 +73,7 @@ describe("notifications", () => {
     expect(paid[0].message).toBe(`${inv.number} is paid in full`);
     await syncBusiness({ db, chain }, a.businessId);
     expect(await ofType("invoice.paid", { invoiceId: inv.id })).toHaveLength(1);
+    expect(await ofType("invoice.paid", { businessId: b.businessId })).toHaveLength(0);
   });
 
   it("logs invoice.paid and case.resolved when a plan settles an invoice, and when credit settles one", async () => {
@@ -149,6 +152,95 @@ describe("notifications", () => {
     await logEvent(db, { businessId: a.businessId, actor: "business", type: "invoice.created", message: "by editor", actorUserId: editorId });
     const [row] = await db.select().from(events).where(eq(events.message, "by editor"));
     expect(row.actorUserId).toBe(editorId);
+  });
+});
+
+describe("notification feed", () => {
+  let db: Db;
+  let a: Awaited<ReturnType<typeof company>>;
+  let b: Awaited<ReturnType<typeof company>>;
+  let editorId: string;
+  const owner = () => ({ businessId: a.businessId, userId: a.user.id });
+  const editor = () => ({ businessId: a.businessId, userId: editorId });
+  const log = (type: string, message: string, extra: Partial<Parameters<typeof logEvent>[1]> = {}) =>
+    logEvent(db, { businessId: a.businessId, actor: "system", type, message, ...extra });
+
+  beforeAll(async () => {
+    db = await openPglite();
+    a = await company(db, "owner@feed.test", "Feed Co");
+    b = await company(db, "other@feed.test", "Other Feed Co");
+    await addMember(db, { businessId: a.businessId, email: "editor@feed.test", role: "editor", invitedBy: a.user.email, actorUserId: a.user.id });
+    editorId = (await listMembers(db, a.businessId)).find((m) => m.email === "editor@feed.test")!.userId;
+    await log("payment.received", "Acme paid $10", { actor: "system" });
+    await log("proposal.submitted", "Customer proposed a plan", { actor: "customer", caseId: null });
+    await log("invoice.created", "Editor made an invoice", { actor: "business", actorUserId: editorId });
+    await log("something.internal", "Not a notification");
+  });
+
+  it("shows every category by default and hides the member's own actions", async () => {
+    const ownerFeed = (await listNotifications(db, owner())).map((n) => n.message);
+    expect(ownerFeed).toEqual(expect.arrayContaining(["Acme paid $10", "Customer proposed a plan", "Editor made an invoice"]));
+    expect(ownerFeed).not.toContain("Not a notification");
+    expect(ownerFeed).not.toContain(`editor@feed.test joined as editor`); // the owner added them
+    const editorFeed = (await listNotifications(db, editor())).map((n) => n.message);
+    expect(editorFeed).toContain("Acme paid $10");
+    expect(editorFeed).toContain("editor@feed.test joined as editor");
+    expect(editorFeed).not.toContain("Editor made an invoice");
+    const [first] = await listNotifications(db, owner());
+    expect(first).toMatchObject({ read: false, category: expect.any(String), href: expect.stringMatching(/^\/app/) });
+  });
+
+  it("links each notification to where it happened", async () => {
+    await log("member.removed", "x left", { actor: "business" });
+    await log("invoice.overdue", "INV-9 overdue", { invoiceId: null });
+    const feed = await listNotifications(db, owner());
+    expect(feed.find((n) => n.message === "x left")!.href).toBe("/app/settings");
+    expect(feed.find((n) => n.message === "Acme paid $10")!.href).toBe("/app");
+  });
+
+  it("hides muted categories and rejects unknown ones", async () => {
+    await setMuted(db, { ...owner(), muted: ["payments"] });
+    expect(await getMuted(db, owner())).toEqual(["payments"]);
+    expect((await listNotifications(db, owner())).map((n) => n.message)).not.toContain("Acme paid $10");
+    expect((await listNotifications(db, editor())).map((n) => n.message)).toContain("Acme paid $10"); // personal
+    await setMuted(db, { ...owner(), muted: [] });
+    expect((await listNotifications(db, owner())).map((n) => n.message)).toContain("Acme paid $10");
+    await expect(setMuted(db, { ...owner(), muted: ["bogus"] })).rejects.toThrow(/Unknown notification category/);
+  });
+
+  it("shows nothing when every category is muted", async () => {
+    await setMuted(db, { ...owner(), muted: CATEGORIES.map((c) => c.id) });
+    expect(await listNotifications(db, owner())).toEqual([]);
+    expect(await unreadCount(db, owner())).toBe(0);
+    await setMuted(db, { ...owner(), muted: [] });
+  });
+
+  it("marks one notification read, per member, idempotently", async () => {
+    const before = await unreadCount(db, owner());
+    const target = (await listNotifications(db, owner())).find((n) => n.message === "Acme paid $10")!;
+    await markRead(db, { ...owner(), eventId: target.id });
+    await markRead(db, { ...owner(), eventId: target.id });
+    expect(await unreadCount(db, owner())).toBe(before - 1);
+    expect((await listNotifications(db, owner())).find((n) => n.id === target.id)!.read).toBe(true);
+    expect((await listNotifications(db, editor())).find((n) => n.id === target.id)!.read).toBe(false);
+  });
+
+  it("marks all read, and newer events are unread again", async () => {
+    await markAllRead(db, owner());
+    expect(await unreadCount(db, owner())).toBe(0);
+    const [any] = await listNotifications(db, owner());
+    await markRead(db, { ...owner(), eventId: any.id }); // already covered by the cursor: no error
+    await new Promise((r) => setTimeout(r, 5));
+    await log("refund.failed", "Refund failed");
+    expect(await unreadCount(db, owner())).toBe(1);
+    expect((await listNotifications(db, owner()))[0]).toMatchObject({ message: "Refund failed", read: false });
+  });
+
+  it("keeps companies apart", async () => {
+    await expect(listNotifications(db, { businessId: a.businessId, userId: b.user.id })).rejects.toThrow(/not a member/);
+    const [ev] = await listNotifications(db, owner());
+    await expect(markRead(db, { businessId: b.businessId, userId: b.user.id, eventId: ev.id })).rejects.toThrow(/not found/);
+    expect(await listNotifications(db, { businessId: b.businessId, userId: b.user.id })).toEqual([]);
   });
 });
 
