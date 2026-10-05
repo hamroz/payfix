@@ -112,6 +112,7 @@ stateDiagram-v2
   - **editor:** customers, invoices, credit, links, approve, request changes, execute, sign refunds.
   - **viewer:** sync, refund status checks, ledger export.
   - The UI also hides controls by role.
+  - `src/app/actions/business.test.ts` calls each editor and owner action as a lower role and checks it is refused without writing anything.
 - Customers have no account. A resolution link is a 32-character random token stored as a SHA-256 hash, valid for 7 days, and revoked when a new one is sent. It only opens a page; the customer must also verify with an email code sent to the address on file. Every customer action (`authorizedCase`) re-checks that the session customer equals the link's customer.
 - Demo inbox (`/api/dev/inbox`, demo mode only) shows mail for the signed-in user's companies, or for the address this browser requested a code for.
 - Payment pages are capability URLs: the invoice ID is unguessable, and the page can only pay the business.
