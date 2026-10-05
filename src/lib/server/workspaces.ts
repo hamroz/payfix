@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import type { Db, Executor } from "@/lib/db/client";
 import {
   approvals,
@@ -12,6 +12,7 @@ import {
   invoices,
   journalEntries,
   memberships,
+  notificationReads,
   outbox,
   paymentRequests,
   postings,
@@ -26,6 +27,7 @@ import {
 import { env } from "@/lib/env";
 import { newId } from "@/lib/ids";
 import { toUnits } from "@/lib/money";
+import { roleLabel } from "@/lib/roles";
 import { createCustomer, createInvoice, InputError } from "./invoices";
 import { deliverOutbox, queueEmail } from "./email";
 import { logEvent } from "./journal";
@@ -76,19 +78,19 @@ export async function createWorkspace(
   const businessId = newId("biz");
   await db.transaction(async (t) => {
     await t.insert(businesses).values({ id: businessId, name, ownerEmail: p.email, walletAddress: p.wallet.address, mint });
-    await t.insert(memberships).values({ id: newId("mem"), businessId, userId: p.userId, role: "owner" });
+    await t.insert(memberships).values({ id: newId("mem"), businessId, userId: p.userId, role: "owner", notificationsReadAt: sql`now()` });
     await t.insert(businessWallets).values({ id: newId("bw"), businessId, address: p.wallet.address, label: p.wallet.label, secretEnc: p.wallet.secretEnc ?? null });
   });
   return businessId;
 }
 
 /** The demo script's starting point: a repeat client with a $1,000 and a $400 invoice. */
-export async function seedSampleData(db: Db, businessId: string) {
-  const acme = await createCustomer(db, { businessId, name: "Acme Robotics", email: "ap@acme.test" });
-  await createCustomer(db, { businessId, name: "Northwind Coffee", email: "finance@northwind.test" });
+export async function seedSampleData(db: Db, businessId: string, actorUserId?: string) {
+  const acme = await createCustomer(db, { businessId, name: "Acme Robotics", email: "ap@acme.test", actorUserId });
+  await createCustomer(db, { businessId, name: "Northwind Coffee", email: "finance@northwind.test", actorUserId });
   const day = 864e5;
-  await createInvoice(db, { businessId, customerId: acme, title: "Brand identity system", amount: toUnits("1000"), dueAt: new Date(Date.now() + 10 * day) });
-  await createInvoice(db, { businessId, customerId: acme, title: "Website retainer — October", amount: toUnits("400"), dueAt: new Date(Date.now() + 21 * day) });
+  await createInvoice(db, { businessId, customerId: acme, title: "Brand identity system", amount: toUnits("1000"), dueAt: new Date(Date.now() + 10 * day), actorUserId });
+  await createInvoice(db, { businessId, customerId: acme, title: "Website retainer — October", amount: toUnits("400"), dueAt: new Date(Date.now() + 21 * day), actorUserId });
 }
 
 /** Ignore chain history that predates the workspace (e.g. earlier runs on the same wallet). */
@@ -119,6 +121,7 @@ export async function clearWorkspaceData(db: Db, businessId: string) {
       await t.delete(resolutionLinks).where(inArray(resolutionLinks.caseId, caseIds));
       await t.delete(caseTransfers).where(inArray(caseTransfers.caseId, caseIds));
     }
+    await t.delete(notificationReads).where(inArray(notificationReads.eventId, t.select({ id: events.id }).from(events).where(eq(events.businessId, businessId))));
     await t.delete(events).where(eq(events.businessId, businessId));
     await t.delete(cases).where(eq(cases.businessId, businessId));
     await t.delete(transfers).where(eq(transfers.businessId, businessId));
@@ -142,7 +145,7 @@ export async function listMembers(db: Executor, businessId: string) {
     .orderBy(asc(memberships.createdAt));
 }
 
-export async function addMember(db: Db, p: { businessId: string; email: string; role: Role; invitedBy: string }) {
+export async function addMember(db: Db, p: { businessId: string; email: string; role: Role; invitedBy: string; actorUserId?: string }) {
   const user = await findOrCreateUser(db, p.email);
   const inserted = await db
     .insert(memberships)
@@ -158,7 +161,9 @@ export async function addMember(db: Db, p: { businessId: string; email: string; 
     body: `${p.invitedBy} added you as ${p.role}. Sign in with this email address to open the workspace.`,
     link: `${env().APP_URL}/login`,
   });
-  await logEvent(db, { businessId: p.businessId, actor: "business", type: "member.added", message: `${user.email} joined as ${p.role}` });
+  await logEvent(db, { businessId: p.businessId, actor: "business", actorUserId: p.actorUserId, type: "member.added", message: `${user.email} joined as ${p.role}` });
+  // New members start caught up: earlier history (and their own arrival) is already read.
+  await db.update(memberships).set({ notificationsReadAt: sql`now()` }).where(eq(memberships.id, inserted[0].id));
   await deliverOutbox(db);
 }
 
@@ -167,21 +172,38 @@ async function ownerCount(db: Executor, businessId: string) {
   return r?.n ?? 0;
 }
 
-export async function setMemberRole(db: Db, p: { businessId: string; userId: string; role: Role }) {
+export async function setMemberRole(db: Db, p: { businessId: string; userId: string; role: Role; actorUserId?: string }) {
   return db.transaction(async (t) => {
     const [m] = await t.select().from(memberships).where(and(eq(memberships.businessId, p.businessId), eq(memberships.userId, p.userId))).for("update");
     if (!m) throw new InputError("That person isn't on the team.");
     if (m.role === "owner" && p.role !== "owner" && (await ownerCount(t, p.businessId)) <= 1) throw new InputError("A company needs at least one owner.");
+    if (m.role === p.role) return;
     await t.update(memberships).set({ role: p.role }).where(eq(memberships.id, m.id));
+    const user = await userById(t, p.userId);
+    await logEvent(t, {
+      businessId: p.businessId,
+      actor: "business",
+      actorUserId: p.actorUserId,
+      type: "member.role_changed",
+      message: `${user?.email ?? "A member"} is now ${roleLabel(p.role)}`,
+    });
   });
 }
 
-export async function removeMember(db: Db, p: { businessId: string; userId: string }) {
+export async function removeMember(db: Db, p: { businessId: string; userId: string; actorUserId?: string }) {
   return db.transaction(async (t) => {
     const [m] = await t.select().from(memberships).where(and(eq(memberships.businessId, p.businessId), eq(memberships.userId, p.userId))).for("update");
     if (!m) throw new InputError("That person isn't on the team.");
     if (m.role === "owner" && (await ownerCount(t, p.businessId)) <= 1) throw new InputError("A company needs at least one owner.");
     await t.delete(memberships).where(eq(memberships.id, m.id));
+    const user = await userById(t, p.userId);
+    await logEvent(t, {
+      businessId: p.businessId,
+      actor: "business",
+      actorUserId: p.actorUserId,
+      type: "member.removed",
+      message: `${user?.email ?? "A member"} was removed from the team`,
+    });
   });
 }
 

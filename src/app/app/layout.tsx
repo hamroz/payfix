@@ -4,15 +4,25 @@ import { Logo } from "@/components/brand/logo";
 import { LiveSync } from "@/components/app/live-sync";
 import { SideNav, TabBar } from "@/components/app/nav";
 import { NetworkPill } from "@/components/app/network-pill";
+import { NotificationBell } from "@/components/app/notifications";
 import { ThemeToggle } from "@/components/theme/theme";
 import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
 import { deps, requireWorkspace } from "@/lib/server/context";
+import { listNotifications, unreadCount, type NotificationRow } from "@/lib/server/notifications";
 import { openCaseCount } from "@/lib/server/queries";
 
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const { biz, role, user, workspaces } = await requireWorkspace();
   const { db } = await deps();
   const open = await openCaseCount(db, biz.id);
+  // Notifications must never take the app shell down with them.
+  let notifications: { items: NotificationRow[]; unread: number } = { items: [], unread: 0 };
+  try {
+    const viewer = { businessId: biz.id, userId: user.id };
+    notifications = { items: await listNotifications(db, viewer), unread: await unreadCount(db, viewer) };
+  } catch (err) {
+    console.error("[payfix] notifications failed:", err instanceof Error ? err.message : err);
+  }
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[1400px]">
@@ -40,6 +50,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
             )}
             <LiveSync scope={{ b: biz.id }} />
             <NetworkPill />
+            <NotificationBell items={notifications.items} unread={notifications.unread} />
             <ThemeToggle />
             <div className="lg:hidden">
               <WorkspaceSwitcher compact current={{ businessId: biz.id, name: biz.name, role }} workspaces={workspaces} email={user.email} />

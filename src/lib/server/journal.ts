@@ -1,4 +1,5 @@
 import { journalEntries, postings, events } from "@/lib/db/schema";
+import { invoiceWithBalance } from "./queries";
 import type { Executor } from "@/lib/db/client";
 import { assertBalanced, type PostingDraft } from "@/lib/domain/ledger";
 import { newId } from "@/lib/ids";
@@ -37,6 +38,11 @@ export async function postEntry(
   return true;
 }
 
+/**
+ * Appends to the company's activity log, which is also what notifications read. `actorUserId`
+ * is the member who caused it (so they aren't notified of it). With a `dedupeKey`, the event
+ * is written at most once per company; returns false when it already existed.
+ */
 export async function logEvent(
   db: Executor,
   e: {
@@ -47,18 +53,43 @@ export async function logEvent(
     caseId?: string | null;
     invoiceId?: string | null;
     customerId?: string | null;
+    actorUserId?: string | null;
+    dedupeKey?: string | null;
     data?: Record<string, unknown>;
   },
-) {
-  await db.insert(events).values({
-    id: newId("ev"),
-    businessId: e.businessId,
-    actor: e.actor,
-    type: e.type,
-    message: e.message,
-    caseId: e.caseId ?? null,
-    invoiceId: e.invoiceId ?? null,
-    customerId: e.customerId ?? null,
-    data: e.data ?? null,
+): Promise<boolean> {
+  const inserted = await db
+    .insert(events)
+    .values({
+      id: newId("ev"),
+      businessId: e.businessId,
+      actor: e.actor,
+      actorUserId: e.actorUserId ?? null,
+      type: e.type,
+      message: e.message,
+      caseId: e.caseId ?? null,
+      invoiceId: e.invoiceId ?? null,
+      customerId: e.customerId ?? null,
+      dedupeKey: e.dedupeKey ?? null,
+      data: e.data ?? null,
+    })
+    .onConflictDoNothing()
+    .returning({ id: events.id });
+  return inserted.length > 0;
+}
+
+/** Logs `invoice.paid` once, the moment an invoice has nothing left to pay. Call after posting to it. */
+export async function logInvoicePaid(db: Executor, p: { businessId: string; invoiceId: string; actorUserId?: string | null }) {
+  const inv = await invoiceWithBalance(db, p.invoiceId);
+  if (!inv || inv.remaining > 0n) return;
+  await logEvent(db, {
+    businessId: p.businessId,
+    invoiceId: inv.id,
+    customerId: inv.customerId,
+    actor: p.actorUserId ? "business" : "system",
+    actorUserId: p.actorUserId,
+    type: "invoice.paid",
+    message: `${inv.number} is paid in full`,
+    dedupeKey: `paid:${inv.id}`,
   });
 }

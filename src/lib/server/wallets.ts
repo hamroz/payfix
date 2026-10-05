@@ -45,7 +45,7 @@ export function assertWalletOwnership(address: string, proof: OwnershipProof | u
   if (!verifyWalletSignature(proof.message, proof.signature, address)) throw new InputError("The signature doesn’t match this wallet.");
 }
 
-export async function addWallet(db: Db, p: { businessId: string; address: string; label: string; makeActive?: boolean; proof?: OwnershipProof }) {
+export async function addWallet(db: Db, p: { businessId: string; address: string; label: string; makeActive?: boolean; proof?: OwnershipProof; actorUserId?: string }) {
   const address = p.address.trim();
   if (!isWalletAddress(address)) throw new InputError("That isn't a valid Solana wallet address.");
   assertWalletOwnership(address, p.proof);
@@ -57,27 +57,35 @@ export async function addWallet(db: Db, p: { businessId: string; address: string
     .onConflictDoNothing()
     .returning();
   if (inserted.length === 0) throw new InputError("That wallet is already added.");
-  await logEvent(db, { businessId: p.businessId, actor: "business", type: "wallet.added", message: `Receiving wallet added: ${label} (${shortAddress(address)})` });
-  if (p.makeActive) await setActiveWallet(db, { businessId: p.businessId, address });
+  await logEvent(db, { businessId: p.businessId, actor: "business", actorUserId: p.actorUserId, type: "wallet.added", message: `Receiving wallet added: ${label} (${shortAddress(address)})` });
+  if (p.makeActive) await setActiveWallet(db, { businessId: p.businessId, address, actorUserId: p.actorUserId });
 }
 
 /** New payment links point to the active wallet. Earlier wallets stay watched. */
-export async function setActiveWallet(db: Db, p: { businessId: string; address: string }) {
+export async function setActiveWallet(db: Db, p: { businessId: string; address: string; actorUserId?: string }) {
   const [w] = await db.select().from(businessWallets).where(and(eq(businessWallets.businessId, p.businessId), eq(businessWallets.address, p.address)));
   if (!w) throw new InputError("Add the wallet before making it active.");
   await db.update(businesses).set({ walletAddress: w.address }).where(eq(businesses.id, p.businessId));
-  await logEvent(db, { businessId: p.businessId, actor: "business", type: "wallet.activated", message: `New payments now go to ${w.label} (${shortAddress(w.address)})` });
+  await logEvent(db, { businessId: p.businessId, actor: "business", actorUserId: p.actorUserId, type: "wallet.activated", message: `New payments now go to ${w.label} (${shortAddress(w.address)})` });
 }
 
 /**
  * Removing stops PayFix watching the wallet, so it's refused while the wallet is active,
  * has received payments, or owes a refund — those records must keep reconciling.
  */
-export async function removeWallet(db: Db, p: { businessId: string; address: string }) {
+export async function removeWallet(db: Db, p: { businessId: string; address: string; actorUserId?: string }) {
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, p.businessId));
   if (biz?.walletAddress === p.address) throw new InputError("Make another wallet active before removing this one.");
   const [used] = await db.select({ id: transfers.id }).from(transfers).where(and(eq(transfers.businessId, p.businessId), eq(transfers.walletAddress, p.address))).limit(1);
   const [owes] = await db.select({ id: refunds.id }).from(refunds).where(and(eq(refunds.businessId, p.businessId), eq(refunds.sourceWallet, p.address))).limit(1);
   if (used || owes) throw new InputError("This wallet has received payments, so PayFix keeps watching it. It can’t be removed.");
-  await db.delete(businessWallets).where(and(eq(businessWallets.businessId, p.businessId), eq(businessWallets.address, p.address)));
+  const removed = await db.delete(businessWallets).where(and(eq(businessWallets.businessId, p.businessId), eq(businessWallets.address, p.address))).returning();
+  if (removed[0])
+    await logEvent(db, {
+      businessId: p.businessId,
+      actor: "business",
+      actorUserId: p.actorUserId,
+      type: "wallet.removed",
+      message: `Receiving wallet removed: ${removed[0].label} (${shortAddress(removed[0].address)})`,
+    });
 }

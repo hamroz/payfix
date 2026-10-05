@@ -9,11 +9,13 @@ import { ata, explorerUrl } from "@/lib/solana/tx";
 import { deps, requireWorkspace } from "@/lib/server/context";
 import { listWallets } from "@/lib/server/wallets";
 import { listMembers } from "@/lib/server/workspaces";
+import { getMuted } from "@/lib/server/notifications";
 import { businessWallets } from "@/lib/db/schema";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { can } from "@/lib/roles";
 import { demoKeys } from "@/lib/server/demo";
 import { DemoTools, WalletSettings } from "./settings-client";
+import { NotificationSettings } from "./notifications";
 import { TeamSettings } from "./team";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -31,6 +33,7 @@ export default async function SettingsPage() {
   const wallets = (await listWallets(db, biz.id)).map((w) => ({ address: w.address, label: w.label, active: w.active, serverHeld: serverHeld.has(w.address) }));
   const members = (await listMembers(db, biz.id)).map((m) => ({ userId: m.userId, email: m.email, role: m.role }));
   const isOwner = can(role, "owner");
+  const muted = await getMuted(db, { businessId: biz.id, userId: user.id });
 
   const row = (label: string, value: string, link?: string) => (
     <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -66,6 +69,9 @@ export default async function SettingsPage() {
           </FadeIn>
           <FadeIn delay={0.05}>
             <TeamSettings members={members} canManage={isOwner} me={user.email} />
+          </FadeIn>
+          <FadeIn delay={0.07}>
+            <NotificationSettings muted={muted} />
           </FadeIn>
           <FadeIn delay={0.08}>
             <WalletSettings wallets={wallets} canManage={isOwner} cluster={config.cluster} simulated={config.simulated} demoMode={config.demoMode} />

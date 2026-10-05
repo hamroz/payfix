@@ -10,6 +10,9 @@ import { InputError } from "@/lib/server/invoices";
 import { findOrCreateUser } from "@/lib/server/workspaces";
 import { findLink } from "@/lib/server/resolution";
 import { customerById } from "@/lib/server/queries";
+import { logEvent } from "@/lib/server/journal";
+import { cases } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { run } from "./result";
 
 /** Sign in or sign up: the same email code either way. New users create a company next. */
@@ -69,6 +72,17 @@ export async function verifyCustomerCode(token: string, code: string) {
     const out = await verifyCode(db, { purpose: "customer", subjectId: found.link.customerId, code });
     if (!out.ok) throw new InputError(out.error);
     await setSessionCookie("customer", out.token, out.expiresAt);
+    const [c] = await db.select({ businessId: cases.businessId }).from(cases).where(eq(cases.id, found.link.caseId));
+    if (c)
+      await logEvent(db, {
+        businessId: c.businessId,
+        caseId: found.link.caseId,
+        customerId: found.link.customerId,
+        actor: "customer",
+        type: "customer.verified",
+        message: "Customer verified their email and opened the resolution link",
+        dedupeKey: `verified:${found.link.id}`,
+      });
     return {};
   });
 }

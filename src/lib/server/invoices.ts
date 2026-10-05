@@ -1,16 +1,16 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, lt, sql } from "drizzle-orm";
 import { Keypair } from "@solana/web3.js";
-import type { Db } from "@/lib/db/client";
-import { businesses, customers, invoices, paymentRequests } from "@/lib/db/schema";
+import type { Db, Executor } from "@/lib/db/client";
+import { businesses, customers, events, invoices, paymentRequests } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
 import { formatUsd, fromUnits } from "@/lib/money";
 import { solanaPayUrl } from "@/lib/solana/tx";
 import { logEvent } from "./journal";
-import { invoiceWithBalance } from "./queries";
+import { appliedByInvoice, invoiceWithBalance } from "./queries";
 
 export class InputError extends Error {}
 
-export async function createCustomer(db: Db, p: { businessId: string; name: string; email: string }) {
+export async function createCustomer(db: Db, p: { businessId: string; name: string; email: string; actorUserId?: string }) {
   const name = p.name.trim();
   const email = p.email.trim().toLowerCase();
   if (!name) throw new InputError("Enter the customer's name.");
@@ -18,11 +18,21 @@ export async function createCustomer(db: Db, p: { businessId: string; name: stri
   const [existing] = await db.select().from(customers).where(and(eq(customers.businessId, p.businessId), eq(customers.email, email)));
   if (existing) throw new InputError("A customer with that email already exists.");
   const id = newId("cus");
-  await db.insert(customers).values({ id, businessId: p.businessId, name, email });
+  await db.transaction(async (t) => {
+    await t.insert(customers).values({ id, businessId: p.businessId, name, email });
+    await logEvent(t, {
+      businessId: p.businessId,
+      customerId: id,
+      actor: "business",
+      actorUserId: p.actorUserId,
+      type: "customer.created",
+      message: `${name} added as a customer (${email})`,
+    });
+  });
   return id;
 }
 
-export async function createInvoice(db: Db, p: { businessId: string; customerId: string; title: string; amount: bigint; dueAt: Date }) {
+export async function createInvoice(db: Db, p: { businessId: string; customerId: string; title: string; amount: bigint; dueAt: Date; actorUserId?: string }) {
   if (p.amount <= 0n) throw new InputError("The amount must be greater than zero.");
   if (!p.title.trim()) throw new InputError("Describe what this invoice is for.");
   return db.transaction(async (t) => {
@@ -37,6 +47,7 @@ export async function createInvoice(db: Db, p: { businessId: string; customerId:
       invoiceId: id,
       customerId: cust.id,
       actor: "business",
+      actorUserId: p.actorUserId,
       type: "invoice.created",
       message: `${number} created for ${cust.name}: ${formatUsd(p.amount)}`,
     });
@@ -68,4 +79,39 @@ export async function createPaymentRequest(db: Db, p: { invoiceId: string; amoun
       message: `${inv.number} · ${inv.title}`,
     }),
   };
+}
+
+/**
+ * Logs `invoice.overdue` once for each unpaid invoice whose due time has passed. Runs from the
+ * company sync, so it only loads past-due invoices not flagged yet.
+ */
+export async function flagOverdueInvoices(db: Executor, businessId: string, now = new Date()) {
+  const candidates = await db
+    .select()
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.businessId, businessId),
+        lt(invoices.dueAt, now),
+        sql`not exists (select 1 from ${events} where ${events.businessId} = ${businessId} and ${events.dedupeKey} = 'overdue:' || ${invoices.id})`,
+      ),
+    );
+  if (candidates.length === 0) return 0;
+  const applied = await appliedByInvoice(db, candidates.map((i) => i.id));
+  let flagged = 0;
+  for (const inv of candidates) {
+    const remaining = inv.amount - (applied.get(inv.id) ?? 0n);
+    if (remaining <= 0n) continue;
+    const logged = await logEvent(db, {
+      businessId,
+      invoiceId: inv.id,
+      customerId: inv.customerId,
+      actor: "system",
+      type: "invoice.overdue",
+      message: `${inv.number} is overdue: ${formatUsd(remaining)} remaining`,
+      dedupeKey: `overdue:${inv.id}`,
+    });
+    if (logged) flagged++;
+  }
+  return flagged;
 }
