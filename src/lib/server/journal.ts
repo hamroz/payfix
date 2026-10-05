@@ -1,4 +1,5 @@
 import { journalEntries, postings, events } from "@/lib/db/schema";
+import { invoiceWithBalance } from "./queries";
 import type { Executor } from "@/lib/db/client";
 import { assertBalanced, type PostingDraft } from "@/lib/domain/ledger";
 import { newId } from "@/lib/ids";
@@ -75,4 +76,20 @@ export async function logEvent(
     .onConflictDoNothing()
     .returning({ id: events.id });
   return inserted.length > 0;
+}
+
+/** Logs `invoice.paid` once, the moment an invoice has nothing left to pay. Call after posting to it. */
+export async function logInvoicePaid(db: Executor, p: { businessId: string; invoiceId: string; actorUserId?: string | null }) {
+  const inv = await invoiceWithBalance(db, p.invoiceId);
+  if (!inv || inv.remaining > 0n) return;
+  await logEvent(db, {
+    businessId: p.businessId,
+    invoiceId: inv.id,
+    customerId: inv.customerId,
+    actor: p.actorUserId ? "business" : "system",
+    actorUserId: p.actorUserId,
+    type: "invoice.paid",
+    message: `${inv.number} is paid in full`,
+    dedupeKey: `paid:${inv.id}`,
+  });
 }
