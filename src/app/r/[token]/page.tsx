@@ -33,7 +33,7 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
             {business && <span className="hidden text-sm text-fg-3 sm:inline">for {business}</span>}
           </div>
           <div className="flex items-center gap-2">
-            {businessId && <LiveSync businessId={businessId} label={false} />}
+            {businessId && <LiveSync scope={{ link: token }} label={false} />}
             <NetworkPill />
             <ThemeToggle />
           </div>

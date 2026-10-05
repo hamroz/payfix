@@ -24,13 +24,13 @@ PayFix is a payment-resolution app for small agencies that accept USDC on Solana
 docker compose up -d --build        # or: npm run docker:up
 ```
 
-Open **http://localhost:3300** and click **Open the demo workspace**.
+Open **http://localhost:3300** and click **Try the live demo**.
 
 PayFix runs as its own compose project (`payfix`) with its own network and volumes: the app on **:3300** and Postgres on **127.0.0.1:55432** (local only). It won't collide with other stacks. Change the ports with `PAYFIX_PORT` / `PAYFIX_DB_PORT` if you need to. Stop it with `docker compose down`; add `-v` to also wipe its data.
 
 In the app:
 
-- Sign in with **any email**. Demo mode doesn't send real email, so codes and links appear in the **Demo inbox** (bottom left), which only shows your own messages, and in `docker compose logs app`. New users create a company; in demo mode it gets its own devnet wallet and, optionally, the demo customer with invoices A and B.
+- Sign in with **any email**. Demo mode doesn't send real email, so sign-in codes and customer emails appear in the **Demo inbox** (bottom left of the sign-in, pay, and resolution pages), which only shows your own messages, and in `docker compose logs app`. Inside the app, the case page shows the resolution link it just sent. New users create a company; in demo mode it gets its own devnet wallet and, optionally, the demo customer with invoices A and B.
 - The **Guided demo** card on the overview walks through the scenario and ticks itself off from real state.
 - Payments use the **demo customer wallet**, and refunds are signed by the **demo merchant wallet**, so no browser extension is needed.
 
@@ -70,7 +70,7 @@ To make wallets show the test token as **PayFix Test USD (tUSD)** with the PayFi
 
 ### Companies, teams, and roles
 
-Each user can belong to several companies and switch between them from the sidebar. In **Settings → Team**, owners invite people by email:
+Each user can belong to several companies and switch between them from the company menu (the sidebar on desktop, the initials button top-right on phones). In **Settings → Team**, owners invite people by email:
 
 | Role | Can |
 | --- | --- |
@@ -84,7 +84,7 @@ The server checks the role on every action; the UI also hides what a role can't 
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Unit tests plus the demo scenario, tenant isolation, roles, and credit rules against in-memory Postgres and a simulated chain |
+| `npm test` | Unit tests plus the demo scenario, payment verification, tenant isolation, role and team rules, credit, rate limits, wallet proofs, and email delivery, against in-memory Postgres and a simulated chain |
 | `npm run setup:token-metadata` | Names the devnet test token "PayFix Test USD" with the PayFix logo, so wallets recognize it |
 | `npm run e2e [url]` | Rehearses the whole demo in headless Chrome against a running app (default `http://localhost:3300`), on devnet |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |

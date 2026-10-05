@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { cases, refunds } from "@/lib/db/schema";
+import { businessWallets, cases, refunds } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { toUnits, tryToUnits } from "@/lib/money";
 import type { Role } from "@/lib/roles";
@@ -317,8 +317,11 @@ export async function faucetAction(address: string) {
     if (!env().DEMO_MODE) throw new InputError("The faucet is only available in demo mode.");
     address = address.trim();
     if (!isWalletAddress(address)) throw new InputError("That isn't a valid Solana wallet address.");
-    if ((await tokenBalance(address)) >= toUnits("10000")) throw new InputError("This wallet already has plenty of test USD.");
     const { db } = await deps();
+    // Test USD minted straight into a receiving wallet would show up as an unmatched payment.
+    const [receiving] = await db.select({ id: businessWallets.id }).from(businessWallets).where(eq(businessWallets.address, address)).limit(1);
+    if (receiving) throw new InputError("That’s a company’s receiving wallet. Test USD sent there would appear as an unmatched payment, so use a customer wallet.");
+    if ((await tokenBalance(address)) >= toUnits("10000")) throw new InputError("This wallet already has plenty of test USD.");
     await consume(db, [
       { key: rateKey("faucet", address), max: 1, windowMs: 10 * MINUTE, message: "This wallet just received test USD. Try again in 10 minutes." },
       { key: rateKey("faucet-day", address), max: 5, windowMs: DAY, message: "This wallet has reached today’s test USD limit." },
