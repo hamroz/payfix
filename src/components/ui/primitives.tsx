@@ -129,12 +129,12 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
   );
 }
 
-export function EmptyState({ icon, title, body, action }: { icon?: ReactNode; title: string; body: string; action?: ReactNode }) {
+export function EmptyState({ icon, title, body, action }: { icon?: ReactNode; title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
       {icon && <div className="mb-4 grid size-12 place-items-center rounded-2xl border border-veil/10 bg-veil/[0.04] text-fg-2">{icon}</div>}
       <p className="font-display text-[15px] font-semibold text-fg">{title}</p>
-      <p className="mt-1 max-w-sm text-sm text-fg-3">{body}</p>
+      {body && <p className="mt-1 max-w-sm text-sm text-fg-3">{body}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );
