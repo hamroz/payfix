@@ -38,6 +38,9 @@ const errors: Messages["errors"] = {
   invoiceNotFound: "Laskua ei löytynyt.",
   paymentAmountPositive: "Anna nollaa suurempi summa.",
   paymentAmountFormat: "Anna summa muodossa 400 tai 49,99.",
+  paymentCodeInvalid: "Tämä maksukoodi ei ole voimassa. Päivitä laskusivu saadaksesi uuden.",
+  paymentAccountMissing: "Lompakko ei kertonut, mikä tili maksaa. Skannaa koodi uudelleen.",
+  ratePaymentNetwork: "Liian monta maksuyritystä tästä verkosta. Yritä uudelleen minuutin kuluttua.",
   noCreditLeft: "Asiakkaalla ei ole saldoa jäljellä.",
   invoiceAlreadyPaid: "Lasku on jo maksettu.",
 

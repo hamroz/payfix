@@ -38,6 +38,9 @@ const errors: Messages["errors"] = {
   invoiceNotFound: "Rechnung nicht gefunden.",
   paymentAmountPositive: "Geben Sie einen Betrag größer als null ein.",
   paymentAmountFormat: "Geben Sie einen Betrag wie 400 oder 49,99 ein.",
+  paymentCodeInvalid: "Dieser Zahlungscode ist ungültig. Laden Sie die Rechnungsseite neu, um einen neuen zu erhalten.",
+  paymentAccountMissing: "Die Wallet hat nicht übermittelt, welches Konto zahlt. Scannen Sie den Code erneut.",
+  ratePaymentNetwork: "Zu viele Zahlungsversuche aus diesem Netzwerk. Versuchen Sie es in einer Minute erneut.",
   noCreditLeft: "Dieser Kunde hat kein Guthaben mehr.",
   invoiceAlreadyPaid: "Diese Rechnung ist bereits bezahlt.",
 

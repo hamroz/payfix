@@ -39,6 +39,9 @@ const errors: Messages["errors"] = {
   invoiceNotFound: "Счёт не найден.",
   paymentAmountPositive: "Введите сумму больше нуля.",
   paymentAmountFormat: "Введите сумму в формате 400 или 49,99.",
+  paymentCodeInvalid: "Этот платёжный код недействителен. Обновите страницу счёта, чтобы получить новый.",
+  paymentAccountMissing: "Кошелёк не сообщил, с какого счёта идёт оплата. Отсканируйте код ещё раз.",
+  ratePaymentNetwork: "Слишком много попыток оплаты из этой сети. Повторите через минуту.",
   noCreditLeft: "На балансе этого клиента ничего не осталось.",
   invoiceAlreadyPaid: "Этот счёт уже оплачен.",
 
