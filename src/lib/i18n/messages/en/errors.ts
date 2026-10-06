@@ -37,6 +37,9 @@ const errors = {
   invoiceNotFound: "Invoice not found.",
   paymentAmountPositive: "Enter an amount greater than zero.",
   paymentAmountFormat: "Enter an amount like 400 or 49.99.",
+  paymentCodeInvalid: "This payment code isn't valid. Refresh the invoice page for a new one.",
+  paymentAccountMissing: "The wallet didn't say which account is paying. Scan the code again.",
+  ratePaymentNetwork: "Too many payment attempts from this network. Try again in a minute.",
   noCreditLeft: "This customer has no credit left.",
   invoiceAlreadyPaid: "This invoice is already paid.",
 

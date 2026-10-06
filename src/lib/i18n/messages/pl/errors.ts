@@ -38,6 +38,9 @@ const errors: Messages["errors"] = {
   invoiceNotFound: "Nie znaleziono faktury.",
   paymentAmountPositive: "Podaj kwotę większą od zera.",
   paymentAmountFormat: "Podaj kwotę w formacie 400 lub 49,99.",
+  paymentCodeInvalid: "Ten kod płatności jest nieważny. Odśwież stronę faktury, aby uzyskać nowy.",
+  paymentAccountMissing: "Portfel nie podał, z którego konta idzie płatność. Zeskanuj kod ponownie.",
+  ratePaymentNetwork: "Zbyt wiele prób płatności z tej sieci. Spróbuj ponownie za minutę.",
   noCreditLeft: "Temu klientowi nie zostało już saldo.",
   invoiceAlreadyPaid: "Ta faktura jest już opłacona.",
 
