@@ -488,6 +488,9 @@ export type AdminAction =
   | "business.restore"
   | "block.add"
   | "block.lift"
+  | "user.delete"
+  | "business.delete"
+  | "feedback.delete"
   | "export";
 
 /** Everything a platform admin did or opened, with who and why. */
@@ -497,7 +500,7 @@ export const adminAudit = pgTable(
     id: text("id").primaryKey(),
     adminEmail: text("admin_email").notNull(),
     action: text("action").$type<AdminAction>().notNull(),
-    targetType: text("target_type").$type<"user" | "business" | "block" | "export">(),
+    targetType: text("target_type").$type<"user" | "business" | "block" | "feedback" | "export">(),
     targetId: text("target_id"),
     reason: text("reason"),
     data: jsonb("data").$type<Record<string, unknown>>(),

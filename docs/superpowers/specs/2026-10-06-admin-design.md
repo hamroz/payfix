@@ -170,6 +170,16 @@ Moderation applies to business accounts only, including one at an admin's addres
 
 Moderation page: top sign-in-code requesters in the last 24 h (email, count, link to user if they exist), active blocks with "lift", and an add-block form.
 
+## Deletion (added 2026-10-06)
+
+Admins can permanently delete, one at a time from detail pages or in bulk from the lists:
+
+- **Company:** everything it holds (customers, invoices, payment requests, transfers, cases, proposals, approvals, refunds, ledger, events, emails, chain signatures, receiving wallets including demo keys, memberships) and the company row. Members keep their accounts. Refused while a refund is awaiting signature or submitted.
+- **Account:** its memberships, sessions, business sign-in codes, notification reads, and the account; companies where it is the only member are deleted with it. Feedback it attached becomes anonymous. Refused while it is the only owner of a company that still has other members.
+- **Feedback response:** the row; the audit row records the deletion, not the answers.
+
+Single deletes need a reason and the exact name or email typed back; bulk deletes need a reason (not for feedback) and the word `DELETE`, and report per item what was skipped and why. Audit actions: `business.delete`, `user.delete`, `feedback.delete` (with the name or email in `data`).
+
 ## Exports
 
 `GET /api/admin/export/[kind]` with `kind ∈ users | companies | feedback | daily | audit`, optional `range`. Admin session required (404 otherwise). CSV with a header row, RFC 4180 quoting, `text/csv; charset=utf-8`, attachment filename `payfix-<kind>-<date>.csv`. Each export writes an `export` audit row with `data: { kind, range, rows }`. Exports contain only fields the admin pages show.
@@ -206,4 +216,4 @@ README "Admin and feedback" section; MILESTONES (M5 evidence, built beyond the p
 
 ## Out of scope
 
-Survey builder, emailing suspended users, account deletion / erasure tooling, multiple admin levels, page analytics.
+Survey builder, emailing suspended users, self-service erasure requests, multiple admin levels, page analytics.

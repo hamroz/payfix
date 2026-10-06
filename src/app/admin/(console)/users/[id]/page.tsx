@@ -5,6 +5,8 @@ import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { AuditHistory, Rows, StatusBadge } from "@/components/admin/bits";
 import { ModerateButton } from "@/components/admin/moderate-button";
+import { DeletePanel } from "@/components/admin/delete-panel";
+import { userDeletionPlan } from "@/lib/server/admin/deletion";
 import { getI18n } from "@/lib/i18n/server";
 import { auditView, listAudit } from "@/lib/server/admin/audit";
 import { userDetail } from "@/lib/server/admin/directory";
@@ -22,6 +24,7 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[id]
   const d = await userDetail(db, id);
   if (!d) notFound();
   await auditView(db, admin, "user", id);
+  const plan = await userDeletionPlan(db, id);
   const history = (await listAudit(db, { targetType: "user", targetId: id, limit: 50 })).filter((r) => r.action !== "user.view");
   const { m, t, date, number } = await getI18n();
   const u = m.admin.users.detail;
@@ -84,6 +87,15 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[id]
           </div>
           {d.user.admin && <p className="px-5 pb-4 text-[13px] text-fg-3">{m.admin.actions.adminNote}</p>}
           {d.user.suspendedReason && <p className="border-t border-veil/[0.06] px-5 py-3 text-[13px] text-fg-2">{d.user.suspendedReason}</p>}
+          <div className="border-t border-veil/[0.06] p-5">
+            <DeletePanel
+              kind="user"
+              targetId={id}
+              expected={d.user.email}
+              alsoDeletes={plan.deletesCompanies.map((c) => c.name)}
+              blocked={plan.blockedBy.length ? t(m.admin.delete.user.blocked, { company: plan.blockedBy[0].name }) : undefined}
+            />
+          </div>
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader title={u.history} />

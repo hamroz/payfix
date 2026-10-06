@@ -112,6 +112,7 @@ Caveat: rolling back code does not roll back the database. Migrations in `drizzl
 - **Emergency:** if an admin account may be compromised, remove it from `ADMIN_EMAILS` and redeploy. Admin sessions also expire after 12 hours.
 - **Abuse:** check `/admin/moderation` for addresses requesting many sign-in codes. Block sign-in codes to an address, or the faucet for a wallet, there. Suspend an account or company from its page under Users or Companies. Every action needs a reason and is listed in `/admin/audit`.
 - **Suspending a company with refunds in flight:** the confirmation shows how many. Nobody can sign a refund until the company is restored. Nothing polls a suspended company, so refunds already submitted and payments that arrive meanwhile are reconciled on the first sync after it is restored. The ledger is never changed by a suspension.
+- **Delete test data:** in `/admin/companies`, `/admin/users`, or `/admin/feedback`, tick the rows (or "Select all on this page"), choose **Delete selected**, give a reason, and type `DELETE`. Anything that can't be deleted (a refund in flight, or a sole owner of a shared company) is listed and skipped. Deletion can't be undone; the audit log keeps each item's id and name or email.
 - **Restore:** open the user or company and choose **Restore**. Nothing is lost: suspension never changes the ledger.
 
 ## Local dev gotchas
