@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { Check, ChevronRight, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/cn";
 
 type State = {
@@ -20,17 +21,19 @@ type State = {
 
 /** The demo script as a live checklist; each step ticks itself off from real state. */
 export function GuidedDemo({ state }: { state: State }) {
+  const { m, t } = useI18n();
+  const g = m.app.guidedDemo.steps;
   const pay = state.firstInvoiceId ? `/pay/${state.firstInvoiceId}` : "/app/invoices";
   const kase = state.firstCaseId ? `/app/exceptions/${state.firstCaseId}` : "/app/exceptions";
   const steps = [
-    { done: state.partial, title: "Customer pays $600 toward INV-0001", hint: "Open the payment page and pay with the demo customer wallet", href: pay, external: true },
-    { done: state.overpaid, title: "Customer pays $500 more — $100 over", hint: "Same payment page; PayFix flags the excess", href: pay, external: true },
-    { done: state.linkSent, title: "Send the customer a resolution link", hint: "From the exception, send the link", href: kase },
-    { done: state.proposed, title: "Customer proposes $60 → INV-0002 + $40 refund", hint: "Open the link from the demo inbox", href: kase },
-    { done: state.approved, title: "Approve that exact plan", hint: "Approval is bound to the plan’s hash", href: kase },
-    { done: state.invalidated, title: "Customer changes the refund wallet", hint: "Watch the approval become invalid", href: kase },
-    { done: state.executed, title: "Re-approve v2 and run the plan", hint: "$60 posts to INV-0002 immediately", href: kase },
-    { done: state.refunded, title: "Sign the $40 refund and confirm", hint: "A settled, $0-unresolved receipt", href: kase },
+    { done: state.partial, title: t(g.partial.title, { amount: "$600", invoice: "INV-0001" }), hint: g.partial.hint, href: pay, external: true },
+    { done: state.overpaid, title: t(g.overpaid.title, { amount: "$500", excess: "$100" }), hint: g.overpaid.hint, href: pay, external: true },
+    { done: state.linkSent, title: g.linkSent.title, hint: g.linkSent.hint, href: kase },
+    { done: state.proposed, title: t(g.proposed.title, { credit: "$60", invoice: "INV-0002", refund: "$40" }), hint: g.proposed.hint, href: kase },
+    { done: state.approved, title: g.approved.title, hint: g.approved.hint, href: kase },
+    { done: state.invalidated, title: g.invalidated.title, hint: g.invalidated.hint, href: kase },
+    { done: state.executed, title: g.executed.title, hint: t(g.executed.hint, { amount: "$60", invoice: "INV-0002" }), href: kase },
+    { done: state.refunded, title: t(g.refunded.title, { amount: "$40" }), hint: t(g.refunded.hint, { zero: "$0" }), href: kase },
   ];
   const next = steps.findIndex((s) => !s.done);
   const doneCount = steps.filter((s) => s.done).length;
@@ -43,12 +46,12 @@ export function GuidedDemo({ state }: { state: State }) {
             <Sparkles className="size-4" />
           </span>
           <div>
-            <h3 className="font-display text-[15px] font-semibold">Guided demo</h3>
-            <p className="text-xs text-fg-3">The full resolution story, step by step</p>
+            <h3 className="font-display text-[15px] font-semibold">{m.app.guidedDemo.title}</h3>
+            <p className="text-xs text-fg-3">{m.app.guidedDemo.subtitle}</p>
           </div>
         </div>
         <span className="tabular text-xs text-fg-3">
-          {doneCount}/{steps.length}
+          {t(m.app.guidedDemo.progress, { done: doneCount, total: steps.length })}
         </span>
       </div>
       <div className="h-1 bg-veil/[0.04]">

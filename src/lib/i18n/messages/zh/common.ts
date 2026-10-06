@@ -1,0 +1,35 @@
+import type { Messages } from "../types";
+
+const common: Messages["common"] = {
+  brand: "PayFix",
+  justNow: "刚刚",
+  loading: "加载中…",
+  cancel: "取消",
+  save: "保存",
+  saving: "保存中…",
+  close: "关闭",
+  back: "返回",
+  continue: "继续",
+  confirm: "确认",
+  edit: "编辑",
+  remove: "移除",
+  delete: "删除",
+  copy: "复制",
+  copied: "已复制",
+  copyLink: "复制链接",
+  retry: "重试",
+  done: "完成",
+  learnMore: "了解更多",
+  viewAll: "查看全部",
+  optional: "可选",
+  required: "必填",
+  you: "你",
+  customer: "客户",
+  business: "商家",
+  system: "PayFix",
+  language: "语言",
+  chooseLanguage: "选择语言",
+  testMoney: "测试资金",
+};
+
+export default common;

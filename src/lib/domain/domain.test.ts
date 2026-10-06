@@ -15,6 +15,18 @@ describe("money", () => {
     expect(formatUsd($("1100"))).toBe("$1,100.00");
   });
 
+  it("reads decimal commas and grouping the way people type them", () => {
+    expect(toUnits("49,99")).toBe(49_990_000n);
+    expect(toUnits("60,5")).toBe(60_500_000n);
+    expect(toUnits("1,000")).toBe(1_000_000_000n);
+    expect(toUnits("1,000.50")).toBe(1_000_500_000n);
+    expect(toUnits("1.000,50")).toBe(1_000_500_000n);
+    expect(toUnits("2 000")).toBe(2_000_000_000n);
+    expect(toUnits("2\u00a0000,25")).toBe(2_000_250_000n);
+    expect(() => toUnits("1,2,3")).toThrow();
+    expect(() => toUnits("1,000,5")).toThrow();
+  });
+
   it("rejects malformed and over-precise amounts", () => {
     expect(() => toUnits("-5")).toThrow();
     expect(() => toUnits("1e3")).toThrow();

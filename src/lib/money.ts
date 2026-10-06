@@ -4,9 +4,22 @@ export const DEFAULT_DECIMALS = 6;
 
 const AMOUNT_RE = /^\d+(\.\d+)?$/;
 
-/** Parses a user-entered decimal string ("600", "60.5") into base units. Throws on invalid input. */
+/**
+ * Accepts how people type amounts in every supported language: "1000", "1 000", "1,000.50",
+ * "49,99" and "1.000,50". A comma is a decimal separator unless it groups thousands; a lone
+ * comma before exactly three digits ("1,000") groups, matching how the app displays amounts.
+ */
+function normalizeAmount(input: string): string {
+  const s = input.trim().replace(/[\s\u00a0\u202f]/g, "");
+  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) return s.replace(/,/g, "");
+  if (/^\d{1,3}(\.\d{3})+,\d+$/.test(s)) return s.replace(/\./g, "").replace(",", ".");
+  if (/^\d+,\d+$/.test(s)) return s.replace(",", ".");
+  return s;
+}
+
+/** Parses a user-entered decimal string ("600", "60.5", "60,5") into base units. Throws on invalid input. */
 export function toUnits(input: string, decimals = DEFAULT_DECIMALS): bigint {
-  const s = input.trim().replace(/,/g, "");
+  const s = normalizeAmount(input);
   if (!AMOUNT_RE.test(s)) throw new Error(`Invalid amount: "${input}"`);
   const [whole, frac = ""] = s.split(".");
   if (frac.length > decimals) throw new Error(`Amount has more than ${decimals} decimal places`);

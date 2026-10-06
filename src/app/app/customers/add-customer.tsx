@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { createCustomerAction } from "@/app/actions/business";
 import { Button, Input, Label } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
+import { useI18n } from "@/lib/i18n/client";
 
 export function AddCustomer() {
   const [open, setOpen] = useState(false);
@@ -14,11 +15,13 @@ export function AddCustomer() {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const toast = useToast();
+  const { m, t } = useI18n();
+  const a = m.customers.add;
 
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        <UserPlus className="size-4" /> Add customer
+        <UserPlus className="size-4" /> {a.button}
       </Button>
       <AnimatePresence>
         {open && (
@@ -34,7 +37,7 @@ export function AddCustomer() {
                 start(async () => {
                   const res = await createCustomerAction({ name, email });
                   if (!res.ok) return setError(res.error);
-                  toast.push({ tone: "success", title: `${name} added` });
+                  toast.push({ tone: "success", title: t(a.added, { name }) });
                   setOpen(false);
                   setName("");
                   setEmail("");
@@ -42,23 +45,23 @@ export function AddCustomer() {
               }}
             >
               <div className="flex items-center justify-between">
-                <h3 className="font-display text-lg font-semibold">Add customer</h3>
-                <button type="button" onClick={() => setOpen(false)} className="text-fg-3 hover:text-fg" aria-label="Close">
+                <h3 className="font-display text-lg font-semibold">{a.title}</h3>
+                <button type="button" onClick={() => setOpen(false)} className="text-fg-3 hover:text-fg" aria-label={m.common.close}>
                   <X className="size-5" />
                 </button>
               </div>
               <div>
-                <Label>Name</Label>
+                <Label>{a.name}</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Robotics" autoFocus />
               </div>
               <div>
-                <Label>Billing email</Label>
+                <Label>{a.email}</Label>
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ap@acme.com" />
-                <p className="mt-1.5 text-xs text-fg-3">Resolution codes go only to this address.</p>
+                <p className="mt-1.5 text-xs text-fg-3">{a.emailHint}</p>
               </div>
               {error && <p className="text-sm text-rose">{error}</p>}
               <Button type="submit" className="w-full" disabled={pending || !name || !email}>
-                Add customer
+                {a.submit}
               </Button>
             </motion.form>
           </motion.div>

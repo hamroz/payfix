@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { markAllNotificationsReadAction, markNotificationReadAction } from "@/app/actions/business";
 import type { NotificationRow } from "@/lib/server/notifications";
+import { useI18n } from "@/lib/i18n/client";
+import { renderEvent } from "@/lib/i18n/events";
 import { cn } from "@/lib/cn";
 import { TimeAgo } from "./activity";
 import { eventIcon } from "./event-icons";
@@ -20,6 +22,8 @@ export function NotificationBell({ items, unread }: { items: NotificationRow[]; 
   const [pending, start] = useTransition();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
+  const i18n = useI18n();
+  const { m, p } = i18n;
 
   // Fresh server data replaces the optimistic marks (React's "adjust state on prop change" pattern).
   const [syncedWith, setSyncedWith] = useState(items);
@@ -63,7 +67,7 @@ export function NotificationBell({ items, unread }: { items: NotificationRow[]; 
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label={count > 0 ? `Notifications, ${count} unread` : "Notifications"}
+        aria-label={count > 0 ? p(m.app.notifications.unreadLabel, count) : m.app.notifications.title}
         aria-expanded={open}
         aria-haspopup="dialog"
         className="relative grid size-8 place-items-center rounded-lg border border-veil/10 bg-veil/[0.04] text-fg-2 transition hover:bg-veil/[0.08] hover:text-fg"
@@ -88,7 +92,7 @@ export function NotificationBell({ items, unread }: { items: NotificationRow[]; 
         {open && (
           <motion.div
             role="dialog"
-            aria-label="Notifications"
+            aria-label={m.app.notifications.title}
             initial={{ opacity: 0, y: -6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4 }}
@@ -96,19 +100,19 @@ export function NotificationBell({ items, unread }: { items: NotificationRow[]; 
             className="glass fixed inset-x-4 top-16 z-50 overflow-hidden rounded-2xl bg-ink-850 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px]"
           >
             <div className="flex items-center justify-between gap-3 border-b border-veil/[0.06] px-4 py-3">
-              <h2 className="font-display text-[15px] font-semibold text-fg">Notifications</h2>
+              <h2 className="font-display text-[15px] font-semibold text-fg">{m.app.notifications.title}</h2>
               <button
                 type="button"
                 onClick={readAll}
                 disabled={count === 0 || pending}
                 className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-fg-2 transition hover:bg-veil/[0.06] hover:text-fg disabled:pointer-events-none disabled:opacity-40"
               >
-                <CheckCheck className="size-3.5" /> Mark all read
+                <CheckCheck className="size-3.5" /> {m.app.notifications.markAllRead}
               </button>
             </div>
 
             {items.length === 0 ? (
-              <p className="px-4 py-10 text-center text-sm text-fg-3">You’re all caught up.</p>
+              <p className="px-4 py-10 text-center text-sm text-fg-3">{m.app.notifications.empty}</p>
             ) : (
               <ul className="max-h-[min(70vh,520px)] overflow-y-auto overscroll-contain p-1.5">
                 {items.map((n) => {
@@ -125,12 +129,12 @@ export function NotificationBell({ items, unread }: { items: NotificationRow[]; 
                           <meta.icon className="size-4" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className={cn("block text-[13.5px] leading-snug", read ? "text-fg-2" : "font-medium text-fg")}>{n.message}</span>
+                          <span className={cn("block text-[13.5px] leading-snug", read ? "text-fg-2" : "font-medium text-fg")}>{renderEvent(i18n, n)}</span>
                           <span className="mt-0.5 block text-xs text-fg-3">
                             <TimeAgo date={n.createdAt} />
                           </span>
                         </span>
-                        {!read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-violet" aria-label="Unread" />}
+                        {!read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-violet" aria-label={m.app.notifications.unread} />}
                       </button>
                     </li>
                   );
@@ -143,7 +147,7 @@ export function NotificationBell({ items, unread }: { items: NotificationRow[]; 
               onClick={() => setOpen(false)}
               className="flex items-center justify-center gap-1.5 border-t border-veil/[0.06] px-4 py-2.5 text-xs text-fg-3 transition hover:bg-veil/[0.04] hover:text-fg-2"
             >
-              <Settings2 className="size-3.5" /> Notification settings
+              <Settings2 className="size-3.5" /> {m.app.notifications.settings}
             </Link>
           </motion.div>
         )}

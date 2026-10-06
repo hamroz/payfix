@@ -7,22 +7,28 @@ import { LiveSync } from "@/components/app/live-sync";
 import { NetworkPill } from "@/components/app/network-pill";
 import { ThemeToggle } from "@/components/theme/theme";
 import { Card, EmptyState } from "@/components/ui/primitives";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { WalletProviders } from "@/components/wallet/providers";
 import { businesses, customers } from "@/lib/db/schema";
 import { publicConfig } from "@/lib/env";
 import { currentCustomerId, deps } from "@/lib/server/context";
 import { findLink } from "@/lib/server/resolution";
 import { caseDetail } from "@/lib/server/views";
+import { getI18n } from "@/lib/i18n/server";
 import { ResolvePanel } from "./resolve-panel";
 import { VerifyGate } from "./verify-gate";
 
-export const metadata: Metadata = { title: "Resolve a payment", robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getI18n();
+  return { title: m.resolve.title, robots: { index: false } };
+}
 
 export default async function ResolutionPage({ params }: PageProps<"/r/[token]">) {
   const { token } = await params;
   const { db } = await deps();
   const config = publicConfig();
   const found = await findLink(db, token);
+  const { m, t } = await getI18n();
 
   const shell = (children: React.ReactNode, business?: string, businessId?: string) => (
     <WalletProviders rpcUrl={config.rpcUrl}>
@@ -30,7 +36,7 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
         <header className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Logo size={24} />
-            {business && <span className="hidden text-sm text-fg-3 sm:inline">for {business}</span>}
+            {business && <span className="hidden text-sm text-fg-3 sm:inline">{t(m.resolve.forBusiness, { business })}</span>}
           </div>
           <div className="flex items-center gap-2">
             {businessId && <LiveSync scope={{ link: token }} label={false} />}
@@ -39,6 +45,7 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
           </div>
         </header>
         <main className="flex-1 py-8 sm:py-10">{children}</main>
+        <SiteFooter minimal />
       </div>
       {config.demoMode && <DemoInbox />}
     </WalletProviders>
@@ -47,7 +54,7 @@ export default async function ResolutionPage({ params }: PageProps<"/r/[token]">
   if (!found.ok) {
     return shell(
       <Card className="mx-auto max-w-md">
-        <EmptyState icon={<Link2Off className="size-5" />} title="Link unavailable" body={found.reason} />
+        <EmptyState icon={<Link2Off className="size-5" />} title={m.resolve.linkUnavailable} body={m.errors[found.error]} />
       </Card>,
     );
   }

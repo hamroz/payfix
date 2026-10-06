@@ -9,13 +9,19 @@ import { deps, requireWorkspace } from "@/lib/server/context";
 import { can } from "@/lib/roles";
 import { customerCredit, invoicesWithBalances } from "@/lib/server/queries";
 import { initials } from "@/lib/format";
+import { getI18n } from "@/lib/i18n/server";
 import { AddCustomer } from "./add-customer";
 
-export const metadata: Metadata = { title: "Customers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getI18n();
+  return { title: m.customers.title };
+}
 
 export default async function CustomersPage() {
   const { biz, role } = await requireWorkspace();
   const { db } = await deps();
+  const { m } = await getI18n();
+  const copy = m.customers;
   const list = await db.select().from(customers).where(eq(customers.businessId, biz.id)).orderBy(customers.name);
   const rows = await Promise.all(
     list.map(async (c) => {
@@ -32,10 +38,10 @@ export default async function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader eyebrow="Customers" title="Customers" subtitle="Repeat clients, their balances, and any credit they’ve chosen to keep with you." actions={can(role, "editor") ? <AddCustomer /> : undefined} />
+      <PageHeader eyebrow={copy.eyebrow} title={copy.heading} subtitle={copy.subtitle} actions={can(role, "editor") ? <AddCustomer /> : undefined} />
       {rows.length === 0 ? (
         <Card>
-          <EmptyState icon={<Users className="size-5" />} title="No customers yet" body="Add a customer to start invoicing." />
+          <EmptyState icon={<Users className="size-5" />} title={copy.emptyTitle} body={copy.emptyBody} />
         </Card>
       ) : (
         <Stagger className="grid gap-3 sm:grid-cols-2">
@@ -51,9 +57,9 @@ export default async function CustomersPage() {
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                   {[
-                    { l: "Paid", v: formatUsd(c.paid) },
-                    { l: "Outstanding", v: formatUsd(c.outstanding) },
-                    { l: "Credit", v: formatUsd(c.credit) },
+                    { l: copy.stats.paid, v: formatUsd(c.paid) },
+                    { l: copy.stats.outstanding, v: formatUsd(c.outstanding) },
+                    { l: copy.stats.credit, v: formatUsd(c.credit) },
                   ].map((s) => (
                     <div key={s.l} className="rounded-xl bg-veil/[0.03] px-2 py-2.5">
                       <p className="text-[11px] text-fg-3">{s.l}</p>

@@ -1,46 +1,52 @@
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, FileCheck2, GitCompareArrows, Link2, Radar, RotateCcw, ShieldCheck, Wallet } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { HeroDemo } from "@/components/marketing/hero-demo";
 import { ProcessFilm } from "@/components/marketing/process-film";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { FadeIn, Stagger, StaggerItem } from "@/components/ui/motion";
 import { ButtonLink } from "@/components/ui/primitives";
 import { Spotlight } from "@/components/ui/interactive";
 import { env } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
 import { ThemeToggle } from "@/components/theme/theme";
 
 const steps = [
-  { icon: Radar, title: "Detect", body: "Every transfer to your wallet is verified on Solana — mint, amount, recipient, confirmation — and matched to its invoice. Overpayments, duplicates, and unreferenced transfers land in one inbox." },
-  { icon: Link2, title: "Propose", body: "Your customer gets one secure link. They choose where the extra goes: another invoice, credit, a refund, or a split. Refund wallets are proven by signature." },
-  { icon: BadgeCheck, title: "Approve", body: "You approve the exact version. Change an amount, an invoice, or the destination and the approval is void until you approve again." },
-  { icon: RotateCcw, title: "Settle", body: "You sign the refund from your own wallet. Allocations post, the refund confirms on chain, and both sides get the same receipt." },
-];
+  { key: "detect", icon: Radar },
+  { key: "propose", icon: Link2 },
+  { key: "approve", icon: BadgeCheck },
+  { key: "settle", icon: RotateCcw },
+] as const;
 
 const guarantees = [
-  { icon: GitCompareArrows, title: "Never double-counted", body: "Each on-chain signature is claimed once. Re-syncing, retries, and restarts can't inflate what you received." },
-  { icon: ShieldCheck, title: "Approval bound to a hash", body: "Approvals cover amounts, invoices, and destination. Any edit creates a new version that needs its own approval." },
-  { icon: Wallet, title: "One refund in flight", body: "PayFix records a refund's signature before broadcasting and only allows a retry after its blockhash expires unlanded." },
-  { icon: FileCheck2, title: "Every dollar explained", body: "A double-entry ledger in exact token units. Received always equals applied + credit + refunded + pending + unresolved." },
-];
+  { key: "neverDoubleCounted", icon: GitCompareArrows },
+  { key: "hashBound", icon: ShieldCheck },
+  { key: "oneRefund", icon: Wallet },
+  { key: "everyDollar", icon: FileCheck2 },
+] as const;
 
 // The network badge reflects runtime config, so don't bake it in at build time.
 export const dynamic = "force-dynamic";
 
-export default function Home() {
+export default async function Home() {
+  const { m, t } = await getI18n();
+  const l = m.landing;
   const { SOLANA_CLUSTER, DEMO_MODE, DEMO_URL } = env();
   // The production site sends visitors to the separate devnet demo; the demo site signs them in.
   const demoHref = DEMO_MODE ? "/login" : DEMO_URL;
   return (
-    <div className="relative">
+    <div className="relative overflow-x-clip">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
         <Logo size={30} />
         <nav className="flex items-center gap-2">
           <Link href="#how" className="hidden rounded-lg px-3 py-2 text-sm text-fg-2 transition hover:text-fg sm:block">
-            How it works
+            {l.nav.howItWorks}
           </Link>
+          <LanguageSwitcher compact />
           <ThemeToggle />
           <ButtonLink href="/login" variant="secondary" size="sm">
-            Sign in
+            {l.nav.signIn}
           </ButtonLink>
         </nav>
       </header>
@@ -51,41 +57,41 @@ export default function Home() {
             <FadeIn>
               <span className="inline-flex items-center gap-2 rounded-full border border-veil/10 bg-veil/[0.04] py-1 pl-1.5 pr-3 text-xs text-fg-2">
                 <span className="rounded-full bg-[linear-gradient(135deg,#6366F1,#A78BFA)] px-2 py-0.5 text-[11px] font-medium text-white">
-                  {SOLANA_CLUSTER === "simulated" ? "Simulated chain" : `Solana ${SOLANA_CLUSTER}`}
+                  {SOLANA_CLUSTER === "simulated" ? l.hero.simulatedChain : t(l.hero.cluster, { cluster: SOLANA_CLUSTER })}
                 </span>
-                USDC payment resolution for agencies
+                {l.hero.tagline}
               </span>
             </FadeIn>
             <FadeIn delay={0.08}>
               <h1 className="mt-6 font-display text-[44px] font-semibold leading-[1.02] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
-                Wrong payments,
+                {l.hero.titleLead}
                 <br />
-                <span className="text-gradient">made right.</span>
+                <span className="text-gradient">{l.hero.titleAccent}</span>
               </h1>
             </FadeIn>
             <FadeIn delay={0.16}>
               <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-fg-2">
-                When a client overpays, pays twice, or sends USDC without a reference, PayFix turns it into an agreed, completed settlement — through one shared link both sides can trust.
+                {l.hero.body}
               </p>
             </FadeIn>
             <FadeIn delay={0.24} className="mt-8 flex flex-wrap items-center gap-3">
               {demoHref ? (
                 <ButtonLink href={demoHref} size="lg">
-                  Try the live demo <ArrowRight className="size-4" />
+                  {l.hero.tryDemo} <ArrowRight className="size-4" />
                 </ButtonLink>
               ) : (
                 <ButtonLink href="/login" size="lg">
-                  Get started <ArrowRight className="size-4" />
+                  {l.hero.getStarted} <ArrowRight className="size-4" />
                 </ButtonLink>
               )}
               <ButtonLink href={DEMO_MODE || !demoHref ? "#how" : "/login"} variant="secondary" size="lg">
-                {DEMO_MODE || !demoHref ? "See how it works" : "Sign in"}
+                {DEMO_MODE || !demoHref ? l.hero.seeHow : l.hero.signIn}
               </ButtonLink>
             </FadeIn>
             <FadeIn delay={0.32}>
               <p className="mt-6 text-xs text-fg-3">
-                {DEMO_MODE || demoHref ? "The demo uses a clearly labeled test token, never real funds. " : ""}
-                <span className="text-fg-2">$1,100 received = $1,000 + $60 + $40.</span>
+                {DEMO_MODE || demoHref ? `${l.hero.testNote} ` : ""}
+                <span className="text-fg-2">{t(l.hero.equation, { received: "$1,100", invoice: "$1,000", applied: "$60", refunded: "$40" })}</span>
               </p>
             </FadeIn>
           </div>
@@ -96,12 +102,12 @@ export default function Home() {
 
         <section id="how" className="mx-auto max-w-6xl scroll-mt-10 px-5 pb-24 sm:px-8">
           <div className="mb-10 max-w-2xl">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">The resolution loop</p>
-            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">From “you sent too much” to settled, in four steps.</h2>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">{l.how.eyebrow}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{l.how.title}</h2>
           </div>
           <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {steps.map((s, i) => (
-              <StaggerItem key={s.title}>
+              <StaggerItem key={s.key}>
                 <Spotlight className="h-full p-5">
                   <div className="flex items-center justify-between">
                     <span className="grid size-10 place-items-center rounded-xl border border-veil/10 bg-veil/[0.05] text-violet">
@@ -109,8 +115,8 @@ export default function Home() {
                     </span>
                     <span className="font-mono text-xs text-fg-3">0{i + 1}</span>
                   </div>
-                  <h3 className="mt-5 font-display text-lg font-semibold">{s.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-fg-2">{s.body}</p>
+                  <h3 className="mt-5 font-display text-lg font-semibold">{l.steps[s.key].title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-fg-2">{l.steps[s.key].body}</p>
                 </Spotlight>
               </StaggerItem>
             ))}
@@ -118,10 +124,10 @@ export default function Home() {
 
           <div className="mb-5 mt-16 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">Watch it run</p>
-              <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight">One overpayment, start to finish.</h3>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">{l.film.eyebrow}</p>
+              <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight">{l.film.title}</h3>
             </div>
-            <p className="text-sm text-fg-3">49 seconds · the live demo’s scenario, in test money</p>
+            <p className="text-sm text-fg-3">{l.film.note}</p>
           </div>
           <ProcessFilm />
         </section>
@@ -133,18 +139,16 @@ export default function Home() {
             </div>
             <div className="relative grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">Built for money</p>
-                <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight">Controls a finance team would sign off on.</h2>
-                <p className="mt-4 text-sm leading-relaxed text-fg-2">
-                  Solana gives us verifiable incoming payments and merchant-signed refunds. PayFix adds the part in between: agreement, authorization, and a ledger that always balances.
-                </p>
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">{l.controls.eyebrow}</p>
+                <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight">{l.controls.title}</h2>
+                <p className="mt-4 text-sm leading-relaxed text-fg-2">{l.controls.body}</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {guarantees.map((g) => (
-                  <div key={g.title} className="rounded-2xl border border-veil/[0.07] bg-veil/[0.025] p-4">
+                  <div key={g.key} className="rounded-2xl border border-veil/[0.07] bg-veil/[0.025] p-4">
                     <g.icon className="size-5 text-mint" />
-                    <h3 className="mt-3 text-sm font-semibold text-fg">{g.title}</h3>
-                    <p className="mt-1 text-[13px] leading-relaxed text-fg-3">{g.body}</p>
+                    <h3 className="mt-3 text-sm font-semibold text-fg">{l.guarantees[g.key].title}</h3>
+                    <p className="mt-1 text-[13px] leading-relaxed text-fg-3">{l.guarantees[g.key].body}</p>
                   </div>
                 ))}
               </div>
@@ -153,10 +157,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-veil/[0.06] px-5 py-8 text-xs text-fg-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <Logo size={20} />
-        <p>Hackathon prototype. Test tokens only; not for customer funds. PayFix can’t see refunds sent outside the app.</p>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

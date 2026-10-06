@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useId } from "react";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n/client";
 
 // Geometry from brand/payfix-mark.svg: a 300° ring and the returning dot in its gap.
 const ARC = 76 / (2 * Math.PI * 17);
@@ -60,9 +61,10 @@ export function Logo({ size = 28, animate = false, className }: MarkProps) {
 
 /** Brand loader: the ring spins while the dot orbits back into place. */
 export function LogoSpinner({ size = 40, className }: { size?: number; className?: string }) {
+  const { m } = useI18n();
   const id = useId().replace(/:/g, "");
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" className={cn("overflow-visible", className)} role="img" aria-label="Loading">
+    <svg width={size} height={size} viewBox="0 0 64 64" className={cn("overflow-visible", className)} role="img" aria-label={m.common.loading}>
       <defs>
         <linearGradient id={`spin-${id}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" stopColor="#6366F1" />
