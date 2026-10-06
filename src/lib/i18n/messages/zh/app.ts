@@ -25,6 +25,13 @@ const app: Messages["app"] = {
     switchCompany: "切换公司",
     newCompany: "新建公司",
     signOut: "退出登录",
+    suspended: "已停用",
+  },
+  suspendedPage: {
+    title: "这家公司已被停用",
+    body: "PayFix 已停用 {company}。其团队暂时无法打开它，它的付款链接和处理链接也已暂停。公司的记录没有任何改动或删除。",
+    contact: "如果你认为这是误操作，请联系 <email>{email}</email>。",
+    contactGeneric: "如果你认为这是误操作，请联系 PayFix 团队。",
   },
   liveSync: {
     title: "PayFix 每隔几秒检查一次链上状态",

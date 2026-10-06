@@ -1,18 +1,20 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Building2, LayoutGrid, MessageSquareHeart, Users, type LucideIcon } from "lucide-react";
+import { Building2, LayoutGrid, MessageSquareHeart, ScrollText, ShieldAlert, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/cn";
 
-type Key = "overview" | "users" | "companies" | "feedback";
+type Key = "overview" | "users" | "companies" | "feedback" | "moderation" | "audit";
 const items: { href: string; key: Key; icon: LucideIcon; exact?: boolean }[] = [
   { href: "/admin", key: "overview", icon: LayoutGrid, exact: true },
   { href: "/admin/users", key: "users", icon: Users },
   { href: "/admin/companies", key: "companies", icon: Building2 },
   { href: "/admin/feedback", key: "feedback", icon: MessageSquareHeart },
+  { href: "/admin/moderation", key: "moderation", icon: ShieldAlert },
+  { href: "/admin/audit", key: "audit", icon: ScrollText },
 ];
 
 const isActive = (path: string, href: string, exact?: boolean) => (exact ? path === href : path.startsWith(href));
