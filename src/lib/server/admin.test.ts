@@ -17,6 +17,10 @@ const { toUnits } = await import("@/lib/money");
 const { overviewStats } = await import("./admin/stats");
 const { audit, listAudit } = await import("./admin/audit");
 const { runDemoScenario } = await import("./test-scenario");
+const { companyDetail, listCompanies, listUsers, userDetail } = await import("./admin/directory");
+const { exportCsv, toCsv } = await import("./admin/export");
+const { saveFeedback } = await import("./feedback");
+const { en } = await import("@/lib/i18n/dictionaries");
 const { createWorkspace, findOrCreateUser, seedSampleData } = await import("./workspaces");
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -141,7 +145,71 @@ describe("platform statistics", () => {
     await audit(db, { adminEmail: "boss@payfix.test", action: "user.view", targetType: "user", targetId: "usr_1" });
     await audit(db, { adminEmail: "boss@payfix.test", action: "export", targetType: "export", data: { kind: "users" } });
     const all = await listAudit(db, {});
-    expect(all.map((a) => a.action)).toEqual(["export", "user.view"]);
+    expect(all.map((a) => a.action).sort()).toEqual(["export", "user.view"]);
+    expect(all[0].createdAt >= all[1].createdAt).toBe(true);
     expect(await listAudit(db, { targetType: "user", targetId: "usr_1" })).toHaveLength(1);
+  });
+});
+
+describe("admin directory and exports", () => {
+  let db: Db;
+  let scenario: Awaited<ReturnType<typeof runDemoScenario>>;
+  beforeAll(async () => {
+    db = await openPglite();
+    scenario = await runDemoScenario(db, { ownerEmail: "Owner@Lumen.test" });
+    const u = await findOrCreateUser(db, "sampler@x.test");
+    const biz = await createWorkspace(db, { userId: u.id, email: u.email, name: "=HYPERLINK(\"http://evil\")", wallet: { address: Keypair.generate().publicKey.toBase58(), label: "Main" } });
+    await seedSampleData(db, biz);
+    await saveFeedback(db, { completed: "aided", ease: 3, nps: 7, answers: { blockers: "Acme Robotics paid twice" }, attachAccount: true }, { userId: scenario.ownerId, locale: "en", ip: "1.1.1.1" });
+  });
+
+  it("lists and searches users", async () => {
+    const all = await listUsers(db, {});
+    expect(all.total).toBe(2);
+    const found = await listUsers(db, { search: "OWNER@" });
+    expect(found.rows.map((r) => r.email)).toEqual(["owner@lumen.test"]);
+    expect(found.rows[0]).toMatchObject({ companies: 1, suspended: false, admin: false });
+    expect((await listUsers(db, { search: "%" })).total).toBe(0); // wildcards are literal
+    expect((await listUsers(db, { status: "suspended" })).total).toBe(0);
+  });
+
+  it("lists companies with counts but no money", async () => {
+    const { rows } = await listCompanies(db, { search: "lumen" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ name: "Lumen Studio", members: 1, invoices: 2, payments: 2, openCases: 0, suspended: false, sample: false });
+    const sampled = await listCompanies(db, { search: "hyperlink" });
+    expect(sampled.rows[0].sample).toBe(true);
+  });
+
+  it("shows details without a company's internal data", async () => {
+    const user = await userDetail(db, scenario.ownerId);
+    expect(user?.companies).toEqual([{ id: scenario.businessId, name: "Lumen Studio", role: "owner", suspended: false }]);
+    expect(user?.feedback).toBe(1);
+    const company = await companyDetail(db, scenario.businessId);
+    expect(company?.members).toEqual([{ userId: scenario.ownerId, email: "owner@lumen.test", role: "owner" }]);
+    expect(company?.counts).toEqual({ invoices: 2, payments: 2, openCases: 0, customers: 1 });
+    expect(company?.inFlightRefunds).toBe(0);
+    const leaked = JSON.stringify([user, company]);
+    for (const secret of ["ap@acme.test", "Acme Robotics", "Brand identity", scenario.merchant.publicKey.toBase58(), scenario.reference]) expect(leaked).not.toContain(secret);
+    expect(await userDetail(db, "usr_missing")).toBeNull();
+  });
+
+  it("exports CSVs that never contain customer data", async () => {
+    for (const kind of ["users", "companies", "feedback", "daily", "audit"] as const) {
+      const { csv, rows } = await exportCsv(db, kind, "all", en);
+      expect(csv.split("\n")[0].length).toBeGreaterThan(0);
+      for (const secret of ["ap@acme.test", "Brand identity", "Website retainer", scenario.merchant.publicKey.toBase58()]) expect(csv).not.toContain(secret);
+      if (kind === "users") expect(rows).toBe(2);
+    }
+    const companies = (await exportCsv(db, "companies", "all", en)).csv;
+    expect(companies).toContain(`"'=HYPERLINK(""http://evil"")"`);
+    const feedback = (await exportCsv(db, "feedback", "all", en)).csv;
+    expect(feedback).toContain("owner@lumen.test"); // the tester attached their own account
+  });
+
+  it("quotes CSV cells and defuses formulas", () => {
+    expect(toCsv(["a", "b"], [["x,y", 'say "hi"'], ["=SUM(A1)", null], ["+1", 5], ["-2", "@cmd"]])).toBe(
+      ['a,b', '"x,y","say ""hi"""', "'=SUM(A1),", "'+1,5", "'-2,'@cmd"].join("\n") + "\n",
+    );
   });
 });
