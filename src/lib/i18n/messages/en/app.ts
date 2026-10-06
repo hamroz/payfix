@@ -25,6 +25,13 @@ const app = {
     switchCompany: "Switch company",
     newCompany: "New company",
     signOut: "Sign out",
+    suspended: "Suspended",
+  },
+  suspendedPage: {
+    title: "This company is suspended",
+    body: "PayFix has suspended {company}. Its team can’t open it for now, and its payment and resolution links are paused. Nothing in its records has been changed or deleted.",
+    contact: "If you think this is a mistake, contact <email>{email}</email>.",
+    contactGeneric: "If you think this is a mistake, contact the PayFix team.",
   },
   liveSync: {
     title: "PayFix checks the chain every few seconds",

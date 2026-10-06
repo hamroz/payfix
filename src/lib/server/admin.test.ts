@@ -1,15 +1,21 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 
 // Demo mode (simulated chain) with one platform admin. Set before env() is first read.
 vi.stubEnv("ADMIN_EMAILS", "Boss@PayFix.test, second@payfix.test");
 
 const { openPglite } = await import("@/lib/db/client");
-const { otpCodes, outbox, sessions } = await import("@/lib/db/schema");
+const { cases, otpCodes, outbox, sessions } = await import("@/lib/db/schema");
 const { env, resetEnvForTests } = await import("@/lib/env");
 const { newId, newToken } = await import("@/lib/ids");
-const { sessionSubject } = await import("./auth");
+const { sendCode, sessionSubject, verifyCode } = await import("./auth");
+const { addBlock, liftBlock, listBlocks, restoreCompany, restoreUser, signOutUser, suspendCompany, suspendUser, topCodeRequesters } = await import("./admin/moderation");
+const { activeBlock, companySuspended, userSuspended } = await import("./suspension");
+const { findLink, sendResolutionLink } = await import("./resolution");
+const { createPaymentRequest } = await import("./invoices");
+const { syncBusiness } = await import("./ingest");
+const { businessBalances } = await import("./queries");
 const { adminFromToken, isAdminEmail, requestAdminCode, verifyAdminCode } = await import("./admin/access");
 const { createHash } = await import("node:crypto");
 const { Keypair } = await import("@solana/web3.js");
@@ -211,5 +217,99 @@ describe("admin directory and exports", () => {
     expect(toCsv(["a", "b"], [["x,y", 'say "hi"'], ["=SUM(A1)", null], ["+1", 5], ["-2", "@cmd"]])).toBe(
       ['a,b', '"x,y","say ""hi"""', "'=SUM(A1),", "'+1,5", "'-2,'@cmd"].join("\n") + "\n",
     );
+  });
+});
+
+describe("moderation", () => {
+  let db: Db;
+  let s: Awaited<ReturnType<typeof runDemoScenario>>;
+  let token: string;
+  const admin = "boss@payfix.test";
+  const businessSessions = async (userId: string) => (await db.select().from(sessions).where(and(eq(sessions.kind, "business"), eq(sessions.subjectId, userId)))).length;
+
+  beforeAll(async () => {
+    db = await openPglite();
+    s = await runDemoScenario(db);
+    // A fresh overpayment on B ($400 against $340 remaining) opens a case that can get a link.
+    const req = await createPaymentRequest(db, { invoiceId: s.invB, amount: null });
+    s.chain.transfer({ from: s.payer.publicKey.toBase58(), to: s.merchant.publicKey.toBase58(), amount: toUnits("400"), reference: req.reference });
+    await syncBusiness({ db, chain: s.chain }, s.businessId);
+    const [open] = await db.select().from(cases).where(and(eq(cases.businessId, s.businessId), eq(cases.status, "open")));
+    const link = await sendResolutionLink(db, { businessId: s.businessId, caseId: open.id });
+    token = link.split("/r/")[1];
+  });
+
+  it("suspends a user: sessions end, codes are refused, and restore undoes it", async () => {
+    await db.insert(sessions).values({ id: newId("ses"), kind: "business", subjectId: s.ownerId, tokenHash: sha256(newToken()), expiresAt: new Date(Date.now() + 3600_000) });
+    expect(await businessSessions(s.ownerId)).toBe(1);
+    await expect(suspendUser(db, admin, s.ownerId, "  ")).rejects.toThrow(/reason/i);
+    await suspendUser(db, admin, s.ownerId, "Card testing from many addresses");
+    await suspendUser(db, admin, s.ownerId, "Second click"); // idempotent
+    expect(await businessSessions(s.ownerId)).toBe(0);
+    expect(await userSuspended(db, s.ownerId)).toBe(true);
+    await expect(sendCode(db, { purpose: "business", subjectId: s.ownerId, email: "owner@lumen.test" })).rejects.toThrow(/suspended/i);
+    await restoreUser(db, admin, s.ownerId, "Cleared after review");
+    await expect(sendCode(db, { purpose: "business", subjectId: s.ownerId, email: "owner@lumen.test" })).resolves.toBeDefined();
+    const rows = await listAudit(db, { targetType: "user", targetId: s.ownerId });
+    expect(rows.map((r) => r.action).sort()).toEqual(["user.restore", "user.suspend", "user.suspend"]);
+    expect(rows.find((r) => r.action === "user.restore")?.reason).toBe("Cleared after review");
+  });
+
+  it("refuses a code that was requested before the suspension", async () => {
+    await sendCode(db, { purpose: "business", subjectId: s.ownerId, email: "owner@lumen.test" });
+    const [mail] = await db.select().from(outbox).where(eq(outbox.to, "owner@lumen.test")).orderBy(desc(outbox.createdAt)).limit(1);
+    await suspendUser(db, admin, s.ownerId, "Abuse");
+    expect(await verifyCode(db, { purpose: "business", subjectId: s.ownerId, code: mail.code! })).toEqual({ ok: false, error: "accountSuspended" });
+    await restoreUser(db, admin, s.ownerId, "OK");
+  });
+
+  it("signs a user out everywhere without suspending", async () => {
+    await db.insert(sessions).values({ id: newId("ses"), kind: "business", subjectId: s.ownerId, tokenHash: sha256(newToken()), expiresAt: new Date(Date.now() + 3600_000) });
+    await signOutUser(db, admin, s.ownerId, "Lost laptop");
+    expect(await businessSessions(s.ownerId)).toBe(0);
+    expect(await userSuspended(db, s.ownerId)).toBe(false);
+  });
+
+  it("blocks sign-in codes to an address for any purpose", async () => {
+    await addBlock(db, admin, { kind: "sign_in", target: " AP@acme.test ", reason: "Code spam at a victim" });
+    await addBlock(db, admin, { kind: "sign_in", target: "ap@acme.test", reason: "again" }); // one active block
+    expect(await listBlocks(db, { active: true })).toHaveLength(1);
+    await expect(sendCode(db, { purpose: "customer", subjectId: s.customerId, email: "ap@acme.test" })).rejects.toThrow(/blocked/i);
+    const [block] = await listBlocks(db, { active: true });
+    await liftBlock(db, admin, block.id, "Victim confirmed");
+    expect(await activeBlock(db, "sign_in", "ap@acme.test")).toBe(false);
+    await expect(addBlock(db, admin, { kind: "faucet", target: "not-a-wallet", reason: "x" })).rejects.toThrow();
+    await expect(addBlock(db, admin, { kind: "sign_in", target: "nope", reason: "x" })).rejects.toThrow();
+  });
+
+  it("never moderates an admin", async () => {
+    const boss = await findOrCreateUser(db, "Boss@PayFix.test");
+    await expect(suspendUser(db, admin, boss.id, "test")).rejects.toThrow(/admin/i);
+    await expect(signOutUser(db, admin, boss.id, "test")).rejects.toThrow(/admin/i);
+    await expect(addBlock(db, admin, { kind: "sign_in", target: "second@payfix.test", reason: "test" })).rejects.toThrow(/admin/i);
+  });
+
+  it("suspends a company: links and payments stop, the ledger keeps recording", async () => {
+    await suspendCompany(db, admin, s.businessId, "Fraud report");
+    expect(await companySuspended(db, s.businessId)).toBe(true);
+    expect(await findLink(db, token)).toEqual({ ok: false, error: "companyUnavailable" });
+    await expect(createPaymentRequest(db, { invoiceId: s.invB, amount: null })).rejects.toThrow(/unavailable/i);
+
+    // Money that still arrives (an old link, a direct transfer) is recorded truthfully.
+    s.chain.transfer({ from: s.payer.publicKey.toBase58(), to: s.merchant.publicKey.toBase58(), amount: toUnits("25"), reference: s.reference });
+    await syncBusiness({ db, chain: s.chain }, s.businessId);
+    const b = await businessBalances(db, s.businessId);
+    expect(b.received).toBe(toUnits("1525"));
+    expect(b.invoice + b.credit + b.refund_pending + b.refunded + b.unresolved).toBe(b.received);
+
+    await restoreCompany(db, admin, s.businessId, "Resolved");
+    expect((await findLink(db, token)).ok).toBe(true);
+    expect((await listAudit(db, { targetType: "business", targetId: s.businessId })).map((r) => r.action).sort()).toEqual(["business.restore", "business.suspend"]);
+  });
+
+  it("lists who asked for the most sign-in codes", async () => {
+    const top = await topCodeRequesters(db, 24);
+    expect(top[0]).toMatchObject({ email: "owner@lumen.test", userId: s.ownerId });
+    expect(top[0].count).toBeGreaterThanOrEqual(2);
   });
 });

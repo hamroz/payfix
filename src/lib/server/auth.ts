@@ -8,6 +8,7 @@ import { newId, newToken } from "@/lib/ids";
 import { deliverOutbox, emailFailed, emailI18n, queueEmail } from "./email";
 import { InputError } from "./invoices";
 import { consume, DAY, MINUTE, rateKey } from "./ratelimit";
+import { activeBlock, userSuspended } from "./suspension";
 
 export type SessionKind = "business" | "customer" | "admin";
 
@@ -26,6 +27,8 @@ const mask = (email: string) => email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => 
  * the resolution link, so the code always goes to the invoice customer's address on file.
  */
 export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: string; email: string; businessId?: string | null; locale?: Locale }) {
+  if (await activeBlock(db, "sign_in", p.email)) throw new InputError("signInBlocked");
+  if (p.purpose === "business" && (await userSuspended(db, p.subjectId))) throw new InputError("accountSuspended");
   await consume(db, [
     { key: rateKey("code", p.email), max: 5, windowMs: 15 * MINUTE, error: "rateCodes" },
     { key: rateKey("code-day", p.email), max: 20, windowMs: DAY, error: "rateCodesDay" },
@@ -84,6 +87,8 @@ export async function verifyCode(db: Db, p: { purpose: SessionKind; subjectId: s
     .limit(1);
   if (!otp) return { ok: false as const, error: "codeExpired" as const };
   if (otp.attempts >= MAX_ATTEMPTS) return { ok: false as const, error: "codeTooManyAttempts" as const };
+  // A code sent before the account was suspended must not open a session after it.
+  if (p.purpose === "business" && (await userSuspended(db, p.subjectId))) return { ok: false as const, error: "accountSuspended" as const };
 
   const expected = Buffer.from(otp.codeHash, "hex");
   const actual = Buffer.from(codeHash(otp.id, p.code.trim()), "hex");

@@ -3,9 +3,10 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Keypair } from "@solana/web3.js";
 import { eq } from "drizzle-orm";
 import { openPglite, type Db } from "@/lib/db/client";
-import { customers, invoices, memberships, sessions } from "@/lib/db/schema";
+import { customers, invoices, memberships, sessions, users } from "@/lib/db/schema";
 import { newId, newToken } from "@/lib/ids";
 import { addMember, createWorkspace, findOrCreateUser, listMembers, seedSampleData } from "@/lib/server/workspaces";
+import { addBlock, suspendCompany } from "@/lib/server/admin/moderation";
 
 // The real server actions, with Next's request APIs replaced by a cookie jar the test controls.
 const state = vi.hoisted(() => ({ db: null as unknown as Db, cookies: new Map<string, string>() }));
@@ -13,8 +14,12 @@ const state = vi.hoisted(() => ({ db: null as unknown as Db, cookies: new Map<st
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ refresh: () => {} }));
 vi.mock("next/navigation", () => ({
+  // Like Next's, the thrown error carries a NEXT_ digest, so run() lets it through.
   redirect: (to: string) => {
-    throw new Error(`redirect ${to}`);
+    throw Object.assign(new Error(`redirect ${to}`), { digest: `NEXT_REDIRECT;${to}` });
+  },
+  notFound: () => {
+    throw Object.assign(new Error("not found"), { digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
   },
 }));
 vi.mock("next/headers", () => ({
@@ -127,5 +132,42 @@ describe("server actions enforce roles", () => {
   it("lets an editor through, so the rejections above come from the role check", async () => {
     await signInAs(editorId, bizId);
     expect(await actions.createCustomerAction({ name: "Allowed", email: "allowed@roles.test" })).toMatchObject({ ok: true });
+  });
+});
+
+describe("server actions respect suspensions and blocks", () => {
+  let mainBiz: string;
+  let otherBiz: string;
+  let userId: string;
+
+  beforeAll(async () => {
+    state.db = await openPglite();
+    const user = await findOrCreateUser(state.db, "member@two.test");
+    userId = user.id;
+    const wallet = () => ({ address: Keypair.generate().publicKey.toBase58(), label: "Main" });
+    mainBiz = await createWorkspace(state.db, { userId, email: user.email, name: "Flagged Co", wallet: wallet() });
+    otherBiz = await createWorkspace(state.db, { userId, email: user.email, name: "Fine Co", wallet: wallet() });
+  });
+
+  it("sends members of a suspended company to /suspended, and leaves their other company working", async () => {
+    await suspendCompany(state.db, "boss@payfix.test", mainBiz, "Fraud report");
+    await signInAs(userId, mainBiz);
+    await expect(actions.createCustomerAction({ name: "X", email: "x@two.test" })).rejects.toThrow("redirect /suspended");
+    expect(await state.db.select().from(customers).where(eq(customers.businessId, mainBiz))).toHaveLength(0);
+    await signInAs(userId, otherBiz);
+    expect(await actions.createCustomerAction({ name: "Y", email: "y@two.test" })).toMatchObject({ ok: true });
+  });
+
+  it("treats a suspended user as signed out", async () => {
+    await signInAs(userId, otherBiz);
+    await state.db.update(users).set({ suspendedAt: new Date(), suspendedReason: "test" }).where(eq(users.id, userId));
+    await expect(actions.createCustomerAction({ name: "Z", email: "z@two.test" })).rejects.toThrow("redirect /login");
+    await state.db.update(users).set({ suspendedAt: null }).where(eq(users.id, userId));
+  });
+
+  it("refuses the faucet for a blocked wallet", async () => {
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await addBlock(state.db, "boss@payfix.test", { kind: "faucet", target: wallet, reason: "Draining the treasury" });
+    expect(await actions.faucetAction(wallet)).toEqual({ ok: false, error: expect.stringMatching(/blocked/i) });
   });
 });

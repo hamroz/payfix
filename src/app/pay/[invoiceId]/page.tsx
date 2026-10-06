@@ -13,6 +13,8 @@ import { deps } from "@/lib/server/context";
 import { invoiceWithBalance } from "@/lib/server/queries";
 import { transferRows } from "@/lib/server/views";
 import { getI18n } from "@/lib/i18n/server";
+import { Ban } from "lucide-react";
+import { Card, EmptyState } from "@/components/ui/primitives";
 import { PayPanel } from "./pay-panel";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -42,21 +44,27 @@ export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">)
           </div>
         </header>
         <main className="flex flex-1 items-start justify-center py-8 sm:py-12">
-          <PayPanel
-            config={config}
-            invoice={{
-              id: inv.id,
-              number: inv.number,
-              title: inv.title,
-              amount: inv.amount.toString(),
-              applied: inv.applied.toString(),
-              remaining: inv.remaining.toString(),
-              dueAt: inv.dueAt.toISOString(),
-            }}
-            business={{ id: biz.id, name: biz.name, wallet: biz.walletAddress }}
-            customerName={cust?.name ?? m.common.customer}
-            payments={payments}
-          />
+          {biz.suspendedAt ? (
+            <Card className="w-full max-w-md">
+              <EmptyState icon={<Ban className="size-5" />} title={m.errors.companyUnavailable} />
+            </Card>
+          ) : (
+            <PayPanel
+              config={config}
+              invoice={{
+                id: inv.id,
+                number: inv.number,
+                title: inv.title,
+                amount: inv.amount.toString(),
+                applied: inv.applied.toString(),
+                remaining: inv.remaining.toString(),
+                dueAt: inv.dueAt.toISOString(),
+              }}
+              business={{ id: biz.id, name: biz.name, wallet: biz.walletAddress }}
+              customerName={cust?.name ?? m.common.customer}
+              payments={payments}
+            />
+          )}
         </main>
         <p className="pb-2 text-center text-xs text-fg-3">{t(m.pay.directNote, { business: biz.name })}</p>
         <SiteFooter minimal />
