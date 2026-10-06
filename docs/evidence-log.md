@@ -9,7 +9,7 @@
 
 ## 1. Product walkthroughs (real usage)
 
-Script: `docs/tester-walkthrough.md`. One row per session.
+Script: `docs/tester-walkthrough.md`. One row per session. Survey answers from `/feedback` export from `/admin/feedback` (**Export CSV**) with columns in the same order as the tables below; the survey has no tester name, so add the label yourself. Only quote answers marked "May quote".
 
 | Date | Tester (label) | Role / company type | Device + browser | Completed without help (y/n) | Time taken (min) | Where they struggled | Quotes (verbatim) | What we changed (commit/PR) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
