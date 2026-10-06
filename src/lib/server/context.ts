@@ -1,11 +1,12 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getDb } from "@/lib/db/client";
 import { businesses, events } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { can, type Role } from "@/lib/roles";
+import { adminFromToken } from "./admin/access";
 import { sessionSubject, type SessionKind } from "./auth";
 import { chain } from "./chain";
 import { InputError } from "./invoices";
@@ -89,6 +90,21 @@ export async function requireRole(min: Role) {
   const ws = await requireWorkspace();
   if (!can(ws.role, min)) throw new InputError("roleForbidden", { role: ws.role });
   return ws;
+}
+
+/** The signed-in platform admin's email, or null. */
+export async function currentAdmin() {
+  const token = (await cookies()).get(COOKIES.admin)?.value;
+  if (!token) return null;
+  const { db } = await deps();
+  return adminFromToken(db, token);
+}
+
+/** For admin pages, routes, and actions: anyone else gets a plain 404, so the area isn't advertised. */
+export async function requireAdmin() {
+  const email = await currentAdmin();
+  if (!email) notFound();
+  return email;
 }
 
 export async function currentCustomerId() {

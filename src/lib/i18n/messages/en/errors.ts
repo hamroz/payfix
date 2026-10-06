@@ -4,6 +4,7 @@ const errors = {
   signInFirst: "Sign in first.",
   invalidEmail: "Enter a valid email address.",
   emailSendFailed: "We couldn’t send the email just now. Try again in a minute.",
+  adminEmailUnavailable: "Admin sign-in needs real email, and it isn’t set up on this deployment.",
   codeExpired: "That code has expired. Send a new one.",
   codeTooManyAttempts: "Too many attempts. Send a new code.",
   codeWrong: "That code isn't right. Check it and try again.",
