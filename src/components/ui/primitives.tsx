@@ -96,6 +96,18 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(inputClass, className)} {...props} />;
 }
 
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
+  return (
+    <textarea
+      className={cn(
+        "w-full rounded-xl border border-veil/10 bg-ink-950/60 px-3.5 py-2.5 text-[15px] text-fg outline-none transition placeholder:text-fg-3/70 focus:border-violet/60 focus:bg-ink-950/80 focus:ring-4 focus:ring-violet/15",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export function Select({ className, ...props }: ComponentProps<"select">) {
   return <select className={cn(inputClass, "appearance-none pr-9", className)} {...props} />;
 }
