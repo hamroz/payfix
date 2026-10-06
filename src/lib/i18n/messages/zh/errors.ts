@@ -5,6 +5,7 @@ const errors: Messages["errors"] = {
   signInFirst: "请先登录。",
   invalidEmail: "请输入有效的邮箱地址。",
   emailSendFailed: "邮件暂时无法发送，请稍后再试。",
+  adminEmailUnavailable: "管理员登录需要真实的邮件服务，而当前部署尚未配置。",
   codeExpired: "验证码已过期，请重新发送。",
   codeTooManyAttempts: "尝试次数过多，请重新发送验证码。",
   codeWrong: "验证码不正确，请检查后重试。",
@@ -121,6 +122,9 @@ const errors: Messages["errors"] = {
   rateFaucetWalletDay: "这个钱包已达到今天的测试 USD 领取上限。",
   rateFaucetNetwork: "当前网络的水龙头请求过多，请一小时后再试。",
   rateFaucetGlobal: "水龙头繁忙，请几分钟后再试。",
+  feedbackInvalid: "请检查你的回答：有些未填写或内容过长。",
+  rateFeedback: "今天来自这个网络的回答太多了。谢谢，我们收到的已经足够多了！",
+  rateFeedbackGlobal: "现在提交的回答很多，请几分钟后再试。",
 
   // Statuses named inside the messages above ({status})
   statuses: {

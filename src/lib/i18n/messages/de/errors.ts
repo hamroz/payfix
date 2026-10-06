@@ -5,6 +5,7 @@ const errors: Messages["errors"] = {
   signInFirst: "Bitte melden Sie sich zuerst an.",
   invalidEmail: "Geben Sie eine gültige E-Mail-Adresse ein.",
   emailSendFailed: "Die E-Mail konnte gerade nicht gesendet werden. Versuchen Sie es in einer Minute erneut.",
+  adminEmailUnavailable: "Die Admin-Anmeldung braucht echten E-Mail-Versand, und der ist in dieser Bereitstellung nicht eingerichtet.",
   codeExpired: "Dieser Code ist abgelaufen. Fordern Sie einen neuen an.",
   codeTooManyAttempts: "Zu viele Versuche. Fordern Sie einen neuen Code an.",
   codeWrong: "Dieser Code stimmt nicht. Prüfen Sie ihn und versuchen Sie es erneut.",
@@ -121,6 +122,9 @@ const errors: Messages["errors"] = {
   rateFaucetWalletDay: "Dieses Wallet hat das heutige Test-USD-Limit erreicht.",
   rateFaucetNetwork: "Zu viele Faucet-Anfragen aus diesem Netzwerk. Versuchen Sie es in einer Stunde erneut.",
   rateFaucetGlobal: "Der Faucet ist gerade ausgelastet. Versuchen Sie es in ein paar Minuten erneut.",
+  feedbackInvalid: "Bitte prüfen Sie Ihre Antworten: Einige fehlen oder sind zu lang.",
+  rateFeedback: "Heute kamen zu viele Antworten aus diesem Netzwerk. Danke, wir haben schon reichlich!",
+  rateFeedbackGlobal: "Gerade gehen sehr viele Antworten ein. Versuchen Sie es in ein paar Minuten erneut.",
 
   // Statuses named inside the messages above ({status})
   statuses: {

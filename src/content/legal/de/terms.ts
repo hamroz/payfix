@@ -3,7 +3,7 @@ import type { LegalDoc } from "../types";
 const terms: LegalDoc = {
   title: "Nutzungsbedingungen",
   description: "Die Regeln für die Nutzung von PayFix: ein reiner Test-Prototyp, kein Finanzdienst, ohne Gewährleistung bereitgestellt.",
-  updated: "2026-10-05",
+  updated: "2026-10-06",
   intro: [
     "Diese Bedingungen gelten, wenn Sie den PayFix-Dienst nutzen – sei es als Unternehmen, als Teammitglied oder als Kunde, der einen Klärungslink erhalten hat. „Wir“ und „uns“ bezeichnen in diesen Bedingungen den Betreiber dieses PayFix-Dienstes, „Sie“ die Person, die ihn nutzt. Indem Sie PayFix nutzen, stimmen Sie diesen Bedingungen zu. Wenn Sie nicht zustimmen, nutzen Sie den Dienst nicht.",
   ],
@@ -141,7 +141,7 @@ const terms: LegalDoc = {
       heading: "Beendigung der Nutzung",
       blocks: [
         "Sie können die Nutzung von PayFix jederzeit beenden und uns bitten, Ihre Daten zu löschen, wie in unserer Datenschutzerklärung beschrieben.",
-        "Wir können Ihren Zugang sperren oder beenden, wenn Sie gegen diese Bedingungen verstoßen, wenn Ihre Nutzung andere Nutzer oder den Dienst gefährdet oder wenn wir den Dienst einstellen. Die Abschnitte zu Wallets, zum Ausschluss der Gewährleistung und zur Haftungsbeschränkung gelten auch nach dem Ende Ihres Zugangs weiter.",
+        "Wir können Ihren Zugang sperren oder beenden oder ein Unternehmen sperren, wenn Sie gegen diese Bedingungen verstoßen, wenn wir Anzeichen für Betrug oder Missbrauch feststellen, wenn Ihre Nutzung andere Nutzer oder den Dienst gefährdet oder wenn wir den Dienst einstellen. Die Abschnitte zu Wallets, zum Ausschluss der Gewährleistung und zur Haftungsbeschränkung gelten auch nach dem Ende Ihres Zugangs weiter.",
       ],
     },
     {

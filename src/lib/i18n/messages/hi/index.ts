@@ -1,5 +1,6 @@
 // The Hindi dictionary. Mirrors en/ key for key; the `Messages` type enforces the shape.
 import type { Messages } from "../types";
+import admin from "./admin";
 import app from "./app";
 import auth from "./auth";
 import cases from "./cases";
@@ -10,6 +11,7 @@ import emails from "./emails";
 import errors from "./errors";
 import events from "./events";
 import exportCsv from "./exportCsv";
+import feedback from "./feedback";
 import film from "./film";
 import invoices from "./invoices";
 import landing from "./landing";
@@ -50,6 +52,8 @@ const hi: Messages = {
   emails,
   exportCsv,
   legal,
+  admin,
+  feedback,
 };
 
 export default hi;
