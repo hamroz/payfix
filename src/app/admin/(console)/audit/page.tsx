@@ -4,7 +4,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { ExportLink } from "@/components/admin/bits";
 import { getI18n } from "@/lib/i18n/server";
 import { listAudit } from "@/lib/server/admin/audit";
-import { deps } from "@/lib/server/context";
+import { deps, requireAdmin } from "@/lib/server/context";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { m } = await getI18n();
@@ -14,6 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const targetHref = (type: string | null, id: string | null) => (type === "user" && id ? `/admin/users/${id}` : type === "business" && id ? `/admin/companies/${id}` : null);
 
 export default async function AdminAudit() {
+  await requireAdmin();
   const { db } = await deps();
   const rows = await listAudit(db, { limit: 300 });
   const { m, dateTime } = await getI18n();

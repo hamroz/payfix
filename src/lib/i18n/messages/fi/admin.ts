@@ -175,7 +175,7 @@ const admin: Messages["admin"] = {
     reasonLabel: "Syy (tallentuu ylläpitolokiin)",
     reasonPlaceholder: "Mitä huomasit ja missä?",
     adminNote: "Tämä on ylläpitäjän tili. Ylläpitäjiä hallitaan ADMIN_EMAILS-asetuksella, ei täältä.",
-    inFlight: { one: "{count} palautus on käynnissä. Sen täsmäytys jatkuu, mutta kukaan ei voi allekirjoittaa uusia palautuksia ennen kuin poistat yrityksen jäädytyksen.", other: "{count} palautusta on käynnissä. Niiden täsmäytys jatkuu, mutta kukaan ei voi allekirjoittaa uusia palautuksia ennen kuin poistat yrityksen jäädytyksen." },
+    inFlight: { one: "{count} palautus on käynnissä. Kukaan ei voi allekirjoittaa sitä ennen kuin poistat yrityksen jäädytyksen, ja sen tila päivittyy, kun jäädytys on poistettu.", other: "{count} palautusta on käynnissä. Kukaan ei voi allekirjoittaa niitä ennen kuin poistat yrityksen jäädytyksen, ja niiden tila päivittyy, kun jäädytys on poistettu." },
     suspendUser: {
       button: "Jäädytä tili",
       title: "Jäädytetäänkö tämä tili?",
@@ -192,7 +192,7 @@ const admin: Messages["admin"] = {
     suspendCompany: {
       button: "Jäädytä yritys",
       title: "Jäädytetäänkö tämä yritys?",
-      body: "Jäsenet eivät pääse avaamaan sitä, ja sen maksu- ja ratkaisulinkit lakkaavat toimimasta. Yhä saapuvat maksut kirjataan, eikä sen tietoihin muuteta mitään.",
+      body: "Jäsenet eivät pääse avaamaan sitä, ja sen maksu- ja ratkaisulinkit lakkaavat toimimasta. Sen tietoihin ei muuteta mitään; yhä saapuvat maksut kirjataan, kun jäädytys on poistettu.",
       confirm: "Jäädytä",
     },
     restoreCompany: { button: "Poista yrityksen jäädytys", title: "Poistetaanko yrityksen jäädytys?", body: "Jäsenet, maksulinkit ja ratkaisulinkit toimivat taas.", confirm: "Poista jäädytys" },

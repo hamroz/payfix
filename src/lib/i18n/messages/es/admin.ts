@@ -175,7 +175,7 @@ const admin: Messages["admin"] = {
     reasonLabel: "Motivo (se guarda en el registro de auditoría)",
     reasonPlaceholder: "¿Qué has visto y dónde?",
     adminNote: "Esta es una cuenta de administrador. Los administradores se gestionan con ADMIN_EMAILS, no desde aquí.",
-    inFlight: { one: "Hay {count} reembolso en curso. Se seguirá conciliando, pero nadie podrá firmar reembolsos nuevos hasta que reactives la empresa.", other: "Hay {count} reembolsos en curso. Se seguirán conciliando, pero nadie podrá firmar reembolsos nuevos hasta que reactives la empresa." },
+    inFlight: { one: "Hay {count} reembolso en curso. Nadie podrá firmarlo hasta que reactives la empresa, y su estado se actualizará cuando esté reactivada.", other: "Hay {count} reembolsos en curso. Nadie podrá firmarlos hasta que reactives la empresa, y su estado se actualizará cuando esté reactivada." },
     suspendUser: {
       button: "Suspender cuenta",
       title: "¿Suspender esta cuenta?",
@@ -192,7 +192,7 @@ const admin: Messages["admin"] = {
     suspendCompany: {
       button: "Suspender empresa",
       title: "¿Suspender esta empresa?",
-      body: "Los miembros no podrán abrirla y sus enlaces de pago y de resolución dejarán de funcionar. Los pagos que sigan llegando se registrarán, y no se cambiará nada de sus registros.",
+      body: "Los miembros no podrán abrirla y sus enlaces de pago y de resolución dejarán de funcionar. No se cambiará nada de sus registros; los pagos que sigan llegando se registrarán cuando se reactive.",
       confirm: "Suspender",
     },
     restoreCompany: { button: "Reactivar empresa", title: "¿Reactivar esta empresa?", body: "Los miembros, los enlaces de pago y los enlaces de resolución vuelven a funcionar.", confirm: "Reactivar" },
