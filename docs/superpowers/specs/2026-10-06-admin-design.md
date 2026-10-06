@@ -31,7 +31,7 @@ Three parts:
 **Demo mode lets anyone sign in as any email**: the demo inbox (`/api/dev/inbox`) shows codes to whichever browser asked for them. Admin sign-in must therefore never use that path:
 
 - Admin codes are queued with `businessId = null` and **status `pending`, never `demo`**, and are delivered through Resend even when `DEMO_MODE` is on. The demo inbox only lists `demo` rows (filter added explicitly), so admin codes never appear there.
-- With no `RESEND_API_KEY`, admin codes are only printed to the server console, and only when `APP_URL` is a localhost URL. Otherwise admin sign-in reports that email isn't configured.
+- With no `RESEND_API_KEY`, queued emails (admin codes included) are printed to the server console when `NODE_ENV` isn't production or `APP_URL` is a localhost URL. Otherwise admin sign-in reports that email isn't configured. The demo-mode `console.log` of business codes never runs for admin codes.
 - `/admin/login` responds identically whether or not the email is on the allowlist; a code is only created for allowlisted emails.
 - Every `/admin` page and `/api/admin/*` route returns 404 (`notFound()`) without a valid admin session for a currently allowlisted email.
 - Admin sessions are a separate kind: an admin cookie is not a business session and vice versa.
@@ -134,7 +134,7 @@ Spam control: hidden honeypot input (a filled honeypot returns success without s
 
 Entry points: the link itself (sent by the team), and a "Tell us how it went" link on the Guided demo card once every step is ticked.
 
-Server: `submitFeedbackAction` in `src/app/actions/feedback.ts` → `saveFeedback(db, input, { userId | null })` in `src/lib/server/admin/feedback.ts`, validated with zod; invalid input throws `InputError`.
+Server: `submitFeedbackAction` in `src/app/actions/feedback.ts` → `saveFeedback(db, input, { userId | null })` in `src/lib/server/feedback.ts`, validated with zod; invalid input throws `InputError`.
 
 ## Admin feedback page
 
@@ -160,7 +160,7 @@ All actions are server actions in `src/app/actions/admin.ts` → services in `sr
 | Suspend user | Sets `suspended_at/reason`; deletes all of the user's business sessions | `sendCode` (business purpose) refuses with `accountSuspended`; `currentUser()` returns null for a suspended user; `verifyCode` refuses |
 | Restore user | Clears suspension | — |
 | Sign out everywhere | Deletes the user's business sessions | — |
-| Suspend company | Sets `suspended_at/reason` | `requireWorkspace` renders a "company suspended" page for members (other companies still open from the switcher, which shows a "Suspended" badge); `requireRole` throws `companySuspended`; public customer actions (`app/actions/public.ts`), the pay page, resolution page, and receipt show "unavailable"/refuse; demo reset refused. Chain ingest and refund reconciliation keep running so the ledger stays truthful |
+| Suspend company | Sets `suspended_at/reason` | `requireWorkspace` redirects members to `/suspended` when the company they're in is suspended (so every business page, action, and the ledger export stop); the page offers their other companies, and the switcher shows a "Suspended" badge; `findLink` reports `companyUnavailable` (covering the resolution page, customer codes, and every customer action), `createPaymentRequest` and demo payments refuse, and the pay page and receipt show "unavailable"; demo reset refused. Chain ingest and refund reconciliation keep running so the ledger stays truthful |
 | Restore company | Clears suspension | — |
 | Block sign-in | Active `blocks` row (`sign_in`, email) | `sendCode` refuses for every purpose with `signInBlocked` |
 | Block faucet | Active `blocks` row (`faucet`, wallet) | faucet action refuses with `faucetBlocked` |
