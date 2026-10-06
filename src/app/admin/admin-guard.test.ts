@@ -17,7 +17,11 @@ function pages(dir: string): string[] {
 describe("admin console pages", () => {
   it("each call requireAdmin() themselves, not only through the layout", () => {
     const found = pages(CONSOLE);
+<<<<<<< HEAD
     expect(found.length).toBeGreaterThanOrEqual(8);
+=======
+    expect(found.length).toBeGreaterThanOrEqual(8);
+>>>>>>> feat/admin
     for (const file of found) expect(readFileSync(file, "utf8"), path.relative(CONSOLE, file)).toMatch(/await requireAdmin\(\)/);
   });
 });
