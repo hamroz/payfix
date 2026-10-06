@@ -8,7 +8,7 @@ import { ExportLink, RangeTabs, StatTile } from "@/components/admin/bits";
 import { env } from "@/lib/env";
 import { getI18n } from "@/lib/i18n/server";
 import { parseRange, type Range } from "@/lib/server/admin/stats";
-import { deps } from "@/lib/server/context";
+import { deps, requireAdmin } from "@/lib/server/context";
 import { ANSWER_KEYS, feedbackSummary, listFeedback } from "@/lib/server/feedback";
 import { cn } from "@/lib/cn";
 
@@ -18,6 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AdminFeedback({ searchParams }: PageProps<"/admin/feedback">) {
+  await requireAdmin();
   const sp = await searchParams;
   const range = parseRange(sp.range ?? "all");
   const cohort = typeof sp.c === "string" && sp.c ? sp.c : null;
@@ -44,7 +45,7 @@ export default async function AdminFeedback({ searchParams }: PageProps<"/admin/
         actions={
           <>
             <RangeTabs range={range} href={(r) => href(r)} />
-            <ExportLink kind="feedback" range={range} />
+            <ExportLink kind="feedback" range={range} cohort={cohort} />
           </>
         }
       />
