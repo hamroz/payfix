@@ -4,6 +4,7 @@ const landing: Messages["landing"] = {
   nav: {
     howItWorks: "Как это работает",
     signIn: "Войти",
+    dashboard: "Панель управления",
   },
   hero: {
     simulatedChain: "Симуляция блокчейна",
