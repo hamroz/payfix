@@ -108,30 +108,35 @@ export async function markHistorySeen(db: Db, businessId: string, signatures: st
  */
 export async function clearWorkspaceData(db: Db, businessId: string) {
   await db.transaction(async (t) => {
-    const caseIds = (await t.select({ id: cases.id }).from(cases).where(eq(cases.businessId, businessId))).map((r) => r.id);
-    const refundIds = (await t.select({ id: refunds.id }).from(refunds).where(eq(refunds.businessId, businessId))).map((r) => r.id);
-    const proposalIds = caseIds.length ? (await t.select({ id: proposals.id }).from(proposals).where(inArray(proposals.caseId, caseIds))).map((r) => r.id) : [];
-    await t.delete(postings).where(eq(postings.businessId, businessId));
-    await t.delete(journalEntries).where(eq(journalEntries.businessId, businessId));
-    if (refundIds.length) await t.delete(refundAttempts).where(inArray(refundAttempts.refundId, refundIds));
-    await t.delete(refunds).where(eq(refunds.businessId, businessId));
-    if (proposalIds.length) await t.delete(approvals).where(inArray(approvals.proposalId, proposalIds));
-    if (caseIds.length) {
-      await t.delete(proposals).where(inArray(proposals.caseId, caseIds));
-      await t.delete(resolutionLinks).where(inArray(resolutionLinks.caseId, caseIds));
-      await t.delete(caseTransfers).where(inArray(caseTransfers.caseId, caseIds));
-    }
-    await t.delete(notificationReads).where(inArray(notificationReads.eventId, t.select({ id: events.id }).from(events).where(eq(events.businessId, businessId))));
-    await t.delete(events).where(eq(events.businessId, businessId));
-    await t.delete(cases).where(eq(cases.businessId, businessId));
-    await t.delete(transfers).where(eq(transfers.businessId, businessId));
-    await t.delete(paymentRequests).where(eq(paymentRequests.businessId, businessId));
-    await t.delete(invoices).where(eq(invoices.businessId, businessId));
-    await t.delete(customers).where(eq(customers.businessId, businessId));
-    await t.delete(outbox).where(eq(outbox.businessId, businessId));
+    await purgeCompanyData(t, businessId);
     // Keep chain_signatures: those payments happened; re-ingesting them would resurrect old demo data.
     await t.update(chainSignatures).set({ relevant: false }).where(eq(chainSignatures.businessId, businessId));
   });
+}
+
+/** Deletes everything a company holds except the company itself, its team, wallets, and seen chain signatures. Call inside a transaction. */
+export async function purgeCompanyData(t: Executor, businessId: string) {
+  const caseIds = (await t.select({ id: cases.id }).from(cases).where(eq(cases.businessId, businessId))).map((r) => r.id);
+  const refundIds = (await t.select({ id: refunds.id }).from(refunds).where(eq(refunds.businessId, businessId))).map((r) => r.id);
+  const proposalIds = caseIds.length ? (await t.select({ id: proposals.id }).from(proposals).where(inArray(proposals.caseId, caseIds))).map((r) => r.id) : [];
+  await t.delete(postings).where(eq(postings.businessId, businessId));
+  await t.delete(journalEntries).where(eq(journalEntries.businessId, businessId));
+  if (refundIds.length) await t.delete(refundAttempts).where(inArray(refundAttempts.refundId, refundIds));
+  await t.delete(refunds).where(eq(refunds.businessId, businessId));
+  if (proposalIds.length) await t.delete(approvals).where(inArray(approvals.proposalId, proposalIds));
+  if (caseIds.length) {
+    await t.delete(proposals).where(inArray(proposals.caseId, caseIds));
+    await t.delete(resolutionLinks).where(inArray(resolutionLinks.caseId, caseIds));
+    await t.delete(caseTransfers).where(inArray(caseTransfers.caseId, caseIds));
+  }
+  await t.delete(notificationReads).where(inArray(notificationReads.eventId, t.select({ id: events.id }).from(events).where(eq(events.businessId, businessId))));
+  await t.delete(events).where(eq(events.businessId, businessId));
+  await t.delete(cases).where(eq(cases.businessId, businessId));
+  await t.delete(transfers).where(eq(transfers.businessId, businessId));
+  await t.delete(paymentRequests).where(eq(paymentRequests.businessId, businessId));
+  await t.delete(invoices).where(eq(invoices.businessId, businessId));
+  await t.delete(customers).where(eq(customers.businessId, businessId));
+  await t.delete(outbox).where(eq(outbox.businessId, businessId));
 }
 
 // ── Team ───────────────────────────────────────────────────────────────────

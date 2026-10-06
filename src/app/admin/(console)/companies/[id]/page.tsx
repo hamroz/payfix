@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { AuditHistory, Rows, StatusBadge } from "@/components/admin/bits";
 import { ModerateButton } from "@/components/admin/moderate-button";
+import { DeletePanel } from "@/components/admin/delete-panel";
 import { getI18n } from "@/lib/i18n/server";
 import { auditView, listAudit } from "@/lib/server/admin/audit";
 import { companyDetail } from "@/lib/server/admin/directory";
@@ -71,6 +72,14 @@ export default async function AdminCompany({ params }: PageProps<"/admin/compani
             )}
           </div>
           {d.company.suspendedReason && <p className="border-t border-veil/[0.06] px-5 py-3 text-[13px] text-fg-2">{d.company.suspendedReason}</p>}
+          <div className="border-t border-veil/[0.06] p-5">
+            <DeletePanel
+              kind="company"
+              targetId={id}
+              expected={d.company.name}
+              blocked={d.inFlightRefunds > 0 ? t(m.errors.deleteRefundInFlight, { company: d.company.name }) : undefined}
+            />
+          </div>
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader title={m.admin.users.detail.history} />
