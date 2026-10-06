@@ -30,6 +30,21 @@ export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: str
     { key: rateKey("code", p.email), max: 5, windowMs: 15 * MINUTE, error: "rateCodes" },
     { key: rateKey("code-day", p.email), max: 20, windowMs: DAY, error: "rateCodesDay" },
   ]);
+  const { code, mailId } = await issueCode(db, p);
+  if (env().DEMO_MODE) console.log(`[payfix] sign-in code for ${p.email}: ${code}`);
+  await deliverOutbox(db);
+  if (await emailFailed(db, mailId)) throw new InputError("emailSendFailed");
+  return { maskedEmail: mask(p.email) };
+}
+
+/**
+ * Stores a new code and queues the email carrying it. `deliver: "always"` sends it for real even
+ * in demo mode (admin codes); the caller delivers and checks the outcome.
+ */
+export async function issueCode(
+  db: Db,
+  p: { purpose: SessionKind; subjectId: string; email: string; businessId?: string | null; locale?: Locale; deliver?: "always" },
+) {
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const id = newId("otp");
   await db.insert(otpCodes).values({
@@ -41,21 +56,19 @@ export async function sendCode(db: Db, p: { purpose: SessionKind; subjectId: str
     expiresAt: new Date(Date.now() + CODE_TTL_MS),
   });
   const { m, t } = emailI18n(p.locale);
-  const mailId = await queueEmail(db, {
-    businessId: p.businessId ?? null,
-    to: p.email,
-    subject: t(m.emails.signInCode.subject, { code }),
-    body: t(m.emails.signInCode.body, { code }),
-    code,
-  });
-  if (env().DEMO_MODE) console.log(`[payfix] sign-in code for ${p.email}: ${code}`);
-  await deliverOutbox(db);
-  if (await emailFailed(db, mailId)) throw new InputError("emailSendFailed");
-  return { maskedEmail: mask(p.email) };
+  const mailId = await queueEmail(
+    db,
+    { businessId: p.businessId ?? null, to: p.email, subject: t(m.emails.signInCode.subject, { code }), body: t(m.emails.signInCode.body, { code }), code },
+    { deliver: p.deliver },
+  );
+  return { code, mailId };
 }
 
+export const maskEmail = (email: string) => mask(email);
+
 /** Checks a code and, on success, opens a session. Returns the raw session token for the cookie, or an error key. */
-export async function verifyCode(db: Db, p: { purpose: SessionKind; subjectId: string; code: string }) {
+export async function verifyCode(db: Db, p: { purpose: SessionKind; subjectId: string; code: string; ttlMs?: number }) {
+  const ttl = p.ttlMs ?? SESSION_TTL_MS;
   const [otp] = await db
     .select()
     .from(otpCodes)
@@ -85,9 +98,9 @@ export async function verifyCode(db: Db, p: { purpose: SessionKind; subjectId: s
     kind: p.purpose,
     subjectId: p.subjectId,
     tokenHash: sha256(token),
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    expiresAt: new Date(Date.now() + ttl),
   });
-  return { ok: true as const, token, expiresAt: new Date(Date.now() + SESSION_TTL_MS) };
+  return { ok: true as const, token, expiresAt: new Date(Date.now() + ttl) };
 }
 
 export async function sessionSubject(db: Db, kind: SessionKind, token: string | undefined) {

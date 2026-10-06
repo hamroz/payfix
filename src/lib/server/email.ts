@@ -11,15 +11,24 @@ export type Email = { businessId?: string | null; to: string; subject: string; b
 
 const MAX_ATTEMPTS = 5;
 
+const isLocalUrl = (url: string) => {
+  try {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+};
+
 /** Translator for an email written in `locale` (the language of whoever triggered it). */
 export const emailI18n = (locale: Locale = "en") => createTranslator(locale, dictionaries[locale]);
 
 /**
  * Queues an email. Call it inside the same transaction as the change it announces, then call
  * `deliverOutbox` after the transaction commits: a rolled-back change never sends mail, and a
- * failed send never rolls back the change. In demo mode the email stays in the demo inbox.
+ * failed send never rolls back the change. In demo mode the email stays in the demo inbox,
+ * unless `deliver: "always"` (admin sign-in codes, which must never be shown to a visitor).
  */
-export async function queueEmail(db: Executor, e: Email): Promise<string> {
+export async function queueEmail(db: Executor, e: Email, opts: { deliver?: "always" } = {}): Promise<string> {
   const id = newId("ml");
   await db.insert(outbox).values({
     id,
@@ -29,7 +38,7 @@ export async function queueEmail(db: Executor, e: Email): Promise<string> {
     body: e.body,
     link: e.link ?? null,
     code: e.code ?? null,
-    status: env().DEMO_MODE ? "demo" : "pending",
+    status: env().DEMO_MODE && opts.deliver !== "always" ? "demo" : "pending",
   });
   return id;
 }
@@ -41,7 +50,7 @@ export async function queueEmail(db: Executor, e: Email): Promise<string> {
  */
 export async function deliverOutbox(db: Db) {
   const e = env();
-  if (e.DEMO_MODE) return;
+  // In demo mode only `deliver: "always"` mail is pending; everything else stays in the demo inbox.
   const pending = await db
     .select()
     .from(outbox)
@@ -51,7 +60,7 @@ export async function deliverOutbox(db: Db) {
   for (const m of pending) {
     if (!e.RESEND_API_KEY) {
       // Local development without an email provider: print instead of sending.
-      if (process.env.NODE_ENV !== "production") {
+      if (process.env.NODE_ENV !== "production" || isLocalUrl(e.APP_URL)) {
         console.log(`[payfix] email to ${m.to}: ${m.subject}\n${m.body}${m.link ? `\n${m.link}` : ""}`);
         await db.update(outbox).set({ status: "sent", sentAt: new Date(), code: null, link: null }).where(eq(outbox.id, m.id));
       } else {
