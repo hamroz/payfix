@@ -38,7 +38,7 @@ async function everyPage<T>(fetch: (page: number) => Promise<{ rows: T[]; total:
 const inRange = (iso: string, start: Date | null) => !start || new Date(iso) >= start;
 
 /** One admin export. Contains only what the admin pages show; headers are in the admin's language. */
-export async function exportCsv(db: Db, kind: ExportKind, range: Range, m: Messages): Promise<{ csv: string; rows: number }> {
+export async function exportCsv(db: Db, kind: ExportKind, range: Range, m: Messages, opts: { cohort?: string | null } = {}): Promise<{ csv: string; rows: number }> {
   const c = m.admin.export.columns;
   const a = m.admin;
   const start = rangeStart(range);
@@ -64,7 +64,7 @@ export async function exportCsv(db: Db, kind: ExportKind, range: Range, m: Messa
       // Column order follows docs/evidence-log.md so rows paste straight in.
       const q = m.feedback.questions;
       header = [c.date, c.cohort, c.about, c.device, c.completed, c.minutes, c.ease, c.nps, q.hesitated, q.happened, q.voidedApproval, q.currentProcess, q.receiptTrust, q.blockers, c.quoteOk, c.language, c.account, c.furthest];
-      const list = await listFeedback(db, { range, limit: 100_000 });
+      const list = await listFeedback(db, { range, cohort: opts.cohort, limit: 100_000 });
       rows = list.map((f) => [
         f.createdAt,
         f.cohort,

@@ -9,7 +9,8 @@ const { openPglite } = await import("@/lib/db/client");
 const { otpCodes, outbox, sessions } = await import("@/lib/db/schema");
 const { env, resetEnvForTests } = await import("@/lib/env");
 const { newId, newToken } = await import("@/lib/ids");
-const { sessionSubject } = await import("./auth");
+const { sendCode, sessionSubject } = await import("./auth");
+const { deliverOutbox } = await import("./email");
 const { adminFromToken, isAdminEmail, requestAdminCode, verifyAdminCode } = await import("./admin/access");
 const { createHash } = await import("node:crypto");
 const { Keypair } = await import("@solana/web3.js");
@@ -62,6 +63,13 @@ describe("admin sign-in", () => {
     const mail = await db.select().from(outbox).where(eq(outbox.to, "boss@payfix.test"));
     expect(mail.length).toBeGreaterThan(0);
     expect(mail.every((m) => m.status !== "demo")).toBe(true);
+  });
+
+  it("in demo mode, sends nothing from the outbox but admin mail", async () => {
+    const [stale] = await db.insert(outbox).values({ id: newId("ml"), to: "someone@x.test", subject: "old", body: "old", status: "pending" }).returning();
+    await deliverOutbox(db);
+    const [after] = await db.select().from(outbox).where(eq(outbox.id, stale.id));
+    expect(after.status).toBe("pending");
   });
 
   it("signs an admin in with the emailed code", async () => {
@@ -205,6 +213,20 @@ describe("admin directory and exports", () => {
     expect(companies).toContain(`"'=HYPERLINK(""http://evil"")"`);
     const feedback = (await exportCsv(db, "feedback", "all", en)).csv;
     expect(feedback).toContain("owner@lumen.test"); // the tester attached their own account
+  });
+
+  it("never shows a company's customers in any admin list", async () => {
+    await sendCode(db, { purpose: "customer", subjectId: scenario.customerId, email: "ap@acme.test", businessId: scenario.businessId });
+    const everything = JSON.stringify([await listAudit(db, {}), await overviewStats(db, "all"), await listUsers(db, {}), await listCompanies(db, {})]);
+    for (const secret of ["ap@acme.test", "Acme Robotics", "Brand identity", scenario.merchant.publicKey.toBase58()]) expect(everything).not.toContain(secret);
+  });
+
+  it("exports only the feedback batch the admin filtered to", async () => {
+    await saveFeedback(db, { completed: "no", ease: 1, nps: 2, cohort: "round-two" }, { userId: null, locale: "en", ip: "2.2.2.2" });
+    expect((await exportCsv(db, "feedback", "all", en)).rows).toBe(2);
+    const filtered = await exportCsv(db, "feedback", "all", en, { cohort: "round-two" });
+    expect(filtered.rows).toBe(1);
+    expect(filtered.csv).toContain("round-two");
   });
 
   it("quotes CSV cells and defuses formulas", () => {

@@ -5,7 +5,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { DirectoryFilters, ExportLink, Pager, StatusBadge } from "@/components/admin/bits";
 import { getI18n } from "@/lib/i18n/server";
 import { listUsers, PAGE_SIZE, type StatusFilter } from "@/lib/server/admin/directory";
-import { deps } from "@/lib/server/context";
+import { deps, requireAdmin } from "@/lib/server/context";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { m } = await getI18n();
@@ -16,6 +16,7 @@ const asStatus = (v: unknown): StatusFilter => (v === "active" || v === "suspend
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
 
 export default async function AdminUsers({ searchParams }: PageProps<"/admin/users">) {
+  await requireAdmin();
   const sp = await searchParams;
   const q = { search: one(sp.q), status: asStatus(sp.status), page: Math.max(1, Number(one(sp.page)) || 1) };
   const { db } = await deps();

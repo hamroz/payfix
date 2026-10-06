@@ -26,10 +26,11 @@ export async function RangeTabs({ range, href }: { range: Range; href: (r: Range
   );
 }
 
-export async function ExportLink({ kind, range }: { kind: string; range?: Range }) {
+export async function ExportLink({ kind, range, cohort }: { kind: string; range?: Range; cohort?: string | null }) {
   const { m } = await getI18n();
+  const query = new URLSearchParams({ ...(range ? { range } : {}), ...(cohort ? { c: cohort } : {}) }).toString();
   return (
-    <a href={`/api/admin/export/${kind}${range ? `?range=${range}` : ""}`} className={buttonClass("secondary", "sm")} download>
+    <a href={`/api/admin/export/${kind}${query ? `?${query}` : ""}`} className={buttonClass("secondary", "sm")} download>
       <Download className="size-4" /> {m.admin.export.button}
     </a>
   );

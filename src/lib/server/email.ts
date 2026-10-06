@@ -50,17 +50,21 @@ export async function queueEmail(db: Executor, e: Email, opts: { deliver?: "alwa
  */
 export async function deliverOutbox(db: Db) {
   const e = env();
-  // In demo mode only `deliver: "always"` mail is pending; everything else stays in the demo inbox.
+  // Demo mode keeps mail in the demo inbox; only admin sign-in codes (queued with
+  // `deliver: "always"`) really go out, so nothing else pending there is ever sent.
+  if (e.DEMO_MODE && e.ADMIN_EMAILS.length === 0) return;
   const pending = await db
     .select()
     .from(outbox)
-    .where(and(inArray(outbox.status, ["pending"]), lt(outbox.attempts, MAX_ATTEMPTS)))
+    .where(and(inArray(outbox.status, ["pending"]), lt(outbox.attempts, MAX_ATTEMPTS), e.DEMO_MODE ? inArray(outbox.to, e.ADMIN_EMAILS) : undefined))
     .orderBy(asc(outbox.createdAt))
     .limit(20);
   for (const m of pending) {
     if (!e.RESEND_API_KEY) {
-      // Local development without an email provider: print instead of sending.
-      if (process.env.NODE_ENV !== "production" || isLocalUrl(e.APP_URL)) {
+      // Local development without an email provider: print instead of sending. A production
+      // build only prints admin codes, and only on a localhost deployment; anything else fails
+      // loudly rather than leaving live codes and links in the log.
+      if (process.env.NODE_ENV !== "production" || (isLocalUrl(e.APP_URL) && e.ADMIN_EMAILS.includes(m.to))) {
         console.log(`[payfix] email to ${m.to}: ${m.subject}\n${m.body}${m.link ? `\n${m.link}` : ""}`);
         await db.update(outbox).set({ status: "sent", sentAt: new Date(), code: null, link: null }).where(eq(outbox.id, m.id));
       } else {

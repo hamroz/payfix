@@ -11,11 +11,13 @@ export async function GET(req: Request, { params }: RouteContext<"/api/admin/exp
   const admin = await currentAdmin();
   const { kind } = await params;
   if (!admin || !EXPORT_KINDS.includes(kind as ExportKind)) return new Response("Not found", { status: 404 });
-  const range = parseRange(new URL(req.url).searchParams.get("range"));
+  const q = new URL(req.url).searchParams;
+  const range = parseRange(q.get("range"));
+  const cohort = q.get("c") || null;
   const i18n = await getI18n();
   const { db } = await deps();
-  const { csv, rows } = await exportCsv(db, kind as ExportKind, range, i18n.m);
-  await audit(db, { adminEmail: admin, action: "export", targetType: "export", targetId: kind, data: { kind, range, rows } });
+  const { csv, rows } = await exportCsv(db, kind as ExportKind, range, i18n.m, { cohort });
+  await audit(db, { adminEmail: admin, action: "export", targetType: "export", targetId: kind, data: { kind, range, rows, ...(cohort ? { cohort } : {}) } });
   // A byte-order mark makes spreadsheet apps read non-English text as UTF-8.
   const bom = i18n.locale === "en" ? "" : "﻿";
   return new Response(bom + csv, {
