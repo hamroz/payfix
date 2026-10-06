@@ -4,6 +4,7 @@ const landing: Messages["landing"] = {
   nav: {
     howItWorks: "运作方式",
     signIn: "登录",
+    dashboard: "控制台",
   },
   hero: {
     simulatedChain: "模拟链",

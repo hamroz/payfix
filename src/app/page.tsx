@@ -10,6 +10,7 @@ import { ButtonLink } from "@/components/ui/primitives";
 import { Spotlight } from "@/components/ui/interactive";
 import { env } from "@/lib/env";
 import { getI18n } from "@/lib/i18n/server";
+import { currentUser } from "@/lib/server/context";
 import { ThemeToggle } from "@/components/theme/theme";
 
 const steps = [
@@ -33,6 +34,9 @@ export default async function Home() {
   const { m, t } = await getI18n();
   const l = m.landing;
   const { SOLANA_CLUSTER, DEMO_MODE, DEMO_URL } = env();
+  // Signed-in visitors get a way back into the app instead of a sign-in prompt.
+  const signedIn = Boolean(await currentUser());
+  const account = signedIn ? { href: "/app", label: l.nav.dashboard } : { href: "/login", label: l.nav.signIn };
   // The production site sends visitors to the separate devnet demo; the demo site signs them in.
   const demoHref = DEMO_MODE ? "/login" : DEMO_URL;
   return (
@@ -45,8 +49,8 @@ export default async function Home() {
           </Link>
           <LanguageSwitcher compact />
           <ThemeToggle />
-          <ButtonLink href="/login" variant="secondary" size="sm">
-            {l.nav.signIn}
+          <ButtonLink href={account.href} variant="secondary" size="sm">
+            {account.label}
           </ButtonLink>
         </nav>
       </header>
@@ -84,8 +88,8 @@ export default async function Home() {
                   {l.hero.getStarted} <ArrowRight className="size-4" />
                 </ButtonLink>
               )}
-              <ButtonLink href={DEMO_MODE || !demoHref ? "#how" : "/login"} variant="secondary" size="lg">
-                {DEMO_MODE || !demoHref ? l.hero.seeHow : l.hero.signIn}
+              <ButtonLink href={DEMO_MODE || !demoHref ? "#how" : account.href} variant="secondary" size="lg">
+                {DEMO_MODE || !demoHref ? l.hero.seeHow : signedIn ? l.nav.dashboard : l.hero.signIn}
               </ButtonLink>
             </FadeIn>
             <FadeIn delay={0.32}>
