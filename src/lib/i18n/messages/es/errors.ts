@@ -38,6 +38,9 @@ const errors: Messages["errors"] = {
   invoiceNotFound: "No se ha encontrado la factura.",
   paymentAmountPositive: "Introduce un importe mayor que cero.",
   paymentAmountFormat: "Introduce un importe como 400 o 49,99.",
+  paymentCodeInvalid: "Este código de pago no es válido. Recarga la página de la factura para obtener uno nuevo.",
+  paymentAccountMissing: "La billetera no indicó qué cuenta paga. Vuelve a escanear el código.",
+  ratePaymentNetwork: "Demasiados intentos de pago desde esta red. Inténtalo de nuevo en un minuto.",
   noCreditLeft: "A este cliente no le queda saldo a favor.",
   invoiceAlreadyPaid: "Esta factura ya está pagada.",
 
