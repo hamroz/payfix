@@ -37,6 +37,19 @@ export default async function ReceiptPage({ params }: PageProps<"/receipt/[caseI
   const customerId = await currentCustomerId();
   const member = user ? await membershipRole(db, user.id, c.businessId) : null;
   const allowed = member !== null || (c.customerId !== null && customerId === c.customerId);
+  const [owner] = await db.select({ suspendedAt: businesses.suspendedAt }).from(businesses).where(eq(businesses.id, c.businessId));
+  if (allowed && owner?.suspendedAt) {
+    return (
+      <>
+        <div className="mx-auto max-w-md px-5 py-20">
+          <Card>
+            <EmptyState icon={<Ban className="size-5" />} title={m.errors.companyUnavailable} />
+          </Card>
+        </div>
+        <SiteFooter minimal />
+      </>
+    );
+  }
   if (!allowed) {
     return (
       <>

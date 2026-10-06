@@ -28,6 +28,7 @@ import { ata, isWalletAddress } from "@/lib/solana/tx";
 import { deliverOutbox, emailI18n, queueEmail } from "./email";
 import { logEvent, logInvoicePaid, postEntry } from "./journal";
 import { caseAvailable, caseSources, invoicesWithBalances } from "./queries";
+import { companySuspended } from "./suspension";
 
 export class ResolutionError extends UserError {}
 
@@ -126,7 +127,7 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
   return url;
 }
 
-const linkUnavailable = (error: "linkInvalid" | "linkReplaced" | "linkExpired") => ({ ok: false as const, error });
+const linkUnavailable = (error: "linkInvalid" | "linkReplaced" | "linkExpired" | "companyUnavailable") => ({ ok: false as const, error });
 
 /**
  * Resolves a link token. Knowing the link alone doesn't grant access — the customer also verifies
@@ -137,6 +138,8 @@ export async function findLink(db: Executor, token: string) {
   if (!link) return linkUnavailable("linkInvalid");
   if (link.revokedAt) return linkUnavailable("linkReplaced");
   if (link.expiresAt < new Date()) return linkUnavailable("linkExpired");
+  const [c] = await db.select({ businessId: cases.businessId }).from(cases).where(eq(cases.id, link.caseId));
+  if (c && (await companySuspended(db, c.businessId))) return linkUnavailable("companyUnavailable");
   return { ok: true as const, link };
 }
 

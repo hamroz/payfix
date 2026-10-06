@@ -11,6 +11,7 @@ import type { Role } from "@/lib/roles";
 import { isWalletAddress } from "@/lib/solana/tx";
 import { applyCredit } from "@/lib/server/credit";
 import { clientIp, currentUser, deps, requireRole, setWorkspaceCookie, syncCompany } from "@/lib/server/context";
+import { activeBlock } from "@/lib/server/suspension";
 import { demoSignRefund, ensureTokenAccount, faucet, provisionDemoWallet, tokenBalance } from "@/lib/server/demo";
 import { createCustomer, createInvoice, InputError } from "@/lib/server/invoices";
 import { consume, DAY, HOUR, MINUTE, rateKey } from "@/lib/server/ratelimit";
@@ -357,6 +358,7 @@ export async function faucetAction(address: string) {
     address = address.trim();
     if (!isWalletAddress(address)) throw new InputError("invalidWalletAddress");
     const { db } = await deps();
+    if (await activeBlock(db, "faucet", address)) throw new InputError("faucetBlocked");
     // Test USD minted straight into a receiving wallet would show up as an unmatched payment.
     const [receiving] = await db.select({ id: businessWallets.id }).from(businessWallets).where(eq(businessWallets.address, address)).limit(1);
     if (receiving) throw new InputError("faucetReceivingWallet");

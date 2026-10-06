@@ -48,17 +48,17 @@ export async function userById(db: Executor, id: string) {
   return u ?? null;
 }
 
-export type Workspace = { businessId: string; name: string; role: Role };
+export type Workspace = { businessId: string; name: string; role: Role; suspended: boolean };
 
 /** Companies a user belongs to, oldest first. */
 export async function listWorkspaces(db: Executor, userId: string): Promise<Workspace[]> {
   const rows = await db
-    .select({ businessId: businesses.id, name: businesses.name, role: memberships.role })
+    .select({ businessId: businesses.id, name: businesses.name, role: memberships.role, suspendedAt: businesses.suspendedAt })
     .from(memberships)
     .innerJoin(businesses, eq(businesses.id, memberships.businessId))
     .where(eq(memberships.userId, userId))
     .orderBy(asc(memberships.createdAt));
-  return rows;
+  return rows.map(({ suspendedAt, ...w }) => ({ ...w, suspended: !!suspendedAt }));
 }
 
 export async function membershipRole(db: Executor, userId: string, businessId: string): Promise<Role | null> {
