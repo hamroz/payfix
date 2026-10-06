@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { AuditHistory, Rows, StatusBadge } from "@/components/admin/bits";
+import { ModerateButton } from "@/components/admin/moderate-button";
 import { getI18n } from "@/lib/i18n/server";
 import { audit, listAudit } from "@/lib/server/admin/audit";
 import { companyDetail } from "@/lib/server/admin/directory";
@@ -22,7 +23,7 @@ export default async function AdminCompany({ params }: PageProps<"/admin/compani
   if (!d) notFound();
   await audit(db, { adminEmail: admin, action: "business.view", targetType: "business", targetId: id });
   const history = (await listAudit(db, { targetType: "business", targetId: id, limit: 50 })).filter((r) => r.action !== "business.view");
-  const { m, t, date, number } = await getI18n();
+  const { m, t, p, date, number } = await getI18n();
   const c = m.admin.companies.detail;
   const col = m.admin.export.columns;
 
@@ -59,6 +60,17 @@ export default async function AdminCompany({ params }: PageProps<"/admin/compani
               ]}
             />
           </div>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader title={m.admin.actions.title} />
+          <div className="p-5">
+            {d.company.suspendedAt ? (
+              <ModerateButton kind="restoreCompany" targetId={id} />
+            ) : (
+              <ModerateButton kind="suspendCompany" targetId={id} warning={d.inFlightRefunds > 0 ? p(m.admin.actions.inFlight, d.inFlightRefunds) : undefined} />
+            )}
+          </div>
+          {d.company.suspendedReason && <p className="border-t border-veil/[0.06] px-5 py-3 text-[13px] text-fg-2">{d.company.suspendedReason}</p>}
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader title={m.admin.users.detail.history} />
