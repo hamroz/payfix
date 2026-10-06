@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { DirectoryFilters, ExportLink, Pager, StatusBadge } from "@/components/admin/bits";
+import { BulkList } from "@/components/admin/bulk-list";
 import { getI18n } from "@/lib/i18n/server";
 import { listCompanies, PAGE_SIZE, type StatusFilter } from "@/lib/server/admin/directory";
 import { deps, requireAdmin } from "@/lib/server/context";
@@ -32,13 +33,13 @@ export default async function AdminCompanies({ searchParams }: PageProps<"/admin
       <DirectoryFilters base="/admin/companies" search={q.search} status={q.status} placeholder={c.search} />
       <p className="mb-2 text-xs text-fg-3">{p(c.count, total)}</p>
       <Card className="overflow-hidden">
-        {rows.length === 0 ? (
-          <EmptyState title={c.empty} />
-        ) : (
-          <ul className="divide-y divide-veil/[0.06]">
-            {rows.map((r) => (
-              <li key={r.id}>
-                <Link href={`/admin/companies/${r.id}`} className="group flex items-center gap-3 px-4 py-3 transition hover:bg-veil/[0.03] sm:px-5">
+          <BulkList
+            kind="companies"
+            items={rows.map((r) => ({
+              id: r.id,
+              label: r.name,
+              node: (
+                <Link href={`/admin/companies/${r.id}`} className="group flex items-center gap-3 py-3 pl-3 pr-4 transition hover:bg-veil/[0.03] sm:pr-5">
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2 text-sm font-medium text-fg">
                       <span className="truncate">{r.name}</span>
@@ -52,10 +53,10 @@ export default async function AdminCompanies({ searchParams }: PageProps<"/admin
                   <StatusBadge suspended={r.suspended} />
                   <ChevronRight className="size-4 text-fg-3 transition group-hover:translate-x-0.5" />
                 </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+              ),
+            }))}
+            empty={<EmptyState title={c.empty} />}
+          />
       </Card>
       <Pager page={q.page} total={total} pageSize={PAGE_SIZE} href={pageHref} />
     </>

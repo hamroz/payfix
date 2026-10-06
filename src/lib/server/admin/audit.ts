@@ -3,7 +3,7 @@ import type { Executor } from "@/lib/db/client";
 import { adminAudit, type AdminAction } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
 
-export type AuditTarget = "user" | "business" | "block" | "export";
+export type AuditTarget = "user" | "business" | "block" | "feedback" | "export";
 
 /** Records what an admin did or opened. Call it inside the same transaction as the change. */
 export async function audit(

@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { NetworkPill } from "@/components/app/network-pill";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { ThemeToggle } from "@/components/theme/theme";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { getI18n } from "@/lib/i18n/server";
 import { currentUser } from "@/lib/server/context";
 import { FeedbackForm } from "./feedback-form";
@@ -25,6 +26,7 @@ export default async function FeedbackPage({ searchParams }: PageProps<"/feedbac
         </Link>
         <div className="flex items-center gap-2">
           <NetworkPill />
+          <LanguageSwitcher compact />
           <ThemeToggle />
         </div>
       </header>

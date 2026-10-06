@@ -5,6 +5,8 @@ import { Badge, Card, CardHeader, EmptyState, PageHeader } from "@/components/ui
 import { CopyButton } from "@/components/ui/interactive";
 import { DistributionBars } from "@/components/admin/charts";
 import { ExportLink, RangeTabs, StatTile } from "@/components/admin/bits";
+import { BulkList } from "@/components/admin/bulk-list";
+import { DeleteFeedbackButton } from "@/components/admin/delete-feedback-button";
 import { env } from "@/lib/env";
 import { getI18n } from "@/lib/i18n/server";
 import { parseRange, type Range } from "@/lib/server/admin/stats";
@@ -90,14 +92,16 @@ export default async function AdminFeedback({ searchParams }: PageProps<"/admin/
       )}
 
       <div className="mt-4 space-y-3">
-        {responses.length === 0 ? (
-          <Card>
-            <EmptyState title={f.empty} />
-          </Card>
-        ) : (
-          responses.map((r) => (
-            <Card key={r.id}>
+          <BulkList
+            kind="feedback"
+            layout="cards"
+            items={responses.map((r) => ({
+              id: r.id,
+              label: dateTime(r.createdAt),
+              node: (
+            <Card>
               <CardHeader
+                className="pr-12"
                 title={
                   <span className="flex flex-wrap items-center gap-2">
                     {f.completed[r.completed]}
@@ -123,20 +127,29 @@ export default async function AdminFeedback({ searchParams }: PageProps<"/admin/
                     <dd className="mt-0.5 whitespace-pre-wrap break-words text-sm text-fg">{r.answers[k]}</dd>
                   </div>
                 ))}
-                <div className="flex items-center gap-1.5 pt-1 text-xs text-fg-3">
-                  <UserRound className="size-3.5" />
-                  {r.account ? (
-                    <span>
-                      {r.account.email} · {t(f.reached, { step: m.admin.funnelSteps[r.account.furthest] })}
-                    </span>
-                  ) : (
-                    f.anonymous
-                  )}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-fg-3">
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserRound className="size-3.5" />
+                    {r.account ? (
+                      <span>
+                        {r.account.email} · {t(f.reached, { step: m.admin.funnelSteps[r.account.furthest] })}
+                      </span>
+                    ) : (
+                      f.anonymous
+                    )}
+                  </span>
+                  <DeleteFeedbackButton id={r.id} />
                 </div>
               </dl>
             </Card>
-          ))
-        )}
+              ),
+            }))}
+            empty={
+              <Card>
+                <EmptyState title={f.empty} />
+              </Card>
+            }
+          />
       </div>
     </>
   );
