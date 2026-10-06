@@ -38,6 +38,9 @@ const errors: Messages["errors"] = {
   invoiceNotFound: "未找到该账单。",
   paymentAmountPositive: "请输入大于零的金额。",
   paymentAmountFormat: "请输入类似 400 或 49.99 的金额。",
+  paymentCodeInvalid: "此付款码无效。请刷新发票页面以获取新的付款码。",
+  paymentAccountMissing: "钱包未提供付款账户。请重新扫描付款码。",
+  ratePaymentNetwork: "此网络的付款尝试过多，请一分钟后再试。",
   noCreditLeft: "该客户已没有可用余额。",
   invoiceAlreadyPaid: "这张账单已付清。",
 

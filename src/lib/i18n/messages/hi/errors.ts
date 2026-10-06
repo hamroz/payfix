@@ -38,6 +38,9 @@ const errors: Messages["errors"] = {
   invoiceNotFound: "इनवॉइस नहीं मिला।",
   paymentAmountPositive: "शून्य से ज़्यादा राशि डालें।",
   paymentAmountFormat: "राशि इस तरह डालें: 400 या 49.99।",
+  paymentCodeInvalid: "यह भुगतान कोड मान्य नहीं है। नया कोड पाने के लिए इनवॉइस पेज रीफ़्रेश करें।",
+  paymentAccountMissing: "वॉलेट ने यह नहीं बताया कि कौन-सा खाता भुगतान कर रहा है। कोड फिर से स्कैन करें।",
+  ratePaymentNetwork: "इस नेटवर्क से बहुत ज़्यादा भुगतान प्रयास हुए हैं। एक मिनट बाद फिर कोशिश करें।",
   noCreditLeft: "इस ग्राहक का कोई क्रेडिट बाकी नहीं है।",
   invoiceAlreadyPaid: "यह इनवॉइस पहले ही चुकाया जा चुका है।",
 

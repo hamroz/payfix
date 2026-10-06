@@ -114,8 +114,8 @@ export async function paymentRequestLabel(db: Executor, reference: string) {
  */
 export async function buildRequestedPayment(deps: { db: Executor; chain: ChainClient }, p: { reference: string; account: string }) {
   const found = await requestedPayment(deps.db, p.reference);
-  if (!found || found.req.amount === null) throw new InputError("This payment code isn't valid. Refresh the invoice page for a new one.");
-  if (!isWalletAddress(p.account)) throw new InputError("That isn't a wallet address.");
+  if (!found || found.req.amount === null) throw new InputError("paymentCodeInvalid");
+  if (!isWalletAddress(p.account)) throw new InputError("invalidWalletAddress");
   const { req, inv, biz } = found;
   const { blockhash, lastValidBlockHeight } = await deps.chain.getLatestBlockhash();
   const tx = buildPaymentTransaction({
