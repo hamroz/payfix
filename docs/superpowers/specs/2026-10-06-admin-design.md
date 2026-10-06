@@ -32,11 +32,11 @@ Three parts:
 
 - Admin codes are queued with `businessId = null` and **status `pending`, never `demo`**, and are delivered through Resend even when `DEMO_MODE` is on. The demo inbox only lists `demo` rows (filter added explicitly), so admin codes never appear there.
 - With no `RESEND_API_KEY`, queued emails (admin codes included) are printed to the server console when `NODE_ENV` isn't production or `APP_URL` is a localhost URL. Otherwise admin sign-in reports that email isn't configured. The demo-mode `console.log` of business codes never runs for admin codes.
-- `/admin/login` responds identically whether or not the email is on the allowlist; a code is only created for allowlisted emails.
+- `/admin/login` responds identically, and equally fast, whether or not the email is on the allowlist: a code is only created for allowlisted emails, and it is emailed after the response (`after()`). A deployment that cannot send mail refuses every address the same way. Admin codes are limited to 5 per 15 minutes and 20 per day per address.
 - Every `/admin` page and `/api/admin/*` route returns 404 (`notFound()`) without a valid admin session for a currently allowlisted email.
 - Admin sessions are a separate kind: an admin cookie is not a business session and vice versa.
 - Admin sign-in codes are rate-limited like business codes (per email and per IP).
-- Admin emails cannot be suspended or blocked from the admin UI.
+- Admin access (allowlist + admin sessions) is separate from business accounts. Moderating the business account at an admin's address (in demo mode anyone can open one) never affects admin access.
 
 ## Privacy line
 
@@ -160,13 +160,13 @@ All actions are server actions in `src/app/actions/admin.ts` → services in `sr
 | Suspend user | Sets `suspended_at/reason`; deletes all of the user's business sessions | `sendCode` (business purpose) refuses with `accountSuspended`; `currentUser()` returns null for a suspended user; `verifyCode` refuses |
 | Restore user | Clears suspension | — |
 | Sign out everywhere | Deletes the user's business sessions | — |
-| Suspend company | Sets `suspended_at/reason` | `requireWorkspace` redirects members to `/suspended` when the company they're in is suspended (so every business page, action, and the ledger export stop); the page offers their other companies, and the switcher shows a "Suspended" badge; `findLink` reports `companyUnavailable` (covering the resolution page, customer codes, and every customer action), `createPaymentRequest` and demo payments refuse, and the pay page and receipt show "unavailable"; demo reset refused. Chain ingest and refund reconciliation keep running so the ledger stays truthful |
+| Suspend company | Sets `suspended_at/reason` | `requireWorkspace` redirects members to `/suspended` when the company they're in is suspended (so every business page, action, and the ledger export stop); the page offers their other companies, and the switcher shows a "Suspended" badge; `findLink` reports `companyUnavailable` (covering the resolution page, customer codes, and every customer action), `createPaymentRequest` and demo payments refuse, and the pay page and receipt show "unavailable"; demo reset refused. Ingest and refund reconciliation code is untouched, so the ledger stays truthful; nothing polls a suspended company (its pages are closed), so payments and submitted refunds are reconciled on the first sync after it is restored |
 | Restore company | Clears suspension | — |
 | Block sign-in | Active `blocks` row (`sign_in`, email) | `sendCode` refuses for every purpose with `signInBlocked` |
 | Block faucet | Active `blocks` row (`faucet`, wallet) | faucet action refuses with `faucetBlocked` |
 | Lift block | Sets `lifted_at/by` | — |
 
-Admin emails cannot be suspended, signed out, or sign-in-blocked (`cannotModerateAdmin`). Before confirming a company suspension, the dialog shows the number of refunds awaiting signature or submitted.
+Moderation applies to business accounts only, including one at an admin's address; admin access is unaffected. Repeating an action changes nothing and writes no second audit row; page views are recorded at most once per admin and page every 10 minutes. Before confirming a company suspension, the dialog shows the number of refunds awaiting signature or submitted.
 
 Moderation page: top sign-in-code requesters in the last 24 h (email, count, link to user if they exist), active blocks with "lift", and an add-block form.
 
@@ -179,7 +179,7 @@ Moderation page: top sign-in-code requesters in the last 24 h (email, count, lin
 - `src/app/admin/layout.tsx`: own shell (sidebar on desktop, tab bar on phones), "Admin" pill, admin email, `NetworkPill`, language switcher, theme toggle, sign out. Not inside `/app`.
 - Pages: `/admin` (overview), `/admin/users`, `/admin/users/[id]`, `/admin/companies`, `/admin/companies/[id]`, `/admin/feedback`, `/admin/moderation`, `/admin/audit`, `/admin/login`.
 - Charts are small inline SVGs built from theme tokens (no chart library). Amounts are `tabular` and formatted with `formatUsd`.
-- i18n: new namespaces `admin` and `feedback`, new error keys (`accountSuspended`, `companySuspended`, `signInBlocked`, `faucetBlocked`, `cannotModerateAdmin`, `reasonRequired`, `rateFeedback`, `rateFeedbackGlobal`, `adminEmailUnavailable`), all eight languages.
+- i18n: new namespaces `admin` and `feedback`, new error keys (`accountSuspended`, `companySuspended`, `signInBlocked`, `faucetBlocked`, `reasonRequired`, `adminTargetMissing`, `rateFeedback`, `rateFeedbackGlobal`, `adminEmailUnavailable`), all eight languages.
 - Suspended states for members, payers, and customers are translated pages using existing primitives.
 
 ## Testing
@@ -189,7 +189,7 @@ Moderation page: top sign-in-code requesters in the last 24 h (email, count, lin
 - Access: allowlist parsing; non-admin email gets the same response but no `otp_codes` row; admin outbox rows are never `demo`; admin and business sessions are not interchangeable; removing an email from the allowlist rejects an existing admin session.
 - Stats: after the demo scenario, tiles, funnel, and money totals match ($1,100 received = $1,000 + $60 + $40, unresolved 0); sample invoices are separated.
 - Privacy: rendered admin data and every export contain neither the seeded customer email `ap@acme.test`, nor the customer name, nor invoice titles.
-- Moderation: each action's effect and its restore; a transfer that arrives while the company is suspended is still ingested and the ledger invariant holds; admin emails can't be moderated; idempotency.
+- Moderation: each action's effect and its restore; a transfer that arrives while the company is suspended is still ingested and the ledger invariant holds; moderating an admin's business account leaves admin access intact; idempotency (no duplicate audit rows).
 - Audit: every action and export writes one row with its reason.
 - Feedback: validation, honeypot, rate limit, account attached only when requested and signed in.
 

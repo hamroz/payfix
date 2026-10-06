@@ -87,6 +87,12 @@ Only do this if you already use Phantom or want to try it. Use a wallet that hol
 
 ---
 
+## Send the survey
+
+After the run, send the tester the survey link with a batch tag, for example **https://payfix-mu.vercel.app/feedback?c=oct-walkthroughs**. It asks the questions below plus ease (1–5) and how likely they are to recommend PayFix (0–10), in the tester's language, and takes about two minutes. Answers are anonymous unless the tester ticks "attach my PayFix account". Results appear at `/admin/feedback`; export them as CSV to fill in [the evidence log](evidence-log.md).
+
+If you're running the session live, you can still ask the questions out loud; record the answers the same way.
+
 ## Questions to ask the tester afterward
 
 1. In your own words, what happened to the extra $100, and who decided?

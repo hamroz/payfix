@@ -14,6 +14,7 @@ import { customerById } from "@/lib/server/queries";
 import { logEvent } from "@/lib/server/journal";
 import { cases } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { activeBlock } from "@/lib/server/suspension";
 import { run } from "./result";
 
 /** Sign in or sign up: the same email code either way. New users create a company next. */
@@ -23,6 +24,8 @@ export async function requestBusinessCode(email: string) {
   return run(async () => {
     const { db } = await deps();
     await consume(db, [ipLimit(await clientIp())]);
+    // Checked before the account exists, so a blocked address never becomes a user.
+    if (await activeBlock(db, "sign_in", email)) throw new InputError("signInBlocked");
     const user = await findOrCreateUser(db, email);
     const { locale } = await getI18n();
     const { maskedEmail } = await sendCode(db, { purpose: "business", subjectId: user.id, email: user.email, locale });

@@ -58,7 +58,9 @@ export async function currentUser() {
   if (!token) return null;
   const { db } = await deps();
   const id = await sessionSubject(db, "business", token);
-  return id ? await userById(db, id) : null;
+  const user = id ? await userById(db, id) : null;
+  // Suspension deletes sessions too; this covers a session created in the same instant.
+  return user && !user.suspendedAt ? user : null;
 }
 
 /** The signed-in user, the company they're working in, and their role there. */
@@ -78,6 +80,8 @@ export async function requireWorkspace() {
   const ws = await currentWorkspace();
   if (!ws) redirect("/login");
   if (!ws.biz || !ws.role) redirect("/onboarding");
+  // A suspended company stops every business page, action, and export for its members.
+  if (ws.biz.suspendedAt) redirect("/suspended");
   return { user: ws.user, workspaces: ws.workspaces, biz: ws.biz, role: ws.role };
 }
 

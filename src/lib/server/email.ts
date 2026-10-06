@@ -44,6 +44,15 @@ export async function queueEmail(db: Executor, e: Email, opts: { deliver?: "alwa
 }
 
 /**
+ * Whether this deployment can deliver an admin sign-in code at all: through Resend, or printed
+ * to the server log in local development. Depends only on configuration, never on the address.
+ */
+export function adminMailDeliverable() {
+  const e = env();
+  return !!e.RESEND_API_KEY || process.env.NODE_ENV !== "production" || isLocalUrl(e.APP_URL);
+}
+
+/**
  * Sends queued emails through Resend. Each delivered row has its code and link erased, so
  * the table never keeps a usable sign-in code or resolution link. Failures are retried on
  * the next call, up to five attempts.

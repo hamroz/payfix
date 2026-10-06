@@ -62,7 +62,7 @@ describe("companies, members, and isolation", () => {
 
   it("gives each user only their own companies, with roles", async () => {
     expect(owner.email).toBe("owner@lumen.test");
-    expect(await listWorkspaces(db, owner.id)).toEqual([{ businessId: bizA, name: "Lumen Studio", role: "owner" }]);
+    expect(await listWorkspaces(db, owner.id)).toEqual([{ businessId: bizA, name: "Lumen Studio", role: "owner", suspended: false }]);
     expect(await membershipRole(db, owner.id, bizB)).toBeNull();
     expect(can("viewer", "editor")).toBe(false);
     expect(can("editor", "editor")).toBe(true);

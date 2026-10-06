@@ -1,6 +1,6 @@
 # Runbook: recovery and reset (M6)
 
-Updated Oct 5, 2026 for `main` with production mode (PR #8) and the audit fixes (PR #9).
+Updated Oct 6, 2026 for `main` with production mode (PR #8), the audit fixes (PR #9), and the admin area.
 
 Live demo: **https://payfix-mu.vercel.app** (Vercel, Neon Postgres, Solana devnet, `DEMO_MODE=true`).
 
@@ -105,6 +105,14 @@ The app container reads `.env.local`. After `npm run setup:devnet`, run `docker 
 3. Run the e2e against the live URL.
 
 Caveat: rolling back code does not roll back the database. Migrations in `drizzle/` apply automatically on first connection. If the bad deploy added a migration, the older code runs against the newer schema. Today's migrations only add tables and columns, but check before rolling back past one.
+
+## Admin access and moderation
+
+- **Add or remove an admin:** edit `ADMIN_EMAILS` (comma-separated) in the deployment's environment and redeploy. Removal takes effect on the next request, even for a signed-in admin. Admin sign-in needs `RESEND_API_KEY`; with Resend's shared test sender only the Resend account owner receives mail, so verify a domain and set `EMAIL_FROM` if other admins need codes.
+- **Emergency:** if an admin account may be compromised, remove it from `ADMIN_EMAILS` and redeploy. Admin sessions also expire after 12 hours.
+- **Abuse:** check `/admin/moderation` for addresses requesting many sign-in codes. Block sign-in codes to an address, or the faucet for a wallet, there. Suspend an account or company from its page under Users or Companies. Every action needs a reason and is listed in `/admin/audit`.
+- **Suspending a company with refunds in flight:** the confirmation shows how many. Nobody can sign a refund until the company is restored. Nothing polls a suspended company, so refunds already submitted and payments that arrive meanwhile are reconciled on the first sync after it is restored. The ledger is never changed by a suspension.
+- **Restore:** open the user or company and choose **Restore**. Nothing is lost: suspension never changes the ledger.
 
 ## Local dev gotchas
 

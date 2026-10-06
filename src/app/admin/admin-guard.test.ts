@@ -17,7 +17,14 @@ function pages(dir: string): string[] {
 describe("admin console pages", () => {
   it("each call requireAdmin() themselves, not only through the layout", () => {
     const found = pages(CONSOLE);
-    expect(found.length).toBeGreaterThanOrEqual(6);
+    expect(found.length).toBeGreaterThanOrEqual(8);
     for (const file of found) expect(readFileSync(file, "utf8"), path.relative(CONSOLE, file)).toMatch(/await requireAdmin\(\)/);
+  });
+});
+
+describe("the public sign-in form", () => {
+  it("doesn't carry admin actions to every visitor", () => {
+    const form = readFileSync(path.join(process.cwd(), "src/app/login/login-form.tsx"), "utf8");
+    expect(form).not.toMatch(/admin-auth|AdminCode/);
   });
 });

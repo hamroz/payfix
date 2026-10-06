@@ -20,6 +20,7 @@ Read README.md first. It explains the product, the demo scenario, and where each
 - Proposals are immutable versions. Any change creates a new version and invalidates earlier approvals. Execution re-verifies the hash and balances.
 - Refunds: prepare exact tx → wallet signs → verify bytes match → record signature → broadcast. At most one prepared/submitted attempt per refund; retry only after blockhash expiry.
 - Customer actions must re-check that the session customer equals the resolution link's customer (`authorizedCase`). Business actions must check `businessId` ownership.
+- Platform admins (`/admin`) see identities and counts only, never a company's customers, invoice contents, per-company amounts, wallets, references, links, or codes. Every admin action and export writes `admin_audit`. Admin codes never go to the demo inbox.
 - Test money must stay labeled (NetworkPill). Demo features are gated on `env().DEMO_MODE`, which refuses mainnet.
 
 ## Conventions

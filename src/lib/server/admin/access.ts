@@ -5,9 +5,9 @@ import { sessions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import type { Locale } from "@/lib/i18n/config";
 import { issueCode, maskEmail, verifyCode } from "../auth";
-import { deliverOutbox, emailFailed } from "../email";
+import { adminMailDeliverable } from "../email";
 import { InputError } from "../invoices";
-import { consume, MINUTE, rateKey } from "../ratelimit";
+import { consume, DAY, MINUTE, rateKey } from "../ratelimit";
 
 /** Admin sessions are short: a stolen cookie is useful for half a day at most. */
 export const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -19,18 +19,19 @@ const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 export const isAdminEmail = (email: string) => env().ADMIN_EMAILS.includes(normalize(email));
 
 /**
- * Emails an admin sign-in code. Answers every address the same way, so the page doesn't reveal
- * who is an admin; only allowlisted addresses get a code. The code is always really emailed
- * (never the demo inbox), because in demo mode anyone can read any address's demo mail.
+ * Queues an admin sign-in code. Every address gets the same answer at the same speed, so the page
+ * doesn't reveal who is an admin: only allowlisted addresses get a code, and the caller delivers
+ * it after responding (`deliverOutbox` in `after()`). The code is always really emailed, never
+ * put in the demo inbox, because in demo mode anyone can read any address's demo mail.
  */
 export async function requestAdminCode(db: Db, email: string, locale?: Locale) {
   const e = normalize(email);
-  await consume(db, [{ key: rateKey("admin-code", e), max: 5, windowMs: 15 * MINUTE, error: "rateCodes" }]);
-  if (isAdminEmail(e)) {
-    const { mailId } = await issueCode(db, { purpose: "admin", subjectId: e, email: e, locale, deliver: "always" });
-    await deliverOutbox(db);
-    if (await emailFailed(db, mailId)) throw new InputError("adminEmailUnavailable");
-  }
+  if (!adminMailDeliverable()) throw new InputError("adminEmailUnavailable");
+  await consume(db, [
+    { key: rateKey("admin-code", e), max: 5, windowMs: 15 * MINUTE, error: "rateCodes" },
+    { key: rateKey("admin-code-day", e), max: 20, windowMs: DAY, error: "rateCodesDay" },
+  ]);
+  if (isAdminEmail(e)) await issueCode(db, { purpose: "admin", subjectId: e, email: e, locale, deliver: "always" });
   return { maskedEmail: maskEmail(e) };
 }
 
