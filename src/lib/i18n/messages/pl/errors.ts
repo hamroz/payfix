@@ -5,6 +5,7 @@ const errors: Messages["errors"] = {
   signInFirst: "Najpierw się zaloguj.",
   invalidEmail: "Podaj prawidłowy adres e-mail.",
   emailSendFailed: "Nie udało się teraz wysłać e-maila. Spróbuj ponownie za minutę.",
+  adminEmailUnavailable: "Logowanie administratora wymaga prawdziwej wysyłki e-maili, a w tym wdrożeniu nie jest ona skonfigurowana.",
   codeExpired: "Ten kod wygasł. Wyślij nowy.",
   codeTooManyAttempts: "Zbyt wiele prób. Wyślij nowy kod.",
   codeWrong: "Ten kod jest nieprawidłowy. Sprawdź go i spróbuj ponownie.",
@@ -124,6 +125,9 @@ const errors: Messages["errors"] = {
   rateFaucetWalletDay: "Ten portfel osiągnął dzisiejszy limit testowych USD.",
   rateFaucetNetwork: "Zbyt wiele żądań do kranika z tej sieci. Spróbuj ponownie za godzinę.",
   rateFaucetGlobal: "Kranik jest teraz przeciążony. Spróbuj ponownie za kilka minut.",
+  feedbackInvalid: "Sprawdź odpowiedzi: niektórych brakuje albo są za długie.",
+  rateFeedback: "Z tej sieci przyszło dziś zbyt wiele odpowiedzi. Dziękujemy, mamy ich już sporo!",
+  rateFeedbackGlobal: "Dostajemy teraz bardzo dużo odpowiedzi. Spróbuj ponownie za kilka minut.",
 
   // Statuses named inside the messages above ({status})
   statuses: {

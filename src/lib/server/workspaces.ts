@@ -89,8 +89,8 @@ export async function seedSampleData(db: Db, businessId: string, actorUserId?: s
   const acme = await createCustomer(db, { businessId, name: "Acme Robotics", email: "ap@acme.test", actorUserId });
   await createCustomer(db, { businessId, name: "Northwind Coffee", email: "finance@northwind.test", actorUserId });
   const day = 864e5;
-  await createInvoice(db, { businessId, customerId: acme, title: "Brand identity system", amount: toUnits("1000"), dueAt: new Date(Date.now() + 10 * day), actorUserId });
-  await createInvoice(db, { businessId, customerId: acme, title: "Website retainer — October", amount: toUnits("400"), dueAt: new Date(Date.now() + 21 * day), actorUserId });
+  await createInvoice(db, { businessId, customerId: acme, title: "Brand identity system", amount: toUnits("1000"), dueAt: new Date(Date.now() + 10 * day), actorUserId, sample: true });
+  await createInvoice(db, { businessId, customerId: acme, title: "Website retainer — October", amount: toUnits("400"), dueAt: new Date(Date.now() + 21 * day), actorUserId, sample: true });
 }
 
 /** Ignore chain history that predates the workspace (e.g. earlier runs on the same wallet). */

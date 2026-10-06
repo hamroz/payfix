@@ -5,6 +5,7 @@ const errors: Messages["errors"] = {
   signInFirst: "Kirjaudu ensin sisään.",
   invalidEmail: "Anna kelvollinen sähköpostiosoite.",
   emailSendFailed: "Sähköpostia ei juuri nyt voitu lähettää. Yritä uudelleen hetken kuluttua.",
+  adminEmailUnavailable: "Ylläpidon kirjautuminen vaatii oikean sähköpostin, eikä sitä ole otettu käyttöön tässä asennuksessa.",
   codeExpired: "Koodi on vanhentunut. Pyydä uusi koodi.",
   codeTooManyAttempts: "Liian monta yritystä. Pyydä uusi koodi.",
   codeWrong: "Koodi ei ole oikein. Tarkista se ja yritä uudelleen.",
@@ -124,6 +125,9 @@ const errors: Messages["errors"] = {
   rateFaucetWalletDay: "Tämä lompakko on saavuttanut tämän päivän testi-USD-rajan.",
   rateFaucetNetwork: "Tästä verkosta on tehty liian monta faucet-pyyntöä. Yritä uudelleen tunnin kuluttua.",
   rateFaucetGlobal: "Faucet on ruuhkautunut. Yritä uudelleen muutaman minuutin kuluttua.",
+  feedbackInvalid: "Tarkista vastauksesi: jotkin puuttuvat tai ovat liian pitkiä.",
+  rateFeedback: "Tästä verkosta on tullut tänään liian monta vastausta. Kiitos, saimme niitä jo runsaasti!",
+  rateFeedbackGlobal: "Saamme juuri nyt paljon vastauksia. Yritä uudelleen muutaman minuutin kuluttua.",
 
   // Statuses named inside the messages above ({status})
   statuses: {

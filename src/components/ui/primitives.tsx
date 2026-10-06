@@ -96,6 +96,18 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(inputClass, className)} {...props} />;
 }
 
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
+  return (
+    <textarea
+      className={cn(
+        "w-full rounded-xl border border-veil/10 bg-ink-950/60 px-3.5 py-2.5 text-[15px] text-fg outline-none transition placeholder:text-fg-3/70 focus:border-violet/60 focus:bg-ink-950/80 focus:ring-4 focus:ring-violet/15",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export function Select({ className, ...props }: ComponentProps<"select">) {
   return <select className={cn(inputClass, "appearance-none pr-9", className)} {...props} />;
 }
@@ -117,12 +129,12 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
   );
 }
 
-export function EmptyState({ icon, title, body, action }: { icon?: ReactNode; title: string; body: string; action?: ReactNode }) {
+export function EmptyState({ icon, title, body, action }: { icon?: ReactNode; title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
       {icon && <div className="mb-4 grid size-12 place-items-center rounded-2xl border border-veil/10 bg-veil/[0.04] text-fg-2">{icon}</div>}
       <p className="font-display text-[15px] font-semibold text-fg">{title}</p>
-      <p className="mt-1 max-w-sm text-sm text-fg-3">{body}</p>
+      {body && <p className="mt-1 max-w-sm text-sm text-fg-3">{body}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );

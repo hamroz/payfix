@@ -3,7 +3,7 @@ import type { LegalDoc } from "../types";
 const terms: LegalDoc = {
   title: "Terms of Use",
   description: "The rules for using PayFix: a test-only prototype, not a financial service, provided without warranty.",
-  updated: "2026-10-05",
+  updated: "2026-10-06",
   intro: [
     "These terms apply when you use the PayFix service, whether as a business, a team member, or a customer who received a resolution link. In these terms, “we” and “us” mean the operator of this PayFix service, and “you” means the person using it. By using PayFix, you agree to these terms. If you do not agree, do not use the service.",
   ],
@@ -141,7 +141,7 @@ const terms: LegalDoc = {
       heading: "Ending your use",
       blocks: [
         "You can stop using PayFix at any time, and you can ask us to delete your data as described in our Privacy Policy.",
-        "We may suspend or end your access if you break these terms, if your use puts other users or the service at risk, or if we stop the service. The sections on wallets, no warranty, and limits on our liability continue to apply after your access ends.",
+        "We may suspend or end your access, or suspend a company, if you break these terms, if we see signs of fraud or abuse, if your use puts other users or the service at risk, or if we stop the service. The sections on wallets, no warranty, and limits on our liability continue to apply after your access ends.",
       ],
     },
     {

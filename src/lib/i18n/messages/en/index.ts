@@ -1,5 +1,6 @@
 // The English dictionary: the source of truth for every key. Other languages mirror this shape
 // (enforced by the `Messages` type). One file per namespace so areas can be edited independently.
+import admin from "./admin";
 import app from "./app";
 import auth from "./auth";
 import cases from "./cases";
@@ -10,6 +11,7 @@ import emails from "./emails";
 import errors from "./errors";
 import events from "./events";
 import exportCsv from "./exportCsv";
+import feedback from "./feedback";
 import film from "./film";
 import invoices from "./invoices";
 import landing from "./landing";
@@ -50,6 +52,8 @@ const en = {
   emails,
   exportCsv,
   legal,
+  admin,
+  feedback,
 };
 
 export default en;
