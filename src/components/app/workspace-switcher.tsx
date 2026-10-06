@@ -13,7 +13,7 @@ import type { Role } from "@/lib/roles";
 import { cn } from "@/lib/cn";
 import { LegalLinks } from "./nav";
 
-type W = { businessId: string; name: string; role: Role };
+type W = { businessId: string; name: string; role: Role; suspended?: boolean };
 
 /**
  * Company menu: switch company, create one, sign out. `compact` is the phone header's avatar-only
@@ -56,7 +56,7 @@ export function WorkspaceSwitcher({ current, workspaces, email, compact = false 
                 <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-violet/15 font-display text-[11px] font-semibold text-violet">{initials(w.name)}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{w.name}</span>
-                  <span className="block text-[11px] text-fg-3">{m.roles[w.role].label}</span>
+                  <span className={cn("block text-[11px]", w.suspended ? "text-rose" : "text-fg-3")}>{w.suspended ? m.app.workspace.suspended : m.roles[w.role].label}</span>
                 </span>
                 {w.businessId === current.businessId && <Check className="size-4 text-violet" />}
               </button>

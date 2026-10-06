@@ -24,6 +24,7 @@ There are no background workers. Open pages poll `POST /api/sync?b=<businessId>`
 - **Refunds:** `refunds` (unique per proposal; source wallet, destination, status), `refund_attempts` (exact message, blockhash, last valid height, signature; partial unique index `refund_attempts_one_active`).
 - **Ledger:** `journal_entries` (unique `idempotency_key`), `postings` (account, signed amount, plus transfer/invoice/customer/refund/case dimensions).
 - **Activity/auth:** `events` (timeline; also the source of notifications — `actor_user_id` hides a member's own actions, `dedupe_key` makes once-only events like `overdue:<invoice>` idempotent), `notification_reads` (per-member read marks; `memberships.notifications_read_at` is the "mark all read" cursor and `memberships.notification_muted` the categories a member turned off), `otp_codes` (HMAC'd, 10-min TTL, 5 attempts), `sessions` (hashed tokens, 7 days), `outbox` (emails; shown in the demo inbox).
+- **Platform admin:** `feedback_responses` (tester survey; `user_id` only when the tester attached their account), `blocks` (sign-in or faucet block per email/wallet; partial unique index allows one active block per target), `admin_audit` (every admin action, export, and opened detail page, with reason). `users`/`businesses` carry `suspended_at`/`suspended_reason`; `invoices.sample` marks seeded demo invoices so statistics can leave them out.
 
 ## Double-entry ledger
 
@@ -117,6 +118,12 @@ stateDiagram-v2
 - Demo inbox (`/api/dev/inbox`, demo mode only) shows mail for the signed-in user's companies, or for the address this browser requested a code for.
 - Payment pages are capability URLs: the invoice ID is unguessable, and the page can only pay the business.
 - `/api/sync` only syncs a company the caller can already see: a member's company (`?b=`, session checked), a public pay link's invoice (`?invoice=`), or a live resolution link (`?link=`). Anything else gets 404.
+
+## Platform admin
+
+- **Access:** `ADMIN_EMAILS` allowlist, checked on every request (`adminFromToken`). Admin sessions are their own kind (`pf_a`, 12 h). Admin codes are queued with `deliver: "always"` (status `pending`, never `demo`), so they're really emailed even in demo mode and the demo inbox, which filters on `status = 'demo'`, never shows them. Non-admins get 404 from every `/admin` page and `/api/admin/*` route.
+- **Privacy line:** admin services (`src/lib/server/admin/`) read identities (account emails, company names, members) and counts only. They never select customers' names or emails, invoice titles, per-company amounts, wallets, references, links, or codes; `admin.test.ts` asserts no export or detail view contains the seeded customer's data. Platform money totals come from summed `postings` across all companies.
+- **Enforcement points** (`src/lib/server/suspension.ts`): `sendCode`/`verifyCode` refuse blocked emails and suspended users; `currentUser` treats a suspended user as signed out; `requireWorkspace` redirects members of a suspended company to `/suspended` (so every business action stops); `findLink` reports `companyUnavailable`; `createPaymentRequest` refuses; the faucet refuses blocked wallets. Ingest and refund reconciliation are untouched, so the ledger stays truthful. Nothing polls a suspended company (its pages are closed), so payments that arrive and refunds already submitted are reconciled on the first sync after it is restored.
 
 ## Production safeguards
 

@@ -20,6 +20,7 @@ export async function GET() {
   const { m } = i18n;
   const biz = (await currentWorkspace())?.biz;
   if (!biz) return new Response(m.errors.exportSignIn, { status: 401 });
+  if (biz.suspendedAt) return new Response(m.errors.companySuspended, { status: 403 });
   const { db } = await deps();
   const entries = await ledgerView(db, biz.id);
   const c = m.exportCsv.columns;

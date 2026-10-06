@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { LogoMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme";
 import { LoginForm } from "@/app/login/login-form";
+import { requestAdminCodeAction, verifyAdminCodeAction } from "@/app/actions/admin-auth";
 import { getI18n } from "@/lib/i18n/server";
 import { currentAdmin } from "@/lib/server/context";
 
@@ -18,7 +19,7 @@ export default async function AdminLoginPage() {
     <div className="relative flex min-h-dvh flex-col items-center justify-center px-5 py-10">
       <ThemeToggle className="absolute right-5 top-5" />
       <LogoMark size={52} className="mb-8" />
-      <LoginForm defaultEmail="" demo={false} admin />
+      <LoginForm defaultEmail="" demo={false} admin actions={{ request: requestAdminCodeAction, verify: verifyAdminCodeAction }} />
     </div>
   );
 }

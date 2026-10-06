@@ -25,6 +25,13 @@ const app: Messages["app"] = {
     switchCompany: "Cambiar de empresa",
     newCompany: "Nueva empresa",
     signOut: "Cerrar sesión",
+    suspended: "Suspendida",
+  },
+  suspendedPage: {
+    title: "Esta empresa está suspendida",
+    body: "PayFix ha suspendido {company}. Por ahora su equipo no puede abrirla, y sus enlaces de pago y de resolución están en pausa. No se ha cambiado ni borrado nada de sus registros.",
+    contact: "Si crees que se trata de un error, escribe a <email>{email}</email>.",
+    contactGeneric: "Si crees que se trata de un error, contacta con el equipo de PayFix.",
   },
   liveSync: {
     title: "PayFix revisa la cadena cada pocos segundos",

@@ -10,6 +10,7 @@ import { buildPaymentTransaction, isWalletAddress, solanaPayUrl } from "@/lib/so
 import type { ChainClient } from "./chain";
 import { logEvent } from "./journal";
 import { appliedByInvoice, invoiceWithBalance } from "./queries";
+import { companySuspended } from "./suspension";
 
 export class InputError extends UserError {}
 
@@ -74,6 +75,7 @@ export async function createInvoice(
 export async function createPaymentRequest(db: Db, p: { invoiceId: string; amount: bigint | null; appUrl?: string }) {
   const inv = await invoiceWithBalance(db, p.invoiceId);
   if (!inv) throw new InputError("invoiceNotFound");
+  if (await companySuspended(db, inv.businessId)) throw new InputError("companyUnavailable");
   if (p.amount !== null && p.amount <= 0n) throw new InputError("paymentAmountPositive");
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, inv.businessId));
   const reference = Keypair.generate().publicKey.toBase58();

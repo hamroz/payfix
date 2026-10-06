@@ -81,11 +81,21 @@ Each user can belong to several companies and switch between them from the compa
 
 The server checks the role on every action; the UI also hides what a role can't do. Companies are isolated from each other: payment references, inbox messages, live sync, and demo resets are all scoped to one company.
 
+### Admin and tester feedback
+
+PayFix has a separate area for the people who run it, at **`/admin`**, and a tester survey at **`/feedback`**.
+
+- **Who gets in:** only addresses in `ADMIN_EMAILS` (comma-separated). They sign in at `/admin/login` with an email code. Admin codes are always really emailed through Resend, even in demo mode, and never appear in the demo inbox, so a deployment with admins needs `RESEND_API_KEY`. Locally without Resend, the code is printed in the server log. Everyone else gets a plain 404, and removing an address from `ADMIN_EMAILS` revokes it at once.
+- **What admins see:** platform statistics (users, companies, activity, an activation funnel from sign-up to confirmed refund, exception and refund health, platform-wide test-money totals, email and abuse counters), users and companies with counts, and survey results. They **never** see what's inside a company: its customers, invoices, per-company amounts, wallets, payment references, links, or codes. Statistics are counts from PayFix's own tables; there's no tracking.
+- **Survey:** send testers `/feedback?c=<batch>` (for example `?c=oct-walkthroughs`). It asks the walkthrough questions from [docs/tester-walkthrough.md](docs/tester-walkthrough.md) plus ease (1–5) and NPS (0–10), in all eight languages. Answers are anonymous unless a signed-in tester ticks "attach my account"; then the admin also sees how far that account got. The Guided demo card links to it once every step is done.
+- **Moderation:** suspend or restore an account (signs it out everywhere and refuses sign-in codes) or a company (members are sent to `/suspended`; its payment and resolution links pause; nothing on the ledger changes, and payments that still arrive on chain are recorded once it is restored). Admins can also sign an account out everywhere, block sign-in codes to an email, or block the faucet for a wallet. Every action needs a reason.
+- **Accountability and export:** every admin action, export, and opened user or company page is written to an audit log (`/admin/audit`). Users, companies, feedback (in [evidence log](docs/evidence-log.md) column order), daily stats, and the audit log export as CSV.
+
 ### Other commands
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Unit tests plus the demo scenario, payment verification, tenant isolation, role and team rules, role enforcement in every business server action, notifications, credit, rate limits, wallet proofs, and email delivery, against in-memory Postgres and a simulated chain |
+| `npm test` | Unit tests plus the demo scenario, payment verification, tenant isolation, role and team rules, role enforcement in every business server action, notifications, credit, rate limits, wallet proofs, email delivery, admin access, statistics, exports, moderation, and the feedback survey, against in-memory Postgres and a simulated chain |
 | `npm run setup:token-metadata` | Names the devnet test token "PayFix Test USD" with the PayFix logo, so wallets recognize it |
 | `npm run e2e [url]` | Rehearses the whole demo in headless Chrome against a running app (default `http://localhost:3300`), on devnet |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |

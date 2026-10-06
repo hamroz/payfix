@@ -25,6 +25,13 @@ const app: Messages["app"] = {
     switchCompany: "Vaihda yritystä",
     newCompany: "Uusi yritys",
     signOut: "Kirjaudu ulos",
+    suspended: "Jäädytetty",
+  },
+  suspendedPage: {
+    title: "Yritys on jäädytetty",
+    body: "PayFix on jäädyttänyt yrityksen {company}. Sen tiimi ei toistaiseksi pääse avaamaan sitä, ja sen maksu- ja ratkaisulinkit on keskeytetty. Mitään sen tiedoista ei ole muutettu eikä poistettu.",
+    contact: "Jos uskot tämän olevan virhe, ota yhteyttä osoitteeseen <email>{email}</email>.",
+    contactGeneric: "Jos uskot tämän olevan virhe, ota yhteyttä PayFixin tiimiin.",
   },
   liveSync: {
     title: "PayFix tarkistaa ketjun muutaman sekunnin välein",
