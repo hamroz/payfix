@@ -1,14 +1,16 @@
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { blocks, businesses, otpCodes, sessions, users, type BlockKind } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
 import { isWalletAddress } from "@/lib/solana/tx";
 import { InputError } from "../invoices";
 import { blockTarget } from "../suspension";
-import { isAdminEmail } from "./access";
 import { audit } from "./audit";
 
-// Every action needs a reason, runs in one transaction with its audit row, and is safe to repeat.
+// Every action needs a reason and runs in one transaction with its audit row. Repeating an action
+// is harmless and changes nothing, so it writes no second audit row. Admin access is separate
+// from business accounts (an allowlist plus admin sessions), so moderating the business account
+// at an admin's address never locks an admin out.
 
 const MAX_REASON = 500;
 const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -19,11 +21,9 @@ function reasonOf(reason: string) {
   return r;
 }
 
-async function moderatableUser(db: Db, userId: string) {
-  const [u] = await db.select().from(users).where(eq(users.id, userId));
+async function existingUser(db: Db, userId: string) {
+  const [u] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId));
   if (!u) throw new InputError("adminTargetMissing");
-  if (isAdminEmail(u.email)) throw new InputError("cannotModerateAdmin");
-  return u;
 }
 
 async function existingCompany(db: Db, businessId: string) {
@@ -34,30 +34,30 @@ async function existingCompany(db: Db, businessId: string) {
 /** Blocks sign-in and ends every business session the user has. */
 export async function suspendUser(db: Db, admin: string, userId: string, reason: string) {
   const r = reasonOf(reason);
-  await moderatableUser(db, userId);
+  await existingUser(db, userId);
   await db.transaction(async (t) => {
-    await t.update(users).set({ suspendedAt: new Date(), suspendedReason: r }).where(and(eq(users.id, userId), isNull(users.suspendedAt)));
+    const changed = await t.update(users).set({ suspendedAt: new Date(), suspendedReason: r }).where(and(eq(users.id, userId), isNull(users.suspendedAt))).returning({ id: users.id });
     await t.delete(sessions).where(and(eq(sessions.kind, "business"), eq(sessions.subjectId, userId)));
-    await audit(t, { adminEmail: admin, action: "user.suspend", targetType: "user", targetId: userId, reason: r });
+    if (changed.length) await audit(t, { adminEmail: admin, action: "user.suspend", targetType: "user", targetId: userId, reason: r });
   });
 }
 
 export async function restoreUser(db: Db, admin: string, userId: string, reason: string) {
   const r = reasonOf(reason);
-  await moderatableUser(db, userId);
+  await existingUser(db, userId);
   await db.transaction(async (t) => {
-    await t.update(users).set({ suspendedAt: null, suspendedReason: null }).where(eq(users.id, userId));
-    await audit(t, { adminEmail: admin, action: "user.restore", targetType: "user", targetId: userId, reason: r });
+    const changed = await t.update(users).set({ suspendedAt: null, suspendedReason: null }).where(and(eq(users.id, userId), isNotNull(users.suspendedAt))).returning({ id: users.id });
+    if (changed.length) await audit(t, { adminEmail: admin, action: "user.restore", targetType: "user", targetId: userId, reason: r });
   });
 }
 
 /** Ends every session (e.g. a stolen laptop) without suspending the account. */
 export async function signOutUser(db: Db, admin: string, userId: string, reason: string) {
   const r = reasonOf(reason);
-  await moderatableUser(db, userId);
+  await existingUser(db, userId);
   await db.transaction(async (t) => {
-    await t.delete(sessions).where(and(eq(sessions.kind, "business"), eq(sessions.subjectId, userId)));
-    await audit(t, { adminEmail: admin, action: "user.sign_out", targetType: "user", targetId: userId, reason: r });
+    const ended = await t.delete(sessions).where(and(eq(sessions.kind, "business"), eq(sessions.subjectId, userId))).returning({ id: sessions.id });
+    if (ended.length) await audit(t, { adminEmail: admin, action: "user.sign_out", targetType: "user", targetId: userId, reason: r, data: { sessions: ended.length } });
   });
 }
 
@@ -70,8 +70,12 @@ export async function suspendCompany(db: Db, admin: string, businessId: string, 
   const r = reasonOf(reason);
   await existingCompany(db, businessId);
   await db.transaction(async (t) => {
-    await t.update(businesses).set({ suspendedAt: new Date(), suspendedReason: r }).where(and(eq(businesses.id, businessId), isNull(businesses.suspendedAt)));
-    await audit(t, { adminEmail: admin, action: "business.suspend", targetType: "business", targetId: businessId, reason: r });
+    const changed = await t
+      .update(businesses)
+      .set({ suspendedAt: new Date(), suspendedReason: r })
+      .where(and(eq(businesses.id, businessId), isNull(businesses.suspendedAt)))
+      .returning({ id: businesses.id });
+    if (changed.length) await audit(t, { adminEmail: admin, action: "business.suspend", targetType: "business", targetId: businessId, reason: r });
   });
 }
 
@@ -79,8 +83,12 @@ export async function restoreCompany(db: Db, admin: string, businessId: string, 
   const r = reasonOf(reason);
   await existingCompany(db, businessId);
   await db.transaction(async (t) => {
-    await t.update(businesses).set({ suspendedAt: null, suspendedReason: null }).where(eq(businesses.id, businessId));
-    await audit(t, { adminEmail: admin, action: "business.restore", targetType: "business", targetId: businessId, reason: r });
+    const changed = await t
+      .update(businesses)
+      .set({ suspendedAt: null, suspendedReason: null })
+      .where(and(eq(businesses.id, businessId), isNotNull(businesses.suspendedAt)))
+      .returning({ id: businesses.id });
+    if (changed.length) await audit(t, { adminEmail: admin, action: "business.restore", targetType: "business", targetId: businessId, reason: r });
   });
 }
 
@@ -90,19 +98,21 @@ export async function addBlock(db: Db, admin: string, p: { kind: BlockKind; targ
   const target = blockTarget(p.kind, p.target);
   if (p.kind === "sign_in" && !isEmail(target)) throw new InputError("invalidEmail");
   if (p.kind === "faucet" && !isWalletAddress(target)) throw new InputError("invalidWalletAddress");
-  if (p.kind === "sign_in" && isAdminEmail(target)) throw new InputError("cannotModerateAdmin");
   await db.transaction(async (t) => {
-    const id = newId("blk");
-    const inserted = await t.insert(blocks).values({ id, kind: p.kind, target, reason: r, createdBy: admin }).onConflictDoNothing().returning({ id: blocks.id });
-    await audit(t, { adminEmail: admin, action: "block.add", targetType: "block", targetId: inserted[0]?.id ?? id, reason: r, data: { kind: p.kind, target } });
+    const [created] = await t.insert(blocks).values({ id: newId("blk"), kind: p.kind, target, reason: r, createdBy: admin }).onConflictDoNothing().returning({ id: blocks.id });
+    if (created) await audit(t, { adminEmail: admin, action: "block.add", targetType: "block", targetId: created.id, reason: r, data: { kind: p.kind, target } });
   });
 }
 
 export async function liftBlock(db: Db, admin: string, blockId: string, reason: string) {
   const r = reasonOf(reason);
   await db.transaction(async (t) => {
-    await t.update(blocks).set({ liftedAt: new Date(), liftedBy: admin }).where(and(eq(blocks.id, blockId), isNull(blocks.liftedAt)));
-    await audit(t, { adminEmail: admin, action: "block.lift", targetType: "block", targetId: blockId, reason: r });
+    const [lifted] = await t
+      .update(blocks)
+      .set({ liftedAt: new Date(), liftedBy: admin })
+      .where(and(eq(blocks.id, blockId), isNull(blocks.liftedAt)))
+      .returning({ kind: blocks.kind, target: blocks.target });
+    if (lifted) await audit(t, { adminEmail: admin, action: "block.lift", targetType: "block", targetId: blockId, reason: r, data: lifted });
   });
 }
 

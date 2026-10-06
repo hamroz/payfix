@@ -11,7 +11,6 @@ const errors: Messages["errors"] = {
   companySuspended: "यह कंपनी निलंबित है।",
   companyUnavailable: "इस कंपनी का PayFix अकाउंट अभी उपलब्ध नहीं है।",
   faucetBlocked: "इस वॉलेट के लिए फ़ॉसेट ब्लॉक है।",
-  cannotModerateAdmin: "एडमिन को यहाँ से निलंबित या ब्लॉक नहीं किया जा सकता। इसके बजाय उन्हें ADMIN_EMAILS से हटाएँ।",
   reasonRequired: "छोटा-सा कारण लिखें (ज़्यादा से ज़्यादा 500 अक्षर)। यह ऑडिट लॉग में जाएगा।",
   adminTargetMissing: "वह अकाउंट या कंपनी अब मौजूद नहीं है।",
   codeExpired: "यह कोड एक्सपायर हो गया है। नया कोड मँगवाएँ।",

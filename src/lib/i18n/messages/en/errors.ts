@@ -10,7 +10,6 @@ const errors = {
   companySuspended: "This company is suspended.",
   companyUnavailable: "This company’s PayFix account is unavailable right now.",
   faucetBlocked: "The faucet is blocked for this wallet.",
-  cannotModerateAdmin: "Admins can’t be suspended or blocked from here. Remove them from ADMIN_EMAILS instead.",
   reasonRequired: "Write a short reason (up to 500 characters). It goes in the audit log.",
   adminTargetMissing: "That account or company no longer exists.",
   codeExpired: "That code has expired. Send a new one.",

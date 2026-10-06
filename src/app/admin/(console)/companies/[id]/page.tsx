@@ -6,7 +6,7 @@ import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { AuditHistory, Rows, StatusBadge } from "@/components/admin/bits";
 import { ModerateButton } from "@/components/admin/moderate-button";
 import { getI18n } from "@/lib/i18n/server";
-import { audit, listAudit } from "@/lib/server/admin/audit";
+import { auditView, listAudit } from "@/lib/server/admin/audit";
 import { companyDetail } from "@/lib/server/admin/directory";
 import { deps, requireAdmin } from "@/lib/server/context";
 
@@ -21,7 +21,7 @@ export default async function AdminCompany({ params }: PageProps<"/admin/compani
   const { db } = await deps();
   const d = await companyDetail(db, id);
   if (!d) notFound();
-  await audit(db, { adminEmail: admin, action: "business.view", targetType: "business", targetId: id });
+  await auditView(db, admin, "business", id);
   const history = (await listAudit(db, { targetType: "business", targetId: id, limit: 50 })).filter((r) => r.action !== "business.view");
   const { m, t, p, date, number } = await getI18n();
   const c = m.admin.companies.detail;

@@ -3,20 +3,28 @@
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import { useState, useTransition } from "react";
-import { requestAdminCodeAction, verifyAdminCodeAction } from "@/app/actions/admin-auth";
 import { requestBusinessCode, verifyBusinessCode } from "@/app/actions/auth";
+import type { ActionResult } from "@/app/actions/result";
 import { LogoSpinner } from "@/components/brand/logo";
 import { Button, Input, Label } from "@/components/ui/primitives";
 import { OtpInput } from "@/components/ui/otp-input";
 import { useI18n } from "@/lib/i18n/client";
 
-/** Business sign-in, or with `admin` the platform admin sign-in (same code flow, different actions and copy). */
-export function LoginForm({ defaultEmail, demo, admin = false }: { defaultEmail: string; demo: boolean; admin?: boolean }) {
+type CodeActions = {
+  request: (email: string) => Promise<ActionResult<{ maskedEmail: string }>>;
+  verify: (email: string, code: string) => Promise<ActionResult | undefined>;
+};
+
+/**
+ * Business sign-in by default. The admin sign-in page passes its own `actions` and `admin` copy,
+ * so this public form never references the admin actions itself.
+ */
+export function LoginForm({ defaultEmail, demo, admin = false, actions }: { defaultEmail: string; demo: boolean; admin?: boolean; actions?: CodeActions }) {
   const { m, rich } = useI18n();
   const a = m.auth;
   const copy = admin ? m.admin.login : a.email;
-  const requestCode = admin ? requestAdminCodeAction : requestBusinessCode;
-  const verifyCode = admin ? verifyAdminCodeAction : verifyBusinessCode;
+  const requestCode = actions?.request ?? requestBusinessCode;
+  const verifyCode = actions?.verify ?? verifyBusinessCode;
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState(defaultEmail);
   const [masked, setMasked] = useState("");

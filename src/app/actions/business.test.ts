@@ -35,6 +35,7 @@ vi.mock("@/lib/db/client", async (importOriginal) => ({
 }));
 
 const actions = await import("./business");
+const authActions = await import("./auth");
 
 async function signInAs(userId: string, businessId: string) {
   const token = newToken();
@@ -163,6 +164,12 @@ describe("server actions respect suspensions and blocks", () => {
     await state.db.update(users).set({ suspendedAt: new Date(), suspendedReason: "test" }).where(eq(users.id, userId));
     await expect(actions.createCustomerAction({ name: "Z", email: "z@two.test" })).rejects.toThrow("redirect /login");
     await state.db.update(users).set({ suspendedAt: null }).where(eq(users.id, userId));
+  });
+
+  it("refuses a code to a blocked address without creating an account for it", async () => {
+    await addBlock(state.db, "boss@payfix.test", { kind: "sign_in", target: "spam-target@two.test", reason: "Code spam at a victim" });
+    expect(await authActions.requestBusinessCode("spam-target@two.test")).toEqual({ ok: false, error: expect.stringMatching(/blocked/i) });
+    expect(await state.db.select().from(users).where(eq(users.email, "spam-target@two.test"))).toHaveLength(0);
   });
 
   it("refuses the faucet for a blocked wallet", async () => {

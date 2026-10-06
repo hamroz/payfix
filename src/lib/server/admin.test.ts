@@ -6,7 +6,7 @@ import type { Db } from "@/lib/db/client";
 vi.stubEnv("ADMIN_EMAILS", "Boss@PayFix.test, second@payfix.test");
 
 const { openPglite } = await import("@/lib/db/client");
-const { cases, otpCodes, outbox, sessions } = await import("@/lib/db/schema");
+const { cases, otpCodes, outbox, rateEvents, sessions } = await import("@/lib/db/schema");
 const { env, resetEnvForTests } = await import("@/lib/env");
 const { newId, newToken } = await import("@/lib/ids");
 const { sendCode, sessionSubject, verifyCode } = await import("./auth");
@@ -22,7 +22,9 @@ const { createHash } = await import("node:crypto");
 const { Keypair } = await import("@solana/web3.js");
 const { toUnits } = await import("@/lib/money");
 const { overviewStats } = await import("./admin/stats");
-const { audit, listAudit } = await import("./admin/audit");
+const { audit, auditView, listAudit } = await import("./admin/audit");
+const { rateKey } = await import("./ratelimit");
+const { demoKeys, demoPay, tokenBalance } = await import("./demo");
 const { runDemoScenario } = await import("./test-scenario");
 const { companyDetail, listCompanies, listUsers, userDetail } = await import("./admin/directory");
 const { exportCsv, toCsv } = await import("./admin/export");
@@ -36,6 +38,7 @@ const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 async function codeFor(db: Db, email: string) {
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
   await requestAdminCode(db, email);
+  await deliverOutbox(db); // the action does this after the response
   const line = log.mock.calls.map((c) => String(c[0])).find((l) => l.includes(`email to ${email.toLowerCase()}`));
   log.mockRestore();
   return line?.match(/\b(\d{6})\b/)?.[1] ?? null;
@@ -62,6 +65,22 @@ describe("admin sign-in", () => {
     expect(res).toEqual({ maskedEmail: expect.stringContaining("@payfix.test") });
     const codes = await db.select().from(otpCodes).where(eq(otpCodes.purpose, "admin"));
     expect(codes).toHaveLength(0);
+  });
+
+  it("answers before any email goes out, so admins and others look the same", async () => {
+    await requestAdminCode(db, "second@payfix.test");
+    const [queued] = await db.select().from(outbox).where(eq(outbox.to, "second@payfix.test")).orderBy(desc(outbox.createdAt)).limit(1);
+    expect(queued.status).toBe("pending");
+    await deliverOutbox(db);
+  });
+
+  it("limits admin codes per address per day", async () => {
+    const fresh = await openPglite();
+    // 20 codes earlier today, outside the 15-minute window.
+    const earlier = new Date(Date.now() - 60 * 60_000);
+    await fresh.insert(rateEvents).values(Array.from({ length: 20 }, () => ({ id: newId("rl"), key: rateKey("admin-code-day", "boss@payfix.test"), createdAt: earlier })));
+    await expect(requestAdminCode(fresh, "boss@payfix.test")).rejects.toThrow(/today/i);
+    await expect(requestAdminCode(fresh, "intruder@payfix.test")).resolves.toBeDefined(); // per address
   });
 
   it("never puts an admin code in the demo inbox", async () => {
@@ -185,6 +204,8 @@ describe("admin directory and exports", () => {
     expect(found.rows[0]).toMatchObject({ companies: 1, suspended: false, admin: false });
     expect((await listUsers(db, { search: "%" })).total).toBe(0); // wildcards are literal
     expect((await listUsers(db, { status: "suspended" })).total).toBe(0);
+    expect((await listUsers(db, { page: 1e20 })).rows).toEqual([]); // absurd page numbers are clamped, not a database error
+    expect((await listCompanies(db, { page: Number.NaN })).rows.length).toBeGreaterThan(0);
   });
 
   it("lists companies with counts but no money", async () => {
@@ -281,7 +302,7 @@ describe("moderation", () => {
     await restoreUser(db, admin, s.ownerId, "Cleared after review");
     await expect(sendCode(db, { purpose: "business", subjectId: s.ownerId, email: "owner@lumen.test" })).resolves.toBeDefined();
     const rows = await listAudit(db, { targetType: "user", targetId: s.ownerId });
-    expect(rows.map((r) => r.action).sort()).toEqual(["user.restore", "user.suspend", "user.suspend"]);
+    expect(rows.map((r) => r.action).sort()).toEqual(["user.restore", "user.suspend"]); // the repeat click changed nothing
     expect(rows.find((r) => r.action === "user.restore")?.reason).toBe("Cleared after review");
   });
 
@@ -304,19 +325,55 @@ describe("moderation", () => {
     await addBlock(db, admin, { kind: "sign_in", target: " AP@acme.test ", reason: "Code spam at a victim" });
     await addBlock(db, admin, { kind: "sign_in", target: "ap@acme.test", reason: "again" }); // one active block
     expect(await listBlocks(db, { active: true })).toHaveLength(1);
+    expect((await listAudit(db, { targetType: "block" })).filter((r) => r.action === "block.add")).toHaveLength(1);
     await expect(sendCode(db, { purpose: "customer", subjectId: s.customerId, email: "ap@acme.test" })).rejects.toThrow(/blocked/i);
     const [block] = await listBlocks(db, { active: true });
     await liftBlock(db, admin, block.id, "Victim confirmed");
+    await liftBlock(db, admin, block.id, "Clicked twice");
+    expect((await listAudit(db, { targetType: "block", targetId: block.id })).map((r) => r.action).sort()).toEqual(["block.add", "block.lift"]); // one lift, not two
     expect(await activeBlock(db, "sign_in", "ap@acme.test")).toBe(false);
     await expect(addBlock(db, admin, { kind: "faucet", target: "not-a-wallet", reason: "x" })).rejects.toThrow();
     await expect(addBlock(db, admin, { kind: "sign_in", target: "nope", reason: "x" })).rejects.toThrow();
   });
 
-  it("never moderates an admin", async () => {
-    const boss = await findOrCreateUser(db, "Boss@PayFix.test");
-    await expect(suspendUser(db, admin, boss.id, "test")).rejects.toThrow(/admin/i);
-    await expect(signOutUser(db, admin, boss.id, "test")).rejects.toThrow(/admin/i);
-    await expect(addBlock(db, admin, { kind: "sign_in", target: "second@payfix.test", reason: "test" })).rejects.toThrow(/admin/i);
+  it("moderates the business account at an admin's address without touching admin access", async () => {
+    const code = await codeFor(db, "second@payfix.test");
+    const res = await verifyAdminCode(db, "second@payfix.test", code!);
+    if (!res.ok) throw new Error(res.error);
+    const squatter = await findOrCreateUser(db, "Second@PayFix.test"); // anyone can open a demo business account at any address
+    await suspendUser(db, admin, squatter.id, "Someone else's demo account at an admin address");
+    await signOutUser(db, admin, squatter.id, "Same");
+    await addBlock(db, admin, { kind: "sign_in", target: "second@payfix.test", reason: "Same" });
+    expect(await userSuspended(db, squatter.id)).toBe(true);
+    expect(await adminFromToken(db, res.token)).toBe("second@payfix.test");
+    await expect(requestAdminCode(db, "second@payfix.test")).resolves.toBeDefined();
+    await deliverOutbox(db);
+  });
+
+  it("refuses a code issued before its address was blocked", async () => {
+    await sendCode(db, { purpose: "customer", subjectId: s.customerId, email: "ap@acme.test" });
+    const [mail] = await db.select().from(outbox).where(eq(outbox.to, "ap@acme.test")).orderBy(desc(outbox.createdAt)).limit(1);
+    await addBlock(db, admin, { kind: "sign_in", target: "ap@acme.test", reason: "Late block" });
+    expect(await verifyCode(db, { purpose: "customer", subjectId: s.customerId, code: mail.code! })).toEqual({ ok: false, error: "signInBlocked" });
+    const [b] = await listBlocks(db, { active: true });
+    await liftBlock(db, admin, b.id, "done");
+  });
+
+  it("refuses a demo payment to a suspended company before topping up the demo wallet", async () => {
+    await suspendCompany(db, admin, s.businessId, "Paused");
+    const wallet = demoKeys()!.customer!.publicKey.toBase58();
+    const before = await tokenBalance(wallet);
+    await expect(demoPay(db, { invoiceId: s.invB, amount: toUnits("999999") })).rejects.toThrow(/unavailable/i);
+    expect(await tokenBalance(wallet)).toBe(before);
+    await restoreCompany(db, admin, s.businessId, "Resume");
+  });
+
+  it("records one view per admin and page every few minutes, not every render", async () => {
+    await auditView(db, admin, "user", s.ownerId);
+    await auditView(db, admin, "user", s.ownerId);
+    await auditView(db, "second@payfix.test", "user", s.ownerId);
+    const views = (await listAudit(db, { targetType: "user", targetId: s.ownerId })).filter((r) => r.action === "user.view");
+    expect(views.map((v) => v.adminEmail).sort()).toEqual([admin, "second@payfix.test"]);
   });
 
   it("suspends a company: links and payments stop, the ledger keeps recording", async () => {
@@ -334,7 +391,9 @@ describe("moderation", () => {
 
     await restoreCompany(db, admin, s.businessId, "Resolved");
     expect((await findLink(db, token)).ok).toBe(true);
-    expect((await listAudit(db, { targetType: "business", targetId: s.businessId })).map((r) => r.action).sort()).toEqual(["business.restore", "business.suspend"]);
+    const history = await listAudit(db, { targetType: "business", targetId: s.businessId });
+    expect(history.filter((r) => r.reason === "Fraud report").map((r) => r.action)).toEqual(["business.suspend"]);
+    expect(history.filter((r) => r.reason === "Resolved").map((r) => r.action)).toEqual(["business.restore"]);
   });
 
   it("lists who asked for the most sign-in codes", async () => {

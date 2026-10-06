@@ -13,6 +13,7 @@ import { chain, connection, isSimulated, sim } from "./chain";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { createPaymentRequest, InputError } from "./invoices";
 import { simulatedKeys } from "./sim-keys";
+import { companySuspended } from "./suspension";
 
 const fromSecret = (s: string | undefined) => (s ? Keypair.fromSecretKey(bs58.decode(s)) : null);
 
@@ -116,6 +117,9 @@ export async function demoPay(db: Db, p: { invoiceId: string; amount: bigint }) 
   if (!keys?.customer) throw new Error("Demo wallets aren't configured.");
   // Every visitor's demo pays from this one wallet, so keep it stocked for reasonable
   // amounts (we're the test mint's authority). Absurd amounts get a clear answer instead.
+  // Refuse a suspended company before minting anything into the demo customer's wallet.
+  const [owner] = await db.select({ businessId: invoices.businessId }).from(invoices).where(eq(invoices.id, p.invoiceId));
+  if (owner && (await companySuspended(db, owner.businessId))) throw new InputError("companyUnavailable");
   const customer = keys.customer.publicKey.toBase58();
   let balance = await tokenBalance(customer);
   if (balance < p.amount && p.amount <= DEMO_TOP_UP_LIMIT) {

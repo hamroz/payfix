@@ -6,7 +6,7 @@ import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { AuditHistory, Rows, StatusBadge } from "@/components/admin/bits";
 import { ModerateButton } from "@/components/admin/moderate-button";
 import { getI18n } from "@/lib/i18n/server";
-import { audit, listAudit } from "@/lib/server/admin/audit";
+import { auditView, listAudit } from "@/lib/server/admin/audit";
 import { userDetail } from "@/lib/server/admin/directory";
 import { deps, requireAdmin } from "@/lib/server/context";
 
@@ -21,7 +21,7 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[id]
   const { db } = await deps();
   const d = await userDetail(db, id);
   if (!d) notFound();
-  await audit(db, { adminEmail: admin, action: "user.view", targetType: "user", targetId: id });
+  await auditView(db, admin, "user", id);
   const history = (await listAudit(db, { targetType: "user", targetId: id, limit: 50 })).filter((r) => r.action !== "user.view");
   const { m, t, date, number } = await getI18n();
   const u = m.admin.users.detail;
@@ -79,15 +79,10 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[id]
         <Card className="lg:col-span-2">
           <CardHeader title={m.admin.actions.title} />
           <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start">
-            {d.user.admin ? (
-              <p className="text-sm text-fg-3">{m.admin.actions.adminNote}</p>
-            ) : (
-              <>
-                {d.user.suspendedAt ? <ModerateButton kind="restoreUser" targetId={id} /> : <ModerateButton kind="suspendUser" targetId={id} />}
-                {!d.user.suspendedAt && d.activeSessions > 0 && <ModerateButton kind="signOutUser" targetId={id} />}
-              </>
-            )}
+            {d.user.suspendedAt ? <ModerateButton kind="restoreUser" targetId={id} /> : <ModerateButton kind="suspendUser" targetId={id} />}
+            {!d.user.suspendedAt && d.activeSessions > 0 && <ModerateButton kind="signOutUser" targetId={id} />}
           </div>
+          {d.user.admin && <p className="px-5 pb-4 text-[13px] text-fg-3">{m.admin.actions.adminNote}</p>}
           {d.user.suspendedReason && <p className="border-t border-veil/[0.06] px-5 py-3 text-[13px] text-fg-2">{d.user.suspendedReason}</p>}
         </Card>
         <Card className="lg:col-span-2">

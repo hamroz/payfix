@@ -174,7 +174,7 @@ const admin: Messages["admin"] = {
     title: "Toimenpiteet",
     reasonLabel: "Syy (tallentuu ylläpitolokiin)",
     reasonPlaceholder: "Mitä huomasit ja missä?",
-    adminNote: "Tämä on ylläpitäjän tili. Ylläpitäjiä hallitaan ADMIN_EMAILS-asetuksella, ei täältä.",
+    adminNote: "Tämä osoite on myös ylläpitäjälistalla. Nämä toiminnot koskevat vain sen yritystiliä; ylläpitäjän oikeuksia hallitaan ADMIN_EMAILS-asetuksella.",
     inFlight: { one: "{count} palautus on käynnissä. Kukaan ei voi allekirjoittaa sitä ennen kuin poistat yrityksen jäädytyksen, ja sen tila päivittyy, kun jäädytys on poistettu.", other: "{count} palautusta on käynnissä. Kukaan ei voi allekirjoittaa niitä ennen kuin poistat yrityksen jäädytyksen, ja niiden tila päivittyy, kun jäädytys on poistettu." },
     suspendUser: {
       button: "Jäädytä tili",

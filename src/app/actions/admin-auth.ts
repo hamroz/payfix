@@ -2,9 +2,11 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { getI18n } from "@/lib/i18n/server";
 import { requestAdminCode, verifyAdminCode } from "@/lib/server/admin/access";
 import { endSession } from "@/lib/server/auth";
+import { deliverOutbox } from "@/lib/server/email";
 import { clientIp, COOKIES, deps, setSessionCookie } from "@/lib/server/context";
 import { InputError } from "@/lib/server/invoices";
 import { consume, HOUR, rateKey } from "@/lib/server/ratelimit";
@@ -15,7 +17,10 @@ export async function requestAdminCodeAction(email: string) {
     const { db } = await deps();
     await consume(db, [{ key: rateKey("admin-code-ip", await clientIp()), max: 20, windowMs: HOUR, error: "rateSignInNetwork" }]);
     const { locale } = await getI18n();
-    return requestAdminCode(db, email, locale);
+    const res = await requestAdminCode(db, email, locale);
+    // Sent after responding, so an admin's request takes no longer than anyone else's.
+    after(() => deliverOutbox(db).catch((err) => console.error("[payfix] admin code delivery failed:", err)));
+    return res;
   });
 }
 

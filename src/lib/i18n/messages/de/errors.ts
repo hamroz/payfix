@@ -11,7 +11,6 @@ const errors: Messages["errors"] = {
   companySuspended: "Dieses Unternehmen ist gesperrt.",
   companyUnavailable: "Das PayFix-Konto dieses Unternehmens ist gerade nicht verfügbar.",
   faucetBlocked: "Der Faucet ist für dieses Wallet blockiert.",
-  cannotModerateAdmin: "Admins können hier nicht gesperrt oder blockiert werden. Entfernen Sie sie stattdessen aus ADMIN_EMAILS.",
   reasonRequired: "Geben Sie einen kurzen Grund an (bis zu 500 Zeichen). Er wird im Audit-Protokoll gespeichert.",
   adminTargetMissing: "Dieses Konto oder Unternehmen gibt es nicht mehr.",
   codeExpired: "Dieser Code ist abgelaufen. Fordern Sie einen neuen an.",
