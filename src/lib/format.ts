@@ -1,4 +1,5 @@
-export function timeAgo(date: Date | string, now = Date.now()): string {
+/** English relative time ("5m ago"); older than a week shows the date, formatted for `tag`. UI code uses `i18n.timeAgo`. */
+export function timeAgo(date: Date | string, now = Date.now(), tag = "en-US"): string {
   const d = typeof date === "string" ? new Date(date) : date;
   const s = Math.round((now - d.getTime()) / 1000);
   if (s < 10) return "just now";
@@ -9,14 +10,15 @@ export function timeAgo(date: Date | string, now = Date.now()): string {
   if (h < 24) return `${h}h ago`;
   const days = Math.round(h / 24);
   if (days < 7) return `${days}d ago`;
-  return formatDate(d);
+  return formatDate(d, tag);
 }
 
-export const formatDate = (d: Date | string) =>
-  new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+/** `tag` is a BCP 47 language tag (e.g. `LOCALE_META[locale].tag`). */
+export const formatDate = (d: Date | string, tag = "en-US") =>
+  new Date(d).toLocaleDateString(tag, { month: "short", day: "numeric", year: "numeric" });
 
-export const formatDateTime = (d: Date | string) =>
-  new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+export const formatDateTime = (d: Date | string, tag = "en-US") =>
+  new Date(d).toLocaleString(tag, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 export const initials = (name: string) =>
   name

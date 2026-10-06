@@ -23,6 +23,9 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { LogoMark } from "@/components/brand/logo";
 import { buttonClass } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/messages";
+import type { Translator } from "@/lib/i18n/translate";
 
 /*
  * A short film of the demo scenario, drawn in code rather than shipped as a video file:
@@ -35,50 +38,56 @@ const DURATION = 49;
 /** Shown, fully composed, when the viewer prefers reduced motion and hasn't pressed play. */
 const POSTER = 45;
 
-const CHAPTERS = [
-  { title: "Invoices", start: 0 },
-  { title: "Payments", start: 4 },
-  { title: "Detect", start: 11, step: 1 },
-  { title: "Propose", start: 17, step: 2 },
-  { title: "Approve", start: 25.5, step: 3 },
-  { title: "Settle", start: 34.5, step: 4 },
-  { title: "Receipt", start: 41.5 },
-].map((c, i, all) => ({ ...c, end: all[i + 1]?.start ?? DURATION }));
+type ChapterKey = keyof Messages["film"]["chapters"];
 
-const CAPTIONS: [number, string][] = [
-  [0, "Lumen Studio bills Acme Robotics: invoice A for $1,000 and invoice B for $400."],
-  [4.4, "Acme pays $600 toward invoice A…"],
-  [6.9, "…then another $500. PayFix verifies each transfer on Solana."],
-  [11.2, "Invoice A is settled at exactly $1,000."],
-  [13.8, "The extra $100 is flagged for resolution, never guessed."],
-  [17.2, "Lumen sends Acme one secure resolution link."],
-  [18.9, "Acme verifies with an emailed code…"],
-  [20.8, "…and proposes $60 to invoice B and a $40 refund."],
-  [23.2, "The refund wallet is proven by signing with it."],
-  [25.7, "Lumen approves the exact plan. The approval is bound to its hash."],
-  [28.3, "Acme changes the refund wallet, which creates v2…"],
-  [30, "…so the v1 approval is void and execution is blocked."],
-  [31.7, "Lumen approves v2. Now the plan can run."],
-  [34.7, "Lumen runs the plan: $60 posts to invoice B."],
-  [35.9, "The $40 refund is signed from Lumen’s own wallet…"],
-  [37.6, "…sent once, and confirmed on chain."],
-  [41.7, "$1,100 received = $1,000 + $60 + $40. Unresolved: $0."],
-  [44.2, "Both sides get the same receipt. Every dollar explained."],
+const CHAPTERS = (
+  [
+    { key: "invoices", start: 0 },
+    { key: "payments", start: 4 },
+    { key: "detect", start: 11, step: 1 },
+    { key: "propose", start: 17, step: 2 },
+    { key: "approve", start: 25.5, step: 3 },
+    { key: "settle", start: 34.5, step: 4 },
+    { key: "receipt", start: 41.5 },
+  ] as { key: ChapterKey; start: number; step?: number }[]
+).map((c, i, all) => ({ ...c, end: all[i + 1]?.start ?? DURATION }));
+
+type Text = (i18n: Translator) => string;
+
+const CAPTIONS: [number, Text][] = [
+  [0, ({ m, t }) => t(m.film.captions.billed, { invoiceA: "$1,000", invoiceB: "$400" })],
+  [4.4, ({ m, t }) => t(m.film.captions.firstPayment, { amount: "$600" })],
+  [6.9, ({ m, t }) => t(m.film.captions.secondPayment, { amount: "$500" })],
+  [11.2, ({ m, t }) => t(m.film.captions.settled, { amount: "$1,000" })],
+  [13.8, ({ m, t }) => t(m.film.captions.flagged, { amount: "$100" })],
+  [17.2, ({ m }) => m.film.captions.linkSent],
+  [18.9, ({ m }) => m.film.captions.verifyCode],
+  [20.8, ({ m, t }) => t(m.film.captions.proposeSplit, { applied: "$60", refund: "$40" })],
+  [23.2, ({ m }) => m.film.captions.proveWallet],
+  [25.7, ({ m }) => m.film.captions.approveFirst],
+  [28.3, ({ m, t }) => t(m.film.captions.changeWallet, { version: "v2" })],
+  [30, ({ m, t }) => t(m.film.captions.approvalVoid, { version: "v1" })],
+  [31.7, ({ m, t }) => t(m.film.captions.approveSecond, { version: "v2" })],
+  [34.7, ({ m, t }) => t(m.film.captions.runPlan, { amount: "$60" })],
+  [35.9, ({ m, t }) => t(m.film.captions.signRefund, { amount: "$40" })],
+  [37.6, ({ m }) => m.film.captions.refundConfirmed],
+  [41.7, ({ m, t }) => t(m.film.captions.balanced, { received: "$1,100", invoice: "$1,000", applied: "$60", refund: "$40", unresolved: "$0" })],
+  [44.2, ({ m }) => m.film.captions.receipt],
 ];
 
 type Tone = "mint" | "violet" | "periwinkle";
 
 /** Things that travel between the customer (0) and the business (1). */
-const TRIPS: { at: number; d: number; from: number; to: number; label: string; icon: LucideIcon; tone: Tone }[] = [
-  { at: 1, d: 1.3, from: 1, to: 0, label: "2 invoices", icon: FileText, tone: "periwinkle" },
-  { at: 4.6, d: 1.4, from: 0, to: 1, label: "$600", icon: CircleDollarSign, tone: "mint" },
-  { at: 7, d: 1.4, from: 0, to: 1, label: "$500", icon: CircleDollarSign, tone: "mint" },
-  { at: 17.3, d: 1.3, from: 1, to: 0, label: "Resolution link", icon: Link2, tone: "violet" },
-  { at: 24.1, d: 1.2, from: 0, to: 1, label: "Proposal v1", icon: PenLine, tone: "violet" },
-  { at: 28.4, d: 1.1, from: 0, to: 1, label: "Proposal v2", icon: PenLine, tone: "violet" },
-  { at: 37.6, d: 1.4, from: 1, to: 0, label: "$40 refund", icon: CircleDollarSign, tone: "mint" },
-  { at: 43.8, d: 1.1, from: 0.5, to: 0, label: "Receipt", icon: FileCheck2, tone: "mint" },
-  { at: 43.8, d: 1.1, from: 0.5, to: 1, label: "Receipt", icon: FileCheck2, tone: "mint" },
+const TRIPS: { at: number; d: number; from: number; to: number; label: Text; icon: LucideIcon; tone: Tone }[] = [
+  { at: 1, d: 1.3, from: 1, to: 0, label: ({ m, p }) => p(m.film.trips.invoices, 2), icon: FileText, tone: "periwinkle" },
+  { at: 4.6, d: 1.4, from: 0, to: 1, label: () => "$600", icon: CircleDollarSign, tone: "mint" },
+  { at: 7, d: 1.4, from: 0, to: 1, label: () => "$500", icon: CircleDollarSign, tone: "mint" },
+  { at: 17.3, d: 1.3, from: 1, to: 0, label: ({ m }) => m.film.trips.resolutionLink, icon: Link2, tone: "violet" },
+  { at: 24.1, d: 1.2, from: 0, to: 1, label: ({ m, t }) => t(m.film.trips.proposal, { version: "v1" }), icon: PenLine, tone: "violet" },
+  { at: 28.4, d: 1.1, from: 0, to: 1, label: ({ m, t }) => t(m.film.trips.proposal, { version: "v2" }), icon: PenLine, tone: "violet" },
+  { at: 37.6, d: 1.4, from: 1, to: 0, label: ({ m, t }) => t(m.film.trips.refund, { amount: "$40" }), icon: CircleDollarSign, tone: "mint" },
+  { at: 43.8, d: 1.1, from: 0.5, to: 0, label: ({ m }) => m.film.trips.receipt, icon: FileCheck2, tone: "mint" },
+  { at: 43.8, d: 1.1, from: 0.5, to: 1, label: ({ m }) => m.film.trips.receipt, icon: FileCheck2, tone: "mint" },
 ];
 
 // ---------------------------------------------------------------------------------------
@@ -215,6 +224,7 @@ function Actor({ t, side, name, role, initials, className }: { t: number; side: 
 const toneVar: Record<Tone, string> = { mint: "var(--mint)", violet: "var(--violet)", periwinkle: "var(--periwinkle)" };
 
 function Trips({ t }: { t: number }) {
+  const i18n = useI18n();
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
       {TRIPS.map((trip, i) => {
@@ -255,7 +265,7 @@ function Trips({ t }: { t: number }) {
                 }}
               >
                 <Icon className="size-3.5" />
-                {trip.label}
+                {trip.label(i18n)}
               </span>
             </div>
           </div>
@@ -266,14 +276,15 @@ function Trips({ t }: { t: number }) {
 }
 
 function Strip({ t }: { t: number }) {
+  const { m } = useI18n();
   return (
     <div className="relative flex items-center gap-3 [--av:32px] sm:gap-4 sm:[--av:40px]">
-      <Actor t={t} side={0} name="Acme Robotics" role="Customer" initials="AR" className="bg-indigo/15 text-periwinkle" />
+      <Actor t={t} side={0} name="Acme Robotics" role={m.common.customer} initials="AR" className="bg-indigo/15 text-periwinkle" />
       <div className="relative flex-1">
         <div className="border-t border-dashed border-veil/15" />
-        <div className="absolute inset-x-0 top-2 hidden text-center font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3/80 md:block">Solana · test USD</div>
+        <div className="absolute inset-x-0 top-2 hidden text-center font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3/80 md:block">{m.film.rail}</div>
       </div>
-      <Actor t={t} side={1} name="Lumen Studio" role="Business" initials="LS" className="bg-violet/15 text-violet" />
+      <Actor t={t} side={1} name="Lumen Studio" role={m.common.business} initials="LS" className="bg-violet/15 text-violet" />
       <Trips t={t} />
     </div>
   );
@@ -283,6 +294,8 @@ function Strip({ t }: { t: number }) {
 // Scenes. Each receives the global playhead and uses absolute times from the script.
 
 function InvoicesScene({ t }: { t: number }) {
+  const { m, t: tr, rich } = useI18n();
+  const f = m.film.invoices;
   const invoices = [
     { id: "INV-0001", label: "Website redesign", amount: "$1,000.00", at: 0.35 },
     { id: "INV-0002", label: "October retainer", amount: "$400.00", at: 0.6 },
@@ -298,17 +311,17 @@ function InvoicesScene({ t }: { t: number }) {
                 {inv.id}
               </span>
               <span className="hidden sm:inline">
-                <Chip tone="neutral">Open</Chip>
+                <Chip tone="neutral">{f.open}</Chip>
               </span>
             </div>
             <div className="mt-3 truncate text-[12px] text-fg-3 sm:text-[13px]">{inv.label}</div>
             <div className="tabular mt-0.5 font-display text-lg font-semibold sm:text-2xl">{inv.amount}</div>
-            <div className="mt-2 text-[11px] text-fg-3">Billed to Acme Robotics</div>
+            <div className="mt-2 text-[11px] text-fg-3">{tr(f.billedTo, { customer: "Acme Robotics" })}</div>
           </div>
         ))}
       </div>
       <div className="mt-3 text-center text-[12px] text-fg-3" style={rise(t, 1.4)}>
-        Total due <span className="tabular font-medium text-fg-2">$1,400</span> · paid in USDC on Solana
+        {rich(f.totalDue, { amount: (c) => <span className="tabular font-medium text-fg-2">{c}</span> }, { amount: "$1,400" })}
       </div>
     </div>
   );
@@ -318,47 +331,49 @@ const TRANSFERS = [
   { amount: "$600.00", sig: "5Gh2…kQ9e", arrive: 6.0 },
   { amount: "$500.00", sig: "3nWx…Lp4c", arrive: 8.4 },
 ];
-const CHECKS = ["Mint", "Amount", "Recipient", "Finalized"];
+const CHECKS = ["mint", "amount", "recipient", "finalized"] as const;
 
 function PaymentsScene({ t }: { t: number }) {
+  const { m, t: tr } = useI18n();
+  const f = m.film.payments;
   return (
     <div className={cn(panel, "mx-auto w-full max-w-[28rem]")}>
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium">Incoming to Lumen Studio</span>
+        <span className="text-[13px] font-medium">{tr(f.incomingTo, { business: "Lumen Studio" })}</span>
         <span className="flex items-center gap-1.5 text-[11px] text-fg-3">
           <span className="relative flex size-1.5">
             <span className="absolute inset-0 animate-pulse-ring rounded-full bg-mint" />
             <span className="relative size-1.5 rounded-full bg-mint" />
           </span>
-          Watching
+          {f.watching}
         </span>
       </div>
       <div className="mt-3 space-y-2">
-        {TRANSFERS.map((tr) => (
-          <div key={tr.sig} className={stack}>
-            <div className="flex items-center rounded-xl border border-dashed border-veil/10 px-3 text-[12px] text-fg-3" style={{ opacity: 1 - prog(t, tr.arrive, 0.4) }}>
-              Waiting for a transfer…
+        {TRANSFERS.map((x) => (
+          <div key={x.sig} className={stack}>
+            <div className="flex items-center rounded-xl border border-dashed border-veil/10 px-3 text-[12px] text-fg-3" style={{ opacity: 1 - prog(t, x.arrive, 0.4) }}>
+              {f.waiting}
             </div>
-            <div className="rounded-xl border border-veil/[0.07] bg-veil/[0.03] px-3 py-2.5" style={rise(t, tr.arrive, 8)}>
+            <div className="rounded-xl border border-veil/[0.07] bg-veil/[0.03] px-3 py-2.5" style={rise(t, x.arrive, 8)}>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-mint/10 text-mint">
                     <ArrowDownLeft className="size-3.5" />
                   </span>
                   <div className="min-w-0">
-                    <div className="tabular font-display text-sm font-semibold">{tr.amount}</div>
-                    <div className="truncate font-mono text-[10.5px] text-fg-3">{tr.sig} · ref INV-0001</div>
+                    <div className="tabular font-display text-sm font-semibold">{x.amount}</div>
+                    <div className="truncate font-mono text-[10.5px] text-fg-3">{tr(f.reference, { signature: x.sig, invoice: "INV-0001" })}</div>
                   </div>
                 </div>
-                <Chip tone="mint" icon={ShieldCheck} style={popIn(t, tr.arrive + 1.1)}>
-                  Verified
+                <Chip tone="mint" icon={ShieldCheck} style={popIn(t, x.arrive + 1.1)}>
+                  {f.verified}
                 </Chip>
               </div>
               <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1">
                 {CHECKS.map((c, i) => (
                   <span key={c} className="flex items-center gap-1.5 text-[11px] text-fg-3">
-                    <Tick t={t} at={tr.arrive + 0.3 + i * 0.17} />
-                    {c}
+                    <Tick t={t} at={x.arrive + 0.3 + i * 0.17} />
+                    {f.checks[c]}
                   </span>
                 ))}
               </div>
@@ -371,11 +386,13 @@ function PaymentsScene({ t }: { t: number }) {
 }
 
 function DetectScene({ t }: { t: number }) {
+  const { m, t: tr } = useI18n();
+  const f = m.film.detect;
   const received = 600 * inOut(prog(t, 11.6, 0.9)) + 500 * inOut(prog(t, 12.9, 0.8));
   const applied = Math.min(received, 1000);
   const excess = received - applied;
   const status =
-    t < 11.6 ? { tone: "neutral" as const, label: "Open", at: 11 } : t < 13.4 ? { tone: "amber" as const, label: "Partially paid", at: 11.6 } : { tone: "mint" as const, label: "Paid", at: 13.4 };
+    t < 11.6 ? { tone: "neutral" as const, label: f.open, at: 11 } : t < 13.4 ? { tone: "amber" as const, label: f.partiallyPaid, at: 11.6 } : { tone: "mint" as const, label: f.paid, at: 13.4 };
   return (
     <div className="mx-auto w-full max-w-[28rem]">
       <div className={panel}>
@@ -390,11 +407,11 @@ function DetectScene({ t }: { t: number }) {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div>
-            <div className="text-[11px] text-fg-3">Received</div>
+            <div className="text-[11px] text-fg-3">{f.received}</div>
             <div className="tabular font-display text-lg font-semibold sm:text-xl">{usd(received)}</div>
           </div>
           <div>
-            <div className="text-[11px] text-fg-3">Applied to invoice</div>
+            <div className="text-[11px] text-fg-3">{f.applied}</div>
             <div className="tabular font-display text-lg font-semibold sm:text-xl">
               {usd(applied)}
               <span className="text-[13px] font-normal text-fg-3"> / $1,000</span>
@@ -408,7 +425,7 @@ function DetectScene({ t }: { t: number }) {
           </div>
           <div className="absolute -bottom-1 -top-1 w-px bg-fg-3/60" style={{ left: `${(1000 / 1100) * 100}%` }} />
           <div className="mt-1.5 text-right text-[10.5px] text-fg-3" style={{ marginRight: `${(100 / 1100) * 100}%` }}>
-            $1,000 due
+            {tr(f.due, { amount: "$1,000" })}
           </div>
         </div>
       </div>
@@ -418,14 +435,14 @@ function DetectScene({ t }: { t: number }) {
           <Sparkles className="relative size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="tabular text-sm font-semibold text-amber">$100 excess</div>
-          <div className="truncate text-[11.5px] text-fg-3">Unresolved until both sides agree</div>
+          <div className="tabular text-sm font-semibold text-amber">{tr(f.excess, { amount: "$100" })}</div>
+          <div className="truncate text-[11.5px] text-fg-3">{f.excessNote}</div>
         </div>
-        <Chip tone="amber">Flagged</Chip>
+        <Chip tone="amber">{f.flagged}</Chip>
       </div>
       <div className="mt-2 flex items-center justify-between px-1 text-[11.5px] text-fg-3" style={rise(t, 14.6, 6)}>
         <span className="font-mono">INV-0002 · October retainer</span>
-        <span className="tabular">$400 open</span>
+        <span className="tabular">{tr(f.stillOpen, { amount: "$400" })}</span>
       </div>
     </div>
   );
@@ -434,6 +451,8 @@ function DetectScene({ t }: { t: number }) {
 const CODE = ["4", "8", "2", "9", "1", "3"];
 
 function ProposeScene({ t }: { t: number }) {
+  const { m, t: tr, rich } = useI18n();
+  const f = m.film.propose;
   const verify = out3(prog(t, 18.7, 0.4)) * (1 - inOut(prog(t, 20.45, 0.35)));
   const split = out3(prog(t, 20.8, 0.45));
   const sent = t >= 24.05;
@@ -453,8 +472,8 @@ function ProposeScene({ t }: { t: number }) {
       </div>
       <div className={cn(stack, "p-3.5 sm:p-4")}>
         <div style={{ opacity: verify, transform: `translateY(${(1 - verify) * -6}px)` }}>
-          <div className="text-[13px] font-medium">Verify it’s you</div>
-          <div className="mt-0.5 text-[11.5px] text-fg-3">We emailed a 6-digit code to Acme Robotics.</div>
+          <div className="text-[13px] font-medium">{f.verifyTitle}</div>
+          <div className="mt-0.5 text-[11.5px] text-fg-3">{tr(f.codeSent, { customer: "Acme Robotics" })}</div>
           <div className="mt-3 flex gap-1.5">
             {CODE.map((d, i) => {
               const x = prog(t, 19.1 + i * 0.16, 0.22);
@@ -470,22 +489,20 @@ function ProposeScene({ t }: { t: number }) {
           </div>
           <div className="mt-3">
             <Chip tone="mint" icon={Check} style={popIn(t, 20.15)}>
-              Verified
+              {f.verified}
             </Chip>
           </div>
         </div>
         <div style={{ opacity: split, transform: `translateY(${(1 - split) * 8}px)` }}>
-          <div className="text-[13px] font-medium">
-            Where should the extra <span className="tabular">$100</span> go?
-          </div>
+          <div className="text-[13px] font-medium">{rich(f.question, { amount: (c) => <span className="tabular">{c}</span> }, { amount: "$100" })}</div>
           <div className="mt-3 flex h-2.5 gap-1 overflow-hidden rounded-full bg-veil/[0.06]">
             <div className="h-full rounded-full bg-violet" style={{ width: `${60 * out3(prog(t, 21.1, 0.8))}%` }} />
             <div className="h-full rounded-full bg-mint" style={{ width: `${40 * out3(prog(t, 21.5, 0.8))}%` }} />
           </div>
           <div className="mt-3 space-y-1.5">
             {[
-              { dot: "bg-violet", label: <>Apply to INV-0002</>, amount: "$60", at: 21.9 },
-              { dot: "bg-mint", label: <>Refund to <span className="font-mono text-[11.5px]">7xKX…9fQd</span></>, amount: "$40", at: 22.2 },
+              { dot: "bg-violet", label: tr(f.applyTo, { invoice: "INV-0002" }), amount: "$60", at: 21.9 },
+              { dot: "bg-mint", label: rich(f.refundTo, { address: (c) => <span className="font-mono text-[11.5px]">{c}</span> }, { address: "7xKX…9fQd" }), amount: "$40", at: 22.2 },
             ].map((row) => (
               <div key={row.amount} className="flex items-center justify-between rounded-lg bg-veil/[0.03] px-2.5 py-1.5 text-[12.5px]" style={rise(t, row.at, 6)}>
                 <span className="flex items-center gap-2 text-fg-2">
@@ -498,15 +515,15 @@ function ProposeScene({ t }: { t: number }) {
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <Chip tone="mint" icon={PenLine} style={popIn(t, 23.3)}>
-              Wallet proven by signature
+              {f.walletProven}
             </Chip>
             <span className={buttonClass("primary", "sm", "pointer-events-none transition-none")} style={{ ...rise(t, 22.6, 6), ...press(t, 23.9) }}>
               {sent ? (
                 <>
-                  <Check className="size-3.5" /> Sent
+                  <Check className="size-3.5" /> {f.sent}
                 </>
               ) : (
-                "Propose"
+                f.submit
               )}
             </span>
           </div>
@@ -529,6 +546,8 @@ function Stamp({ tone, icon: Icon, title, sub, style }: { tone: "mint" | "rose" 
 }
 
 function ApproveScene({ t }: { t: number }) {
+  const { m, t: tr, rich } = useI18n();
+  const f = m.film.approve;
   const v2 = t >= 29.5;
   const hash = scramble(t, 29.5, 0.6, "9c41…e2a7", "3b7a…d04f");
   const morph = out3(prog(t, 29.5, 0.5));
@@ -536,27 +555,37 @@ function ApproveScene({ t }: { t: number }) {
 
   const stamp =
     t < 27.1 ? (
-      <Stamp tone="neutral" icon={ShieldCheck} title="Awaiting Lumen’s approval" sub="Nothing can run yet" />
+      <Stamp tone="neutral" icon={ShieldCheck} title={f.awaiting} sub={f.nothingRuns} />
     ) : t < 30 ? (
-      <Stamp tone="mint" icon={ShieldCheck} title="Approved v1" sub="bound to 9c41…e2a7" style={popIn(t, 27.1, 0.9)} />
+      <Stamp tone="mint" icon={ShieldCheck} title={tr(f.approved, { version: "v1" })} sub={tr(f.boundTo, { hash: "9c41…e2a7" })} style={popIn(t, 27.1, 0.9)} />
     ) : t < 32.4 ? (
-      <Stamp tone="rose" icon={ShieldX} title={<><span className="line-through decoration-rose/60">Approval v1</span> · void</>} sub="the plan changed after approval" style={popIn(t, 30, 0.9)} />
+      <Stamp
+        tone="rose"
+        icon={ShieldX}
+        title={rich(f.void, { old: (c) => <span className="line-through decoration-rose/60">{c}</span> }, { version: "v1" })}
+        sub={f.voidReason}
+        style={popIn(t, 30, 0.9)}
+      />
     ) : (
-      <Stamp tone="mint" icon={ShieldCheck} title="Approved v2" sub="bound to 3b7a…d04f" style={popIn(t, 32.4, 0.9)} />
+      <Stamp tone="mint" icon={ShieldCheck} title={tr(f.approved, { version: "v2" })} sub={tr(f.boundTo, { hash: "3b7a…d04f" })} style={popIn(t, 32.4, 0.9)} />
     );
   const button =
-    t < 27.1 ? { label: "Approve v1", at: 26.2, press: 26.85 } : t >= 30.4 && t < 32.4 ? { label: "Approve v2", at: 31.4, press: 32.15 } : null;
+    t < 27.1
+      ? { label: tr(f.approveButton, { version: "v1" }), at: 26.2, press: 26.85 }
+      : t >= 30.4 && t < 32.4
+        ? { label: tr(f.approveButton, { version: "v2" }), at: 31.4, press: 32.15 }
+        : null;
   const exec =
-    t < 27.1 ? <Chip tone="neutral" icon={Lock}>Needs approval</Chip>
-    : t < 30.3 ? <Chip tone="mint" icon={LockOpen} style={popIn(t, 27.3)}>Ready to run</Chip>
-    : t < 32.4 ? <Chip tone="amber" icon={Lock} style={popIn(t, 30.3)}>Execution blocked</Chip>
-    : <Chip tone="mint" icon={LockOpen} style={popIn(t, 32.6)}>Ready to run</Chip>;
+    t < 27.1 ? <Chip tone="neutral" icon={Lock}>{f.needsApproval}</Chip>
+    : t < 30.3 ? <Chip tone="mint" icon={LockOpen} style={popIn(t, 27.3)}>{f.readyToRun}</Chip>
+    : t < 32.4 ? <Chip tone="amber" icon={Lock} style={popIn(t, 30.3)}>{f.blocked}</Chip>
+    : <Chip tone="mint" icon={LockOpen} style={popIn(t, 32.6)}>{f.readyToRun}</Chip>;
 
   return (
     <div className={cn(panel, "mx-auto w-full max-w-[28rem]")}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium">Proposal</span>
+          <span className="text-[13px] font-medium">{f.proposal}</span>
           <span className="rounded-md bg-violet/10 px-1.5 py-0.5 font-mono text-[11px] text-violet" style={v2 ? popIn(t, 29.5, 0.6) : undefined}>
             {v2 ? "v2" : "v1"}
           </span>
@@ -569,23 +598,30 @@ function ApproveScene({ t }: { t: number }) {
         <div className="flex items-center justify-between rounded-lg bg-veil/[0.03] px-2.5 py-1.5 text-[12.5px]">
           <span className="flex items-center gap-2 text-fg-2">
             <span className="size-2 rounded-full bg-violet" />
-            Apply to INV-0002
+            {tr(m.film.propose.applyTo, { invoice: "INV-0002" })}
           </span>
           <span className="tabular font-semibold">$60</span>
         </div>
         <div className="flex items-center justify-between rounded-lg bg-veil/[0.03] px-2.5 py-1.5 text-[12.5px]">
           <span className="flex items-center gap-2 text-fg-2">
             <span className="size-2 rounded-full bg-mint" />
-            Refund to
-            <span className={cn(stack, "font-mono text-[11.5px]")}>
-              <span style={{ opacity: 1 - morph, transform: `translateY(${-morph * 6}px)` }}>7xKX…9fQd</span>
-              <span
-                className="-mx-1 rounded px-1 text-violet"
-                style={{ opacity: morph, transform: `translateY(${(1 - morph) * 6}px)`, backgroundColor: `color-mix(in srgb, var(--violet) ${Math.round(18 * flash)}%, transparent)` }}
-              >
-                9pLm…3hVw
-              </span>
-            </span>
+            {rich(
+              m.film.propose.refundTo,
+              {
+                address: () => (
+                  <span className={cn(stack, "font-mono text-[11.5px]")}>
+                    <span style={{ opacity: 1 - morph, transform: `translateY(${-morph * 6}px)` }}>7xKX…9fQd</span>
+                    <span
+                      className="-mx-1 rounded px-1 text-violet"
+                      style={{ opacity: morph, transform: `translateY(${(1 - morph) * 6}px)`, backgroundColor: `color-mix(in srgb, var(--violet) ${Math.round(18 * flash)}%, transparent)` }}
+                    >
+                      9pLm…3hVw
+                    </span>
+                  </span>
+                ),
+              },
+              { address: "9pLm…3hVw" },
+            )}
           </span>
           <span className="tabular font-semibold">$40</span>
         </div>
@@ -599,7 +635,7 @@ function ApproveScene({ t }: { t: number }) {
         )}
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-veil/[0.06] pt-3 text-[12px] text-fg-3" style={rise(t, 26.3, 6)}>
-        <span>Execution</span>
+        <span>{f.execution}</span>
         {exec}
       </div>
     </div>
@@ -627,6 +663,8 @@ function SettleStep({ t, start, done, title, children }: { t: number; start: num
 }
 
 function SettleScene({ t }: { t: number }) {
+  const { m, t: tr, rich } = useI18n();
+  const f = m.film.settle;
   const remaining = 400 - 60 * inOut(prog(t, 35.0, 0.6));
   const unresolved = 100 - 60 * inOut(prog(t, 35.0, 0.6)) - 40 * inOut(prog(t, 38.7, 0.5));
   const complete = t >= 39.9;
@@ -634,24 +672,23 @@ function SettleScene({ t }: { t: number }) {
   return (
     <div className={cn(panel, "mx-auto w-full max-w-[28rem]")}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium">
-          Plan <span className="font-mono text-violet">v2</span>
-        </span>
+        <span className="text-[13px] font-medium">{rich(f.plan, { version: (c) => <span className="font-mono text-violet">{c}</span> }, { version: "v2" })}</span>
         {complete ? (
           <Chip tone="mint" icon={Check} style={popIn(t, 39.9)}>
-            Complete
+            {f.complete}
           </Chip>
         ) : (
           <span className="flex items-center gap-1.5 text-[11px] text-fg-3">
-            <Spinner t={t} className="size-3.5" /> Running
+            <Spinner t={t} className="size-3.5" /> {f.running}
           </span>
         )}
       </div>
       <div className="mt-3.5 space-y-3">
-        <SettleStep t={t} start={34.9} done={35.6} title="Apply $60 to INV-0002">
-          <div className="tabular text-[11.5px] text-fg-3">INV-0002 remaining {usd(remaining)}</div>
+        <SettleStep t={t} start={34.9} done={35.6} title={tr(f.applyStep, { amount: "$60", invoice: "INV-0002" })}>
+          <div className="tabular text-[11.5px] text-fg-3">{tr(f.remaining, { invoice: "INV-0002", amount: usd(remaining) })}</div>
         </SettleStep>
-        <SettleStep t={t} start={35.9} done={39.0} title={<>Refund $40 to <span className="font-mono text-[11.5px]">9pLm…3hVw</span></>}>
+        <SettleStep t={t} start={35.9} done={39.0} title={rich(f.refundStep, { address: (c) => <span className="font-mono text-[11.5px]">{c}</span> }, { amount: "$40", address: "9pLm…3hVw" })}
+        >
           <div className={cn(stack, "mt-1.5")}>
             <div
               className="flex items-center gap-2 rounded-lg border border-violet/20 bg-violet/[0.06] px-2.5 py-1.5"
@@ -659,19 +696,19 @@ function SettleScene({ t }: { t: number }) {
             >
               <Wallet className="size-3.5 shrink-0 text-violet" />
               <span className="min-w-0 flex-1 truncate text-[11.5px] text-fg-2">
-                {t < 37.4 ? "Lumen’s wallet · sign transaction" : t < 37.6 ? "Signed by Lumen Studio" : "Signed · broadcasting once"}
+                {t < 37.4 ? f.signPrompt : t < 37.6 ? f.signedBy : f.broadcasting}
               </span>
               {t < 37.4 ? <Ring value={signing} /> : t < 37.6 ? <Tick t={t} at={37.4} /> : <Spinner t={t} className="text-fg-3" />}
             </div>
             <div className="flex items-center gap-2 py-1.5 text-[11.5px] text-fg-3" style={rise(t, 39.0, 6)}>
-              <span className="text-mint">Confirmed on Solana</span>
+              <span className="text-mint">{f.confirmed}</span>
               <span className="font-mono">4kVd…Tz8w</span>
             </div>
           </div>
         </SettleStep>
-        <SettleStep t={t} start={34.9} done={39.3} title="Unresolved excess">
+        <SettleStep t={t} start={34.9} done={39.3} title={f.unresolvedStep}>
           <div className="tabular text-[11.5px] text-fg-3">
-            <span className={cn(unresolved < 0.5 && "text-mint")}>{usd(unresolved)}</span> of $100
+            {rich(f.unresolvedOf, { amount: (c) => <span className={cn(unresolved < 0.5 && "text-mint")}>{c}</span> }, { amount: usd(unresolved), total: "$100" })}
           </div>
         </SettleStep>
       </div>
@@ -680,10 +717,12 @@ function SettleScene({ t }: { t: number }) {
 }
 
 function ReceiptScene({ t }: { t: number }) {
+  const { m, t: tr } = useI18n();
+  const f = m.film.receipt;
   const parts = [
-    { label: "INV-0001", amount: "$1,000", pct: (1000 / 1100) * 100, at: 42.0, d: 0.8, color: "bg-[linear-gradient(90deg,var(--indigo),var(--violet))]", dot: "bg-indigo" },
-    { label: "INV-0002", amount: "$60", pct: (60 / 1100) * 100, at: 42.75, d: 0.4, color: "bg-violet", dot: "bg-violet" },
-    { label: "Refunded", amount: "$40", pct: (40 / 1100) * 100, at: 43.1, d: 0.4, color: "bg-mint", dot: "bg-mint" },
+    { key: "a", label: "INV-0001", amount: "$1,000", pct: (1000 / 1100) * 100, at: 42.0, d: 0.8, color: "bg-[linear-gradient(90deg,var(--indigo),var(--violet))]", dot: "bg-indigo" },
+    { key: "b", label: "INV-0002", amount: "$60", pct: (60 / 1100) * 100, at: 42.75, d: 0.4, color: "bg-violet", dot: "bg-violet" },
+    { key: "r", label: f.refunded, amount: "$40", pct: (40 / 1100) * 100, at: 43.1, d: 0.4, color: "bg-mint", dot: "bg-mint" },
   ];
   return (
     <div className="mx-auto w-full max-w-[28rem]">
@@ -691,22 +730,22 @@ function ReceiptScene({ t }: { t: number }) {
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-2 text-[13px] font-medium">
             <LogoMark size={18} />
-            Receipt
+            {f.title}
           </span>
-          <span className="font-mono text-[11px] text-fg-3">Same for both sides</span>
+          <span className="font-mono text-[11px] text-fg-3">{f.sameForBoth}</span>
         </div>
         <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3" style={rise(t, 41.8, 6)}>
-          <span className="tabular font-display text-lg font-semibold sm:text-xl">$1,100 received</span>
-          <span className="tabular text-[12px] text-fg-3">= $1,000 + $60 + $40</span>
+          <span className="tabular font-display text-lg font-semibold sm:text-xl">{tr(f.received, { amount: "$1,100" })}</span>
+          <span className="tabular text-[12px] text-fg-3">{tr(f.equation, { invoice: "$1,000", applied: "$60", refund: "$40" })}</span>
         </div>
         <div className="mt-3 flex h-2.5 gap-1 overflow-hidden rounded-full bg-veil/[0.06]">
           {parts.map((p) => (
-            <div key={p.label} className={cn("h-full rounded-full", p.color)} style={{ width: `${p.pct * out3(prog(t, p.at, p.d))}%` }} />
+            <div key={p.key} className={cn("h-full rounded-full", p.color)} style={{ width: `${p.pct * out3(prog(t, p.at, p.d))}%` }} />
           ))}
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2">
           {parts.map((p) => (
-            <div key={p.label} className="rounded-lg bg-veil/[0.03] px-2 py-1.5" style={rise(t, p.at + 0.1, 6)}>
+            <div key={p.key} className="rounded-lg bg-veil/[0.03] px-2 py-1.5" style={rise(t, p.at + 0.1, 6)}>
               <div className="flex items-center gap-1.5 text-[10.5px] text-fg-3">
                 <span className={cn("size-1.5 rounded-full", p.dot)} />
                 {p.label}
@@ -716,7 +755,7 @@ function ReceiptScene({ t }: { t: number }) {
           ))}
         </div>
         <div className="mt-2.5 flex items-center justify-between rounded-xl border border-mint/20 bg-mint/[0.07] px-3 py-2" style={popIn(t, 43.6, 0.9)}>
-          <span className="text-[12.5px] text-fg-2">Unresolved</span>
+          <span className="text-[12.5px] text-fg-2">{f.unresolved}</span>
           <span className="tabular flex items-center gap-1.5 font-display text-sm font-semibold text-mint">
             <Check className="size-4" strokeWidth={3} /> $0
           </span>
@@ -724,7 +763,7 @@ function ReceiptScene({ t }: { t: number }) {
       </div>
       <div className="mt-4 flex items-center justify-center gap-2 font-display text-[15px] font-semibold tracking-tight sm:text-base" style={rise(t, 45.6, 8, 0.8)}>
         <LogoMark size={20} />
-        Wrong payments, <span className="text-gradient">made right.</span>
+        {m.landing.hero.titleLead} <span className="text-gradient">{m.landing.hero.titleAccent}</span>
       </div>
     </div>
   );
@@ -733,6 +772,7 @@ function ReceiptScene({ t }: { t: number }) {
 const SCENES = [InvoicesScene, PaymentsScene, DetectScene, ProposeScene, ApproveScene, SettleScene, ReceiptScene];
 
 function Scene({ t, index, children }: { t: number; index: number; children: ReactNode }) {
+  const { m, t: tr } = useI18n();
   const c = CHAPTERS[index];
   const enter = c.start === 0 ? 1 : out3(prog(t, c.start, 0.45));
   const exit = inOut(prog(t, c.end - 0.45, 0.45));
@@ -742,8 +782,8 @@ function Scene({ t, index, children }: { t: number; index: number; children: Rea
       style={{ opacity: enter * (1 - exit), transform: `translate3d(0, ${(1 - enter) * 14 - exit * 10}px, 0) scale(${1 - exit * 0.03})` }}
     >
       <div className="mb-2.5 text-center text-[10.5px] font-medium uppercase tracking-[0.18em] text-fg-3 sm:mb-3" style={rise(t, c.start + 0.05, 4, 0.4)}>
-        {c.step ? <span className="text-violet">Step 0{c.step} · </span> : null}
-        {c.title}
+        {c.step ? <span className="text-violet">{tr(m.film.step, { number: `0${c.step}` })} · </span> : null}
+        {m.film.chapters[c.key]}
       </div>
       {children}
     </div>
@@ -751,6 +791,7 @@ function Scene({ t, index, children }: { t: number; index: number; children: Rea
 }
 
 function Caption({ t }: { t: number }) {
+  const i18n = useI18n();
   let i = 0;
   while (i + 1 < CAPTIONS.length && CAPTIONS[i + 1][0] <= t) i++;
   const [at, text] = CAPTIONS[i];
@@ -760,7 +801,7 @@ function Caption({ t }: { t: number }) {
   return (
     <div className="flex min-h-[2.75rem] items-end justify-center pt-2 sm:min-h-[2.5rem]">
       <p className="max-w-xl text-balance text-center text-[12.5px] leading-snug text-fg-2 sm:text-sm" style={{ opacity: o, transform: `translateY(${(1 - p) * 5}px)` }}>
-        {text}
+        {text(i18n)}
       </p>
     </div>
   );
@@ -769,6 +810,8 @@ function Caption({ t }: { t: number }) {
 // ---------------------------------------------------------------------------------------
 
 export function ProcessFilm() {
+  const i18n = useI18n();
+  const { m, t: tr } = i18n;
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { amount: 0.35 });
   const reduce = useReducedMotion();
@@ -809,7 +852,7 @@ export function ProcessFilm() {
   return (
     <figure ref={ref} className="glass overflow-hidden rounded-3xl p-2 sm:p-2.5">
       <figcaption className="sr-only">
-        An animated walkthrough of the PayFix resolution loop: {CAPTIONS.map(([, text]) => text).join(" ")}
+        {tr(m.film.player.description, { captions: CAPTIONS.map(([, text]) => text(i18n)).join(" ") })}
       </figcaption>
       <div
         aria-hidden
@@ -855,7 +898,7 @@ export function ProcessFilm() {
         <button
           type="button"
           onClick={toggle}
-          aria-label={wantPlay ? "Pause walkthrough" : "Play walkthrough"}
+          aria-label={wantPlay ? m.film.player.pause : m.film.player.play}
           className="grid size-9 shrink-0 place-items-center rounded-full bg-veil/[0.06] text-fg transition hover:bg-veil/[0.1]"
         >
           {wantPlay ? <Pause className="size-4" fill="currentColor" /> : <Play className="size-4 translate-x-px" fill="currentColor" />}
@@ -863,11 +906,11 @@ export function ProcessFilm() {
         <div className="flex min-w-0 flex-1 gap-1">
           {CHAPTERS.map((c, i) => (
             <button
-              key={c.title}
+              key={c.key}
               type="button"
-              title={c.title}
+              title={m.film.chapters[c.key]}
               onClick={() => seek(i)}
-              aria-label={`Play from ${c.title}`}
+              aria-label={tr(m.film.player.playFrom, { chapter: m.film.chapters[c.key] })}
               aria-current={i === active ? "step" : undefined}
               className="group flex h-9 min-w-0 basis-0 items-center"
               style={{ flexGrow: c.end - c.start }}
@@ -882,7 +925,7 @@ export function ProcessFilm() {
           ))}
         </div>
         <span className="shrink-0 text-[11px] text-fg-3">
-          <span className="font-medium text-fg-2">{CHAPTERS[active].title}</span>
+          <span className="font-medium text-fg-2">{m.film.chapters[CHAPTERS[active].key]}</span>
           <span className="tabular hidden font-mono sm:inline">
             {" "}
             · {clock(time)} / {clock(DURATION)}

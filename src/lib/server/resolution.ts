@@ -15,24 +15,28 @@ import {
   type ProposalLine,
 } from "@/lib/db/schema";
 import { move, type PostingDraft } from "@/lib/domain/ledger";
-import { canonicalLines, describeChanges, hashProposal, lineAmount, parseLines, validateProposal } from "@/lib/domain/proposal";
+import { canonicalLines, hashProposal, lineAmount, parseLines, planChanges, planLineData, validateProposal } from "@/lib/domain/proposal";
+import type { Locale } from "@/lib/i18n/config";
+import { UserError, userErrorFrom } from "@/lib/i18n/errors";
+import { englishI18n } from "@/lib/i18n/english";
+import { changesText, planLinesText } from "@/lib/i18n/events";
 import { env } from "@/lib/env";
 import { newId, newToken } from "@/lib/ids";
 import { formatUsd } from "@/lib/money";
 import { destinationProofMessage, verifyWalletSignature } from "@/lib/solana/proof";
 import { ata, isWalletAddress } from "@/lib/solana/tx";
-import { deliverOutbox, queueEmail } from "./email";
+import { deliverOutbox, emailI18n, queueEmail } from "./email";
 import { logEvent, logInvoicePaid, postEntry } from "./journal";
 import { caseAvailable, caseSources, invoicesWithBalances } from "./queries";
 
-export class ResolutionError extends Error {}
+export class ResolutionError extends UserError {}
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 const LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function lockCase(t: Executor, caseId: string) {
   const [c] = await t.select().from(cases).where(eq(cases.id, caseId)).for("update");
-  if (!c) throw new ResolutionError("Case not found");
+  if (!c) throw new ResolutionError("caseNotFound");
   return c;
 }
 
@@ -57,10 +61,10 @@ export async function activeApproval(db: Executor, proposalId: string) {
 export async function assignCustomer(db: Db, p: { businessId: string; caseId: string; customerId: string; actorUserId?: string }) {
   await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
-    if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
-    if (c.kind !== "unmatched" || c.status !== "open") throw new ResolutionError("Only open unmatched payments can be assigned");
+    if (c.businessId !== p.businessId) throw new ResolutionError("caseNotFound");
+    if (c.kind !== "unmatched" || c.status !== "open") throw new ResolutionError("onlyOpenUnmatchedAssignable");
     const [cust] = await t.select().from(customers).where(and(eq(customers.id, p.customerId), eq(customers.businessId, p.businessId)));
-    if (!cust) throw new ResolutionError("Customer not found");
+    if (!cust) throw new ResolutionError("customerNotFound");
     await t.update(cases).set({ customerId: cust.id }).where(eq(cases.id, c.id));
     const trs = await t.select({ id: caseTransfers.transferId }).from(caseTransfers).where(eq(caseTransfers.caseId, c.id));
     for (const tr of trs) await t.update(transfers).set({ customerId: cust.id }).where(eq(transfers.id, tr.id));
@@ -71,20 +75,20 @@ export async function assignCustomer(db: Db, p: { businessId: string; caseId: st
       actor: "business",
       actorUserId: p.actorUserId,
       type: "case.assigned",
-      message: `Payment attributed to ${cust.name}`,
+      data: { customer: cust.name },
     });
   });
 }
 
 // ── Resolution links ───────────────────────────────────────────────────────
 
-/** Issues a fresh link (revoking earlier ones) and emails it to the invoice customer. Returns the URL. */
-export async function sendResolutionLink(db: Db, p: { businessId: string; caseId: string; actorUserId?: string }): Promise<string> {
+/** Issues a fresh link (revoking earlier ones) and emails it, in `locale`, to the invoice customer. Returns the URL. */
+export async function sendResolutionLink(db: Db, p: { businessId: string; caseId: string; actorUserId?: string; locale?: Locale }): Promise<string> {
   const url = await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
-    if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
-    if (!c.customerId) throw new ResolutionError("Attribute this payment to a customer first");
-    if (c.status === "resolved") throw new ResolutionError("This case is already resolved");
+    if (c.businessId !== p.businessId) throw new ResolutionError("caseNotFound");
+    if (!c.customerId) throw new ResolutionError("attributeCustomerFirst");
+    if (c.status === "resolved") throw new ResolutionError("caseAlreadyResolved");
     const [cust] = await t.select().from(customers).where(eq(customers.id, c.customerId));
     const available = await caseAvailable(t, c.id);
 
@@ -98,11 +102,13 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
       expiresAt: new Date(Date.now() + LINK_TTL_MS),
     });
     const url = `${env().APP_URL}/r/${token}`;
+    const { m, t: tr } = emailI18n(p.locale);
+    const vars = { amount: formatUsd(available), name: cust.name };
     await queueEmail(t, {
       businessId: c.businessId,
       to: cust.email,
-      subject: `Let's settle the extra ${formatUsd(available)} you sent`,
-      body: `Hi ${cust.name}, we received ${formatUsd(available)} more than your invoice needed. Choose how you'd like it handled — applied to another invoice, kept as credit, or refunded. Nothing moves until we both approve the exact plan.`,
+      subject: tr(m.emails.resolutionLink.subject, vars),
+      body: tr(m.emails.resolutionLink.body, vars),
       link: url,
     });
     await logEvent(t, {
@@ -112,7 +118,7 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
       actor: "business",
       actorUserId: p.actorUserId,
       type: "link.sent",
-      message: `Resolution link sent to ${cust.email}`,
+      data: { email: cust.email },
     });
     return url;
   });
@@ -120,12 +126,17 @@ export async function sendResolutionLink(db: Db, p: { businessId: string; caseId
   return url;
 }
 
-/** Resolves a link token. Knowing the link alone doesn't grant access — the customer also verifies by email. */
+const linkUnavailable = (error: "linkInvalid" | "linkReplaced" | "linkExpired") => ({ ok: false as const, error });
+
+/**
+ * Resolves a link token. Knowing the link alone doesn't grant access — the customer also verifies
+ * by email. When unavailable, `error` is the key of the message to show (`m.errors[error]`).
+ */
 export async function findLink(db: Executor, token: string) {
   const [link] = await db.select().from(resolutionLinks).where(eq(resolutionLinks.tokenHash, sha256(token)));
-  if (!link) return { ok: false as const, reason: "This link isn't valid." };
-  if (link.revokedAt) return { ok: false as const, reason: "This link was replaced by a newer one. Check your email for the latest link." };
-  if (link.expiresAt < new Date()) return { ok: false as const, reason: "This link has expired. Ask the business to send a new one." };
+  if (!link) return linkUnavailable("linkInvalid");
+  if (link.revokedAt) return linkUnavailable("linkReplaced");
+  if (link.expiresAt < new Date()) return linkUnavailable("linkExpired");
   return { ok: true as const, link };
 }
 
@@ -155,21 +166,21 @@ export async function submitProposal(
 ) {
   return db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
-    if (c.customerId !== p.customerId) throw new ResolutionError("You can't change this case");
-    if (c.status === "executing" || c.status === "resolved") throw new ResolutionError("This plan is already being carried out");
+    if (c.customerId !== p.customerId) throw new ResolutionError("cantChangeCase");
+    if (c.status === "executing" || c.status === "resolved") throw new ResolutionError("planAlreadyRunning");
 
     const available = await caseAvailable(t, c.id);
     const open = (await invoicesWithBalances(t, { businessId: c.businessId, customerId: p.customerId })).filter((i) => i.remaining > 0n);
     const parsed = parseLines(p.lines);
-    if (!parsed.ok) throw new ResolutionError(parsed.errors.join(" "));
+    if (!parsed.ok) throw userErrorFrom(ResolutionError, parsed.errors);
     const destination = lineAmount(parsed.lines, "refund") > 0n ? p.refundDestination : null;
     const check = validateProposal(
       { lines: parsed.lines, refundDestination: destination },
       { available, openInvoices: open.map((i) => ({ id: i.id, number: i.number, remaining: i.remaining })), isValidDestination: isWalletAddress },
     );
-    if (!check.ok) throw new ResolutionError(check.errors.join(" "));
+    if (!check.ok) throw userErrorFrom(ResolutionError, check.errors);
     if (destination && !isValidProof(p.destinationProof, c.id, destination))
-      throw new ResolutionError("Confirm the refund wallet by signing with it before submitting.");
+      throw new ResolutionError("confirmRefundWallet");
 
     const prev = await latestProposal(t, c.id);
     const version = (prev?.version ?? 0) + 1;
@@ -177,14 +188,17 @@ export async function submitProposal(
     const hash = hashProposal({ caseId: c.id, version, available, lines, refundDestination: destination });
     const proposalId = newId("pr");
 
-    const numberOf = (id: string) => open.find((i) => i.id === id)?.number ?? "invoice";
-    const changes = prev ? describeChanges({ lines: prev.lines, refundDestination: prev.refundDestination }, { lines, refundDestination: destination }, numberOf) : [];
+    const numberOf = (id: string) => open.find((i) => i.id === id)?.number ?? null;
+    const changes = prev ? planChanges({ lines: prev.lines, refundDestination: prev.refundDestination }, { lines, refundDestination: destination }, numberOf) : [];
 
     if (prev && (prev.status === "submitted" || prev.status === "approved")) {
       await t.update(proposals).set({ status: "superseded" }).where(eq(proposals.id, prev.id));
       const approval = await activeApproval(t, prev.id);
       if (approval) {
-        const reason = `Superseded by v${version}: ${changes.join("; ") || "plan resubmitted"}`;
+        const reasons = englishI18n.m.events.approvalReasons;
+        const reason = changes.length
+          ? englishI18n.t(reasons.superseded, { version: String(version), changes: changesText(englishI18n, changes)! })
+          : englishI18n.t(reasons.resubmitted, { version: String(version) });
         await t.update(approvals).set({ invalidatedAt: new Date(), invalidatedReason: reason }).where(eq(approvals.id, approval.id));
         await logEvent(t, {
           businessId: c.businessId,
@@ -192,7 +206,9 @@ export async function submitProposal(
           customerId: c.customerId,
           actor: "system",
           type: "approval.invalidated",
-          message: `Approval of v${prev.version} no longer applies — ${changes.join("; ") || "plan resubmitted"}. Execution is blocked until v${version} is approved.`,
+          data: changes.length
+            ? { variant: "changed", previous: prev.version, version, changes }
+            : { variant: "resubmitted", previous: prev.version, version },
         });
       }
     }
@@ -217,50 +233,48 @@ export async function submitProposal(
       customerId: c.customerId,
       actor: "customer",
       type: "proposal.submitted",
-      message: prev ? `Customer revised the plan (v${version}): ${changes.join("; ") || "no changes"}` : `Customer proposed a plan (v1): ${summarize(lines, numberOf)}`,
-      data: { version, hash },
+      data: prev
+        ? changes.length
+          ? { variant: "revised", version, hash, changes }
+          : { variant: "unchanged", version, hash }
+        : { variant: "first", version, hash, lines: planLineData(lines, numberOf) },
     });
     return { proposalId, version, hash };
   });
 }
 
-export function summarize(lines: ProposalLine[], invoiceNumber: (id: string) => string): string {
-  return lines
-    .map((l) =>
-      l.type === "invoice"
-        ? `${formatUsd(BigInt(l.amount))} to ${invoiceNumber(l.invoiceId)}`
-        : l.type === "credit"
-          ? `${formatUsd(BigInt(l.amount))} as credit`
-          : `${formatUsd(BigInt(l.amount))} refunded`,
-    )
-    .join(", ");
-}
-
 /**
- * The business declines the current version and tells the customer why. Any approval of
- * it is voided and the case goes back to the customer, who can submit a new version.
- * The business never edits the customer's plan itself: it's the customer's money.
+ * The business declines the current version and tells the customer why (by email, in `locale`).
+ * Any approval of it is voided and the case goes back to the customer, who can submit a new
+ * version. The business never edits the customer's plan itself: it's the customer's money.
  */
-export async function requestChanges(db: Db, p: { businessId: string; caseId: string; proposalId: string; note: string; actorUserId?: string }) {
+export async function requestChanges(db: Db, p: { businessId: string; caseId: string; proposalId: string; note: string; actorUserId?: string; locale?: Locale }) {
   const note = p.note.trim();
-  if (note.length < 3) throw new ResolutionError("Tell the customer what to change.");
+  if (note.length < 3) throw new ResolutionError("tellCustomerWhatToChange");
   await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
-    if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
+    if (c.businessId !== p.businessId) throw new ResolutionError("caseNotFound");
     const latest = await latestProposal(t, c.id);
-    if (!latest || latest.id !== p.proposalId) throw new ResolutionError("A newer version of this plan exists. Review it first.");
-    if (latest.status !== "submitted" && latest.status !== "approved") throw new ResolutionError(`Version ${latest.version} is already ${latest.status}.`);
+    if (!latest || latest.id !== p.proposalId) throw new ResolutionError("newerVersionReview");
+    if (latest.status !== "submitted" && latest.status !== "approved")
+      throw new ResolutionError("versionAlready", { version: String(latest.version), status: latest.status });
     const approval = await activeApproval(t, latest.id);
-    if (approval) await t.update(approvals).set({ invalidatedAt: new Date(), invalidatedReason: `Business requested changes: ${note}` }).where(eq(approvals.id, approval.id));
+    if (approval)
+      await t
+        .update(approvals)
+        .set({ invalidatedAt: new Date(), invalidatedReason: englishI18n.t(englishI18n.m.events.approvalReasons.changesRequested, { note }) })
+        .where(eq(approvals.id, approval.id));
     await t.update(proposals).set({ status: "declined", businessNote: note }).where(eq(proposals.id, latest.id));
     await t.update(cases).set({ status: "open" }).where(eq(cases.id, c.id));
     const [cust] = await t.select().from(customers).where(eq(customers.id, c.customerId!));
     const [biz] = await t.select().from(businesses).where(eq(businesses.id, c.businessId));
+    const { m, t: tr } = emailI18n(p.locale);
+    const vars = { business: biz.name, version: String(latest.version), note };
     await queueEmail(t, {
       businessId: c.businessId,
       to: cust.email,
-      subject: `${biz.name} asked for a change to your plan`,
-      body: `${biz.name} reviewed version ${latest.version} and asked: “${note}” Open your resolution link to send a revised plan.`,
+      subject: tr(m.emails.changesRequested.subject, vars),
+      body: tr(m.emails.changesRequested.body, vars),
     });
     await logEvent(t, {
       businessId: c.businessId,
@@ -269,7 +283,7 @@ export async function requestChanges(db: Db, p: { businessId: string; caseId: st
       actor: "business",
       actorUserId: p.actorUserId,
       type: "proposal.declined",
-      message: `Business asked for changes to v${latest.version}: “${note}”`,
+      data: { version: latest.version, note },
     });
   });
   await deliverOutbox(db);
@@ -279,12 +293,12 @@ export async function requestChanges(db: Db, p: { businessId: string; caseId: st
 export async function approveProposal(db: Db, p: { businessId: string; caseId: string; proposalId: string; approvedBy: string; actorUserId?: string }) {
   await db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
-    if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
+    if (c.businessId !== p.businessId) throw new ResolutionError("caseNotFound");
     const latest = await latestProposal(t, c.id);
-    if (!latest || latest.id !== p.proposalId) throw new ResolutionError("A newer version of this plan exists. Review it before approving.");
-    if (latest.status !== "submitted") throw new ResolutionError(`Version ${latest.version} is already ${latest.status}`);
+    if (!latest || latest.id !== p.proposalId) throw new ResolutionError("newerVersionApprove");
+    if (latest.status !== "submitted") throw new ResolutionError("versionAlready", { version: String(latest.version), status: latest.status });
     const recomputed = hashProposal({ ...latest, lines: latest.lines });
-    if (recomputed !== latest.hash) throw new ResolutionError("Plan integrity check failed");
+    if (recomputed !== latest.hash) throw new ResolutionError("planIntegrityFailed");
 
     await t.insert(approvals).values({ id: newId("ap"), proposalId: latest.id, proposalHash: latest.hash, approvedBy: p.approvedBy });
     await t.update(proposals).set({ status: "approved" }).where(eq(proposals.id, latest.id));
@@ -296,8 +310,7 @@ export async function approveProposal(db: Db, p: { businessId: string; caseId: s
       actor: "business",
       actorUserId: p.actorUserId,
       type: "proposal.approved",
-      message: `Business approved plan v${latest.version} (${latest.hash.slice(0, 10)})`,
-      data: { version: latest.version, hash: latest.hash },
+      data: { version: latest.version, hash: latest.hash, shortHash: latest.hash.slice(0, 10) },
     });
   });
 }
@@ -311,25 +324,27 @@ export async function approveProposal(db: Db, p: { businessId: string; caseId: s
 export async function executePlan(db: Db, p: { businessId: string; caseId: string; actorUserId?: string }): Promise<{ refundId: string | null }> {
   return db.transaction(async (t) => {
     const c = await lockCase(t, p.caseId);
-    if (c.businessId !== p.businessId) throw new ResolutionError("Case not found");
-    if (c.status !== "approved") throw new ResolutionError("This plan needs an approval for its current version before it can run.");
+    if (c.businessId !== p.businessId) throw new ResolutionError("caseNotFound");
+    if (c.status !== "approved") throw new ResolutionError("planNeedsApproval");
     const prop = await latestProposal(t, c.id);
-    if (!prop || prop.status !== "approved") throw new ResolutionError("The current version isn't approved.");
+    if (!prop || prop.status !== "approved") throw new ResolutionError("currentVersionNotApproved");
     const approval = await activeApproval(t, prop.id);
     if (!approval || approval.proposalHash !== prop.hash || hashProposal({ ...prop }) !== prop.hash)
-      throw new ResolutionError("The approval doesn't match the current plan.");
+      throw new ResolutionError("approvalMismatch");
 
     const sources = (await caseSources(t, c.id)).filter((s) => s.unresolved > 0n);
     const available = sources.reduce((a, s) => a + s.unresolved, 0n);
     if (available !== prop.available)
-      throw new ResolutionError(`The unresolved amount changed from ${formatUsd(prop.available)} to ${formatUsd(available)}. Ask for a revised plan.`);
+      throw new ResolutionError("unresolvedChanged", { from: formatUsd(prop.available), to: formatUsd(available) });
 
     const open = await invoicesWithBalances(t, { businessId: c.businessId, customerId: c.customerId! });
     for (const line of prop.lines) {
       if (line.type !== "invoice") continue;
       const inv = open.find((i) => i.id === line.invoiceId);
       if (!inv || inv.remaining < BigInt(line.amount))
-        throw new ResolutionError(`${inv?.number ?? "An invoice"} no longer has room for ${formatUsd(BigInt(line.amount))}. Ask for a revised plan.`);
+        throw inv
+          ? new ResolutionError("invoiceNoRoom", { number: inv.number, amount: formatUsd(BigInt(line.amount)) })
+          : new ResolutionError("someInvoiceNoRoom", { amount: formatUsd(BigInt(line.amount)) });
     }
 
     const refundAmount = lineAmount(prop.lines, "refund");
@@ -364,7 +379,7 @@ export async function executePlan(db: Db, p: { businessId: string; caseId: strin
         need -= take;
         out.push(...move("unresolved", to, take, { transferId: src.transferId, caseId: c.id, customerId: c.customerId }, toDims));
       }
-      if (need !== 0n) throw new ResolutionError("Not enough unresolved funds");
+      if (need !== 0n) throw new ResolutionError("notEnoughUnresolved");
       return out;
     };
 
@@ -381,7 +396,10 @@ export async function executePlan(db: Db, p: { businessId: string; caseId: strin
       key: `execute:${prop.id}`,
       kind: "resolution",
       caseId: c.id,
-      memo: `Plan v${prop.version}: ${summarize(prop.lines, (id) => numbers.get(id) ?? "invoice")}`,
+      memo: englishI18n.t(englishI18n.m.events.memos.plan, {
+        version: String(prop.version),
+        lines: planLinesText(englishI18n, planLineData(prop.lines, (id) => numbers.get(id) ?? null))!,
+      }),
       postings: posts,
     });
 
@@ -397,9 +415,7 @@ export async function executePlan(db: Db, p: { businessId: string; caseId: strin
       actor: "business",
       actorUserId: p.actorUserId,
       type: "plan.executed",
-      message: refundId
-        ? `Allocations recorded. ${formatUsd(refundAmount)} refund reserved and waiting for the business wallet signature.`
-        : "Allocations recorded. Case resolved.",
+      data: refundId ? { variant: "refundReserved", amount: formatUsd(refundAmount) } : { variant: "resolved" },
     });
     for (const line of prop.lines)
       if (line.type === "invoice") await logInvoicePaid(t, { businessId: c.businessId, invoiceId: line.invoiceId, actorUserId: p.actorUserId });
@@ -411,7 +427,7 @@ export async function executePlan(db: Db, p: { businessId: string; caseId: strin
         actor: "business",
         actorUserId: p.actorUserId,
         type: "case.resolved",
-        message: `Exception resolved: ${formatUsd(prop.available)} settled as agreed`,
+        data: { variant: "settled", amount: formatUsd(prop.available) },
       });
     return { refundId };
   });

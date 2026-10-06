@@ -18,6 +18,7 @@ import {
   type CaseKind,
   type CaseStatus,
 } from "@/lib/db/schema";
+import { eventDisplayData, parseApprovalReason } from "@/lib/i18n/english";
 import { businessBalances, caseAvailable, customerCredit, invoicesWithBalances } from "./queries";
 
 const s = (v: bigint) => v.toString();
@@ -80,7 +81,17 @@ export async function caseRows(db: Db, businessId: string, opts: { openOnly?: bo
   return out;
 }
 
-export type EventRow = { id: string; type: string; actor: string; message: string; createdAt: string; caseId: string | null; invoiceId: string | null };
+/** `message` is English; render with `renderEvent(i18n, row)`, which uses `data` for the viewer's language. */
+export type EventRow = {
+  id: string;
+  type: string;
+  actor: string;
+  message: string;
+  data: Record<string, unknown> | null;
+  createdAt: string;
+  caseId: string | null;
+  invoiceId: string | null;
+};
 
 export async function recentEvents(db: Db, where: { businessId: string; caseId?: string; invoiceId?: string }, limit = 20): Promise<EventRow[]> {
   const rows = await db
@@ -95,7 +106,16 @@ export async function recentEvents(db: Db, where: { businessId: string; caseId?:
     )
     .orderBy(desc(events.createdAt), desc(events.id))
     .limit(limit);
-  return rows.map((e) => ({ id: e.id, type: e.type, actor: e.actor, message: e.message, createdAt: e.createdAt.toISOString(), caseId: e.caseId, invoiceId: e.invoiceId }));
+  return rows.map((e) => ({
+    id: e.id,
+    type: e.type,
+    actor: e.actor,
+    message: e.message,
+    data: eventDisplayData(e.type, e.message, e.data ?? null),
+    createdAt: e.createdAt.toISOString(),
+    caseId: e.caseId,
+    invoiceId: e.invoiceId,
+  }));
 }
 
 export async function dashboardView(db: Db, businessId: string) {
@@ -277,7 +297,16 @@ export async function caseDetail(db: Db, caseId: string) {
       createdAt: p.createdAt.toISOString(),
       approvals: aps
         .filter((a) => a.proposalId === p.id)
-        .map((a) => ({ id: a.id, approvedBy: a.approvedBy, createdAt: a.createdAt.toISOString(), invalidatedAt: a.invalidatedAt?.toISOString() ?? null, invalidatedReason: a.invalidatedReason, hash: a.proposalHash })),
+        .map((a) => ({
+          id: a.id,
+          approvedBy: a.approvedBy,
+          createdAt: a.createdAt.toISOString(),
+          invalidatedAt: a.invalidatedAt?.toISOString() ?? null,
+          // English; show it with `renderApprovalReason(i18n, approval)`, which uses `invalidation`.
+          invalidatedReason: a.invalidatedReason,
+          invalidation: parseApprovalReason(a.invalidatedReason),
+          hash: a.proposalHash,
+        })),
     })),
     refund: refund
       ? {

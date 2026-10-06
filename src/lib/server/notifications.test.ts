@@ -200,10 +200,10 @@ describe("notification feed", () => {
     const ownerFeed = (await listNotifications(db, owner())).map((n) => n.message);
     expect(ownerFeed).toEqual(expect.arrayContaining(["Acme paid $10", "Customer proposed a plan", "Editor made an invoice"]));
     expect(ownerFeed).not.toContain("Not a notification");
-    expect(ownerFeed).not.toContain(`editor@feed.test joined as editor`); // the owner added them
+    expect(ownerFeed).not.toContain(`editor@feed.test joined as Editor`); // the owner added them
     const editorFeed = (await listNotifications(db, editor())).map((n) => n.message);
     expect(editorFeed).toContain("Acme paid $10");
-    expect(editorFeed).toContain("editor@feed.test joined as editor");
+    expect(editorFeed).toContain("editor@feed.test joined as Editor");
     expect(editorFeed).not.toContain("Editor made an invoice");
     const [first] = await listNotifications(db, owner());
     expect(first).toMatchObject({ read: false, category: expect.any(String), href: expect.stringMatching(/^\/app/) });

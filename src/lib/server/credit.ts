@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { customers, invoices } from "@/lib/db/schema";
 import { move } from "@/lib/domain/ledger";
+import { englishI18n } from "@/lib/i18n/english";
 import { newId } from "@/lib/ids";
 import { formatUsd, min } from "@/lib/money";
 import { InputError } from "./invoices";
@@ -16,17 +17,17 @@ import { customerCredit, invoiceWithBalance } from "./queries";
 export async function applyCredit(db: Db, p: { businessId: string; invoiceId: string; amount?: bigint; actorUserId?: string }) {
   return db.transaction(async (t) => {
     const [inv] = await t.select().from(invoices).where(and(eq(invoices.id, p.invoiceId), eq(invoices.businessId, p.businessId)));
-    if (!inv) throw new InputError("Invoice not found.");
+    if (!inv) throw new InputError("invoiceNotFound");
     await t.execute(sql`select id from ${customers} where id = ${inv.customerId} for update`);
     const credit = await customerCredit(t, inv.customerId);
     const { remaining } = (await invoiceWithBalance(t, inv.id))!;
     const amount = min(p.amount ?? credit, min(credit, remaining));
-    if (amount <= 0n) throw new InputError(credit === 0n ? "This customer has no credit left." : "This invoice is already paid.");
+    if (amount <= 0n) throw new InputError(credit === 0n ? "noCreditLeft" : "invoiceAlreadyPaid");
     await postEntry(t, {
       businessId: p.businessId,
       key: `credit-apply:${newId("ca")}`,
       kind: "credit",
-      memo: `Credit applied to ${inv.number}`,
+      memo: englishI18n.t(englishI18n.m.events.memos.creditApplied, { number: inv.number }),
       postings: move("credit", "invoice", amount, { customerId: inv.customerId }, { invoiceId: inv.id }),
     });
     await logEvent(t, {
@@ -36,7 +37,7 @@ export async function applyCredit(db: Db, p: { businessId: string; invoiceId: st
       actor: "business",
       actorUserId: p.actorUserId,
       type: "credit.applied",
-      message: `${formatUsd(amount)} of customer credit applied to ${inv.number}`,
+      data: { amount: formatUsd(amount), number: inv.number },
     });
     await logInvoicePaid(t, { businessId: p.businessId, invoiceId: inv.id, actorUserId: p.actorUserId });
     return { applied: amount };

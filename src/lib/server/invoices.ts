@@ -3,20 +3,21 @@ import { Keypair } from "@solana/web3.js";
 import type { Db, Executor } from "@/lib/db/client";
 import { businesses, customers, events, invoices, paymentRequests } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
+import { UserError } from "@/lib/i18n/errors";
 import { formatUsd, fromUnits } from "@/lib/money";
 import { solanaPayUrl } from "@/lib/solana/tx";
 import { logEvent } from "./journal";
 import { appliedByInvoice, invoiceWithBalance } from "./queries";
 
-export class InputError extends Error {}
+export class InputError extends UserError {}
 
 export async function createCustomer(db: Db, p: { businessId: string; name: string; email: string; actorUserId?: string }) {
   const name = p.name.trim();
   const email = p.email.trim().toLowerCase();
-  if (!name) throw new InputError("Enter the customer's name.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new InputError("Enter a valid email address.");
+  if (!name) throw new InputError("customerNameRequired");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new InputError("invalidEmail");
   const [existing] = await db.select().from(customers).where(and(eq(customers.businessId, p.businessId), eq(customers.email, email)));
-  if (existing) throw new InputError("A customer with that email already exists.");
+  if (existing) throw new InputError("customerEmailExists");
   const id = newId("cus");
   await db.transaction(async (t) => {
     await t.insert(customers).values({ id, businessId: p.businessId, name, email });
@@ -26,18 +27,18 @@ export async function createCustomer(db: Db, p: { businessId: string; name: stri
       actor: "business",
       actorUserId: p.actorUserId,
       type: "customer.created",
-      message: `${name} added as a customer (${email})`,
+      data: { name, email },
     });
   });
   return id;
 }
 
 export async function createInvoice(db: Db, p: { businessId: string; customerId: string; title: string; amount: bigint; dueAt: Date; actorUserId?: string }) {
-  if (p.amount <= 0n) throw new InputError("The amount must be greater than zero.");
-  if (!p.title.trim()) throw new InputError("Describe what this invoice is for.");
+  if (p.amount <= 0n) throw new InputError("invoiceAmountPositive");
+  if (!p.title.trim()) throw new InputError("invoiceTitleRequired");
   return db.transaction(async (t) => {
     const [cust] = await t.select().from(customers).where(and(eq(customers.id, p.customerId), eq(customers.businessId, p.businessId)));
-    if (!cust) throw new InputError("Choose a customer.");
+    if (!cust) throw new InputError("chooseCustomer");
     const [{ n }] = await t.select({ n: count() }).from(invoices).where(eq(invoices.businessId, p.businessId));
     const id = newId("inv");
     const number = `INV-${String(n + 1).padStart(4, "0")}`;
@@ -49,7 +50,7 @@ export async function createInvoice(db: Db, p: { businessId: string; customerId:
       actor: "business",
       actorUserId: p.actorUserId,
       type: "invoice.created",
-      message: `${number} created for ${cust.name}: ${formatUsd(p.amount)}`,
+      data: { number, customer: cust.name, amount: formatUsd(p.amount) },
     });
     return { id, number };
   });
@@ -61,8 +62,8 @@ export async function createInvoice(db: Db, p: { businessId: string; customerId:
  */
 export async function createPaymentRequest(db: Db, p: { invoiceId: string; amount: bigint | null }) {
   const inv = await invoiceWithBalance(db, p.invoiceId);
-  if (!inv) throw new InputError("Invoice not found");
-  if (p.amount !== null && p.amount <= 0n) throw new InputError("Enter an amount greater than zero.");
+  if (!inv) throw new InputError("invoiceNotFound");
+  if (p.amount !== null && p.amount <= 0n) throw new InputError("paymentAmountPositive");
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, inv.businessId));
   const reference = Keypair.generate().publicKey.toBase58();
   const id = newId("preq");
@@ -108,7 +109,7 @@ export async function flagOverdueInvoices(db: Executor, businessId: string, now 
       customerId: inv.customerId,
       actor: "system",
       type: "invoice.overdue",
-      message: `${inv.number} is overdue: ${formatUsd(remaining)} remaining`,
+      data: { number: inv.number, remaining: formatUsd(remaining) },
       dedupeKey: `overdue:${inv.id}`,
     });
     if (logged) flagged++;

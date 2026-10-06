@@ -28,6 +28,7 @@ import type { PublicConfig } from "@/lib/env";
 import { formatUsd } from "@/lib/money";
 import { explorerUrl, shortAddress } from "@/lib/solana/tx";
 import type { CaseDetail } from "@/lib/server/views";
+import { useI18n } from "@/lib/i18n/client";
 
 type Props = {
   caseId: string;
@@ -51,11 +52,13 @@ export function CaseActions(p: Props) {
   const [pending, start] = useTransition();
   const [link, setLink] = useState<string | null>(null);
   const [assignTo, setAssignTo] = useState(p.customers[0]?.id ?? "");
+  const { m, t, rich } = useI18n();
+  const A = m.cases.actions;
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>, success?: string) =>
     start(async () => {
       const res = await fn();
-      if (!res.ok) toast.push({ tone: "error", title: "That didn’t work", body: res.error });
+      if (!res.ok) toast.push({ tone: "error", title: A.failedTitle, body: res.error });
       else if (success) toast.push({ tone: "success", title: success });
       router.refresh();
     });
@@ -63,7 +66,7 @@ export function CaseActions(p: Props) {
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-veil/[0.06] px-5 py-4">
-        <h3 className="font-display text-[15px] font-semibold">Next step</h3>
+        <h3 className="font-display text-[15px] font-semibold">{A.nextStep}</h3>
       </div>
       <div className="space-y-4 p-5">
         {p.customer && (
@@ -80,13 +83,13 @@ export function CaseActions(p: Props) {
           <motion.div key={`${p.status}-${p.current?.id ?? "none"}-${p.refund?.status ?? ""}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }} className="space-y-3">
             {!p.canAct && p.status !== "resolved" && (
               <p className="flex items-start gap-2 rounded-xl bg-veil/[0.04] px-3.5 py-3 text-sm text-fg-2">
-                <Eye className="mt-0.5 size-4 shrink-0" /> You have view-only access. An editor or owner handles the next step.
+                <Eye className="mt-0.5 size-4 shrink-0" /> {A.viewOnly}
               </p>
             )}
 
             {p.canAct && !p.customer && p.kind === "unmatched" && (
               <>
-                <p className="text-sm text-fg-2">This transfer had no invoice reference, so PayFix won’t guess who sent it. Amount alone isn’t proof. If you know the sender, attribute it — they’ll still confirm how it’s used.</p>
+                <p className="text-sm text-fg-2">{A.unmatchedExplainer}</p>
                 <Select value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
                   {p.customers.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -94,36 +97,36 @@ export function CaseActions(p: Props) {
                     </option>
                   ))}
                 </Select>
-                <Button className="w-full" disabled={pending || !assignTo} onClick={() => act(() => assignCustomerAction(p.caseId, assignTo), "Payment attributed")}>
-                  <UserPlus className="size-4" /> Attribute to customer
+                <Button className="w-full" disabled={pending || !assignTo} onClick={() => act(() => assignCustomerAction(p.caseId, assignTo), A.attributed)}>
+                  <UserPlus className="size-4" /> {A.attribute}
                 </Button>
               </>
             )}
 
             {p.canAct && p.current?.status === "declined" && (
               <div className="rounded-xl border border-amber/20 bg-amber/[0.06] px-3.5 py-3 text-sm">
-                <p className="font-medium text-amber">You asked for changes to v{p.current.version}</p>
-                <p className="mt-0.5 text-fg-2">“{p.current.businessNote}” Waiting for the customer’s revised plan.</p>
+                <p className="font-medium text-amber">{t(A.changesRequested, { version: String(p.current.version) })}</p>
+                <p className="mt-0.5 text-fg-2">{t(A.changesRequestedNote, { note: p.current.businessNote ?? "" })}</p>
               </div>
             )}
 
             {p.canAct && p.customer && (p.status === "open" || p.status === "proposed") && (!p.current || p.current.status === "declined") && (
               <>
-                <p className="text-sm text-fg-2">Your customer decides where the extra goes. They’ll verify by email, choose a split, and prove any refund wallet by signing with it.</p>
+                <p className="text-sm text-fg-2">{A.linkExplainer}</p>
                 <Button
                   className="w-full"
                   disabled={pending}
                   onClick={() =>
                     start(async () => {
                       const res = await sendLinkAction(p.caseId);
-                      if (!res.ok) return toast.push({ tone: "error", title: "Couldn’t send the link", body: res.error });
+                      if (!res.ok) return toast.push({ tone: "error", title: A.linkFailed, body: res.error });
                       setLink(res.url);
-                      toast.push({ tone: "success", title: "Resolution link sent", body: `Emailed to ${p.customer!.email}` });
+                      toast.push({ tone: "success", title: A.linkSent, body: t(A.emailedTo, { email: p.customer!.email }) });
                       router.refresh();
                     })
                   }
                 >
-                  {pending ? <LogoSpinner size={18} /> : <Send className="size-4" />} {p.linkActive ? "Resend resolution link" : "Send resolution link"}
+                  {pending ? <LogoSpinner size={18} /> : <Send className="size-4" />} {p.linkActive ? A.resendLink : A.sendLink}
                 </Button>
                 {link && (
                   <div className="flex items-center gap-2 rounded-xl border border-violet/20 bg-violet/[0.06] px-3 py-2">
@@ -132,17 +135,15 @@ export function CaseActions(p: Props) {
                     <CopyButton value={link} />
                   </div>
                 )}
-                {p.linkActive && !link && <p className="text-xs text-fg-3">A link is active. Waiting for the customer’s plan.</p>}
+                {p.linkActive && !link && <p className="text-xs text-fg-3">{A.linkActive}</p>}
               </>
             )}
 
             {p.canAct && p.status === "proposed" && p.current?.status === "submitted" && (
               <>
-                <p className="text-sm text-fg-2">
-                  Review version {p.current.version}. Your approval covers exactly this plan (<span className="font-mono text-xs">#{p.current.hash.slice(0, 10)}</span>). Any change the customer makes will void it.
-                </p>
-                <Button className="w-full" disabled={pending} onClick={() => act(() => approveAction(p.caseId, p.current!.id), `Approved v${p.current!.version}`)}>
-                  {pending ? <LogoSpinner size={18} /> : <BadgeCheck className="size-4" />} Approve v{p.current.version}
+                <p className="text-sm text-fg-2">{rich(A.review, { hash: (c) => <span className="font-mono text-xs">{c}</span> }, { version: String(p.current.version), hash: p.current.hash.slice(0, 10) })}</p>
+                <Button className="w-full" disabled={pending} onClick={() => act(() => approveAction(p.caseId, p.current!.id), t(A.approvedToast, { version: String(p.current!.version) }))}>
+                  {pending ? <LogoSpinner size={18} /> : <BadgeCheck className="size-4" />} {t(A.approve, { version: String(p.current.version) })}
                 </Button>
                 <RequestChanges caseId={p.caseId} proposalId={p.current.id} version={p.current.version} />
               </>
@@ -150,26 +151,26 @@ export function CaseActions(p: Props) {
 
             {p.canAct && p.status === "approved" && (
               <>
-                <p className="text-sm text-fg-2">Approved. Running the plan re-checks the approval against the current version, posts the allocations, and reserves any refund.</p>
-                <Button variant="success" className="w-full" disabled={pending} onClick={() => act(() => executeAction(p.caseId), "Plan executed")}>
-                  {pending ? <LogoSpinner size={18} /> : <PlayCircle className="size-4" />} Run plan v{p.current?.version}
+                <p className="text-sm text-fg-2">{A.approvedExplainer}</p>
+                <Button variant="success" className="w-full" disabled={pending} onClick={() => act(() => executeAction(p.caseId), A.executedToast)}>
+                  {pending ? <LogoSpinner size={18} /> : <PlayCircle className="size-4" />} {t(A.run, { version: String(p.current?.version ?? "") })}
                 </Button>
                 {p.current && <RequestChanges caseId={p.caseId} proposalId={p.current.id} version={p.current.version} />}
               </>
             )}
 
-            {p.status === "executing" && p.refund && (p.canAct ? <RefundPanel {...p} refund={p.refund} /> : <p className="text-sm text-fg-2">Refund of the plan is in progress.</p>)}
+            {p.status === "executing" && p.refund && (p.canAct ? <RefundPanel {...p} refund={p.refund} /> : <p className="text-sm text-fg-2">{A.refundInProgress}</p>)}
 
             {p.status === "resolved" && (
               <div className="flex flex-col items-center py-3 text-center">
                 <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 16 }}>
                   <LogoMark size={64} animate />
                 </motion.div>
-                <p className="mt-4 font-display text-lg font-semibold">Loop closed</p>
-                <p className="mt-1 text-sm text-fg-2">Every dollar is accounted for, and both sides share the same receipt.</p>
+                <p className="mt-4 font-display text-lg font-semibold">{A.loopClosed}</p>
+                <p className="mt-1 text-sm text-fg-2">{A.loopClosedBody}</p>
                 {p.refund?.signature && !p.config.simulated && (
                   <a href={explorerUrl("tx", p.refund.signature, p.config.cluster)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-sm text-violet hover:underline">
-                    Refund on Explorer <ExternalLink className="size-3.5" />
+                    {A.refundOnExplorer} <ExternalLink className="size-3.5" />
                   </a>
                 )}
               </div>
@@ -188,10 +189,12 @@ function RequestChanges({ caseId, proposalId, version }: { caseId: string; propo
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
+  const { m, t } = useI18n();
+  const A = m.cases.actions;
   if (!open)
     return (
       <Button variant="ghost" className="w-full" onClick={() => setOpen(true)}>
-        <MessageSquareWarning className="size-4" /> Request changes
+        <MessageSquareWarning className="size-4" /> {A.requestChanges}
       </Button>
     );
   return (
@@ -201,12 +204,12 @@ function RequestChanges({ caseId, proposalId, version }: { caseId: string; propo
         onChange={(e) => setNote(e.target.value)}
         rows={3}
         autoFocus
-        placeholder="e.g. Please keep the $40 as credit instead of a refund."
+        placeholder={A.requestPlaceholder}
         className="w-full rounded-xl border border-veil/10 bg-ink-950/60 px-3.5 py-2.5 text-sm text-fg outline-none placeholder:text-fg-3/70 focus:border-violet/60 focus:ring-4 focus:ring-violet/15"
       />
       <div className="flex gap-2">
         <Button variant="secondary" size="sm" onClick={() => setOpen(false)} disabled={pending}>
-          Cancel
+          {m.common.cancel}
         </Button>
         <Button
           size="sm"
@@ -215,16 +218,16 @@ function RequestChanges({ caseId, proposalId, version }: { caseId: string; propo
           onClick={() =>
             start(async () => {
               const res = await requestChangesAction(caseId, proposalId, note);
-              if (!res.ok) return toast.push({ tone: "error", title: "Couldn’t send", body: res.error });
-              toast.push({ tone: "success", title: `Asked for changes to v${version}`, body: "The customer was notified." });
+              if (!res.ok) return toast.push({ tone: "error", title: A.requestFailed, body: res.error });
+              toast.push({ tone: "success", title: t(A.requestedToast, { version: String(version) }), body: A.customerNotified });
               router.refresh();
             })
           }
         >
-          {pending ? <LogoSpinner size={16} /> : "Send to customer"}
+          {pending ? <LogoSpinner size={16} /> : A.sendToCustomer}
         </Button>
       </div>
-      <p className="text-xs text-fg-3">This voids any approval of v{version}. The customer sends a new version.</p>
+      <p className="text-xs text-fg-3">{t(A.requestNote, { version: String(version) })}</p>
     </motion.div>
   );
 }
@@ -236,6 +239,8 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
   useConnection();
   const [busy, setBusy] = useState<null | "demo" | "wallet">(null);
   const r = p.refund;
+  const { m, t, rich } = useI18n();
+  const R = m.cases.refund;
 
   // While a refund is in flight, reconcile with the chain. One check at a time, and stop
   // once it settles: a page render can take longer than the poll interval, and a new
@@ -248,7 +253,7 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
       const res = await checkRefundAction(r.id);
       if (stopped) return;
       if (res.ok && res.status !== "submitted") {
-        if (res.status === "confirmed") toast.push({ tone: "success", title: "Refund confirmed on chain", body: "Case resolved." });
+        if (res.status === "confirmed") toast.push({ tone: "success", title: R.confirmedToast, body: R.caseResolved });
         router.refresh();
         return;
       }
@@ -259,7 +264,7 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [r.status, r.id, router, toast]);
+  }, [r.status, r.id, router, toast, R]);
 
   const walletMatches = publicKey?.toBase58() === p.businessWallet;
 
@@ -272,10 +277,10 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
       const signed = await signTransaction(Transaction.from(Buffer.from(prep.transaction, "base64")));
       const res = await submitRefundAction(prep.attemptId, Buffer.from(signed.serialize()).toString("base64"));
       if (!res.ok) throw new Error(res.error);
-      toast.push({ tone: "success", title: "Refund signed and sent" });
+      toast.push({ tone: "success", title: R.sentToast });
       router.refresh();
     } catch (e) {
-      toast.push({ tone: "error", title: "Refund not sent", body: e instanceof Error ? e.message : undefined });
+      toast.push({ tone: "error", title: R.notSent, body: e instanceof Error ? e.message : undefined });
     } finally {
       setBusy(null);
     }
@@ -285,8 +290,8 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
     setBusy("demo");
     const res = await demoSignRefundAction(r.id);
     setBusy(null);
-    if (!res.ok) return toast.push({ tone: "error", title: "Refund not sent", body: res.error });
-    toast.push({ tone: "success", title: "Refund signed and sent" });
+    if (!res.ok) return toast.push({ tone: "error", title: R.notSent, body: res.error });
+    toast.push({ tone: "success", title: R.sentToast });
     router.refresh();
   };
 
@@ -294,59 +299,57 @@ function RefundPanel(p: Props & { refund: NonNullable<CaseDetail["refund"]> }) {
     <div className="space-y-3">
       <div className="rounded-2xl border border-cyan/20 bg-cyan/[0.05] p-4">
         <div className="flex items-baseline justify-between">
-          <span className="text-xs uppercase tracking-[0.14em] text-fg-3">Refund</span>
+          <span className="text-xs uppercase tracking-[0.14em] text-fg-3">{R.label}</span>
           <span className="tabular font-display text-xl font-semibold">{formatUsd(BigInt(r.amount))}</span>
         </div>
-        <p className="mt-1 text-xs text-fg-3">
-          to <span className="font-mono text-fg-2">{shortAddress(r.destination, 6)}</span> · wallet ownership proven by signature
-        </p>
+        <p className="mt-1 text-xs text-fg-3">{rich(R.destination, { address: (c) => <span className="font-mono text-fg-2">{c}</span> }, { address: shortAddress(r.destination, 6) })}</p>
       </div>
 
       {r.status === "submitted" ? (
         <div className="flex items-center gap-3 rounded-xl bg-veil/[0.03] px-3.5 py-3 text-sm text-fg-2">
           <LogoSpinner size={22} />
           <div className="min-w-0 flex-1">
-            <p className="text-fg">Confirming on {p.config.simulated ? "the simulated chain" : p.config.cluster}…</p>
+            <p className="text-fg">{p.config.simulated ? R.confirmingSimulated : t(R.confirmingOn, { cluster: p.config.cluster })}</p>
             {r.signature && <p className="truncate font-mono text-[11px] text-fg-3">{r.signature}</p>}
           </div>
         </div>
       ) : (
         <>
           {r.status === "failed" && (
-            <Alert tone="rose" title="The last attempt failed on chain">
-              No funds moved. The refund is still reserved; you can sign again.
+            <Alert tone="rose" title={R.failedTitle}>
+              {R.failedBody}
             </Alert>
           )}
-          <p className="text-sm text-fg-2">Allocations are posted. The refund is reserved and waits for your wallet’s signature. PayFix records the signature before broadcasting, so it can’t be sent twice.</p>
+          <p className="text-sm text-fg-2">{R.explainer}</p>
           {p.demoMerchant && (
             <Button variant="success" className="w-full" disabled={!!busy} onClick={signWithDemo}>
-              {busy === "demo" ? <LogoSpinner size={18} /> : <PenLine className="size-4" />} Sign with demo merchant wallet
+              {busy === "demo" ? <LogoSpinner size={18} /> : <PenLine className="size-4" />} {R.signDemo}
             </Button>
           )}
           {!p.config.simulated &&
             (publicKey ? (
               walletMatches ? (
                 <Button variant={p.demoMerchant ? "secondary" : "success"} className="w-full" disabled={!!busy} onClick={signWithWallet}>
-                  {busy === "wallet" ? <LogoSpinner size={18} /> : <PenLine className="size-4" />} Sign refund in {shortAddress(publicKey.toBase58())}
+                  {busy === "wallet" ? <LogoSpinner size={18} /> : <PenLine className="size-4" />} {t(R.signIn, { wallet: shortAddress(publicKey.toBase58()) })}
                 </Button>
               ) : (
-                <Alert tone="amber" title="Different wallet connected">
-                  Refunds must come from the wallet that received the payment ({shortAddress(p.businessWallet)}).
+                <Alert tone="amber" title={R.wrongWalletTitle}>
+                  {t(R.wrongWalletBody, { wallet: shortAddress(p.businessWallet) })}
                 </Alert>
               )
             ) : (
-              !p.demoMerchant && <WalletButton className="w-full" label="Connect business wallet" />
+              !p.demoMerchant && <WalletButton className="w-full" label={R.connect} />
             ))}
         </>
       )}
 
       {r.attempts.length > 0 && (
         <div className="space-y-1.5 pt-1">
-          <p className="text-xs text-fg-3">Attempts</p>
+          <p className="text-xs text-fg-3">{R.attempts}</p>
           {r.attempts.map((a) => (
             <div key={a.id} className="flex items-center gap-2 text-xs">
               {a.status === "confirmed" ? <CircleCheckBig className="size-3.5 text-mint" /> : a.status === "failed" || a.status === "expired" ? <ShieldAlert className="size-3.5 text-amber" /> : <LogoSpinner size={14} />}
-              <span className="text-fg-2">{a.status}</span>
+              <span className="text-fg-2">{m.cases.attemptStatus[a.status]}</span>
               {a.signature && <span className="truncate font-mono text-fg-3">{shortAddress(a.signature, 6)}</span>}
             </div>
           ))}

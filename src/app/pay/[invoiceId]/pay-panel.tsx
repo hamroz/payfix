@@ -16,11 +16,13 @@ import { Alert, Button, Card, Input, Label } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import type { PublicConfig } from "@/lib/env";
-import { amountFit, formatDate } from "@/lib/format";
+import { amountFit } from "@/lib/format";
 import { formatUsd, fromUnits, tryToUnits } from "@/lib/money";
 import { ata, buildPaymentTransaction, explorerUrl, shortAddress } from "@/lib/solana/tx";
 import type { TransferRow } from "@/lib/server/views";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/messages";
 
 type Invoice = { id: string; number: string; title: string; amount: string; applied: string; remaining: string; dueAt: string };
 type Method = "demo" | "wallet" | "qr";
@@ -35,6 +37,8 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
+  const { m, t, rich, date } = useI18n();
+  const P = m.pay;
 
   const units = tryToUnits(amount || "0");
   const over = units !== null && units > remaining && remaining > 0n ? units - remaining : 0n;
@@ -65,7 +69,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
           <span className="grid size-11 place-items-center rounded-2xl bg-[linear-gradient(135deg,#6366F1,#A78BFA)] font-display font-semibold text-white">{business.name[0]}</span>
           <div className="min-w-0">
             <p className="font-display text-[15px] font-semibold">{business.name}</p>
-            <p className="text-xs text-fg-3">Invoice for {customerName}</p>
+            <p className="text-xs text-fg-3">{t(P.invoiceFor, { customer: customerName })}</p>
           </div>
         </div>
 
@@ -73,16 +77,14 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
           <ProgressRing pct={paidPct} />
           <div className="@container min-w-0 flex-1" title={formatUsd(BigInt(remaining === 0n ? invoice.amount : invoice.remaining))}>
             <p className="text-xs uppercase tracking-[0.14em] text-fg-3">
-              {remaining === 0n ? "Paid in full" : BigInt(invoice.applied) > 0n ? "Remaining" : "Amount due"}
+              {remaining === 0n ? P.paidInFull : BigInt(invoice.applied) > 0n ? P.remaining : P.amountDue}
             </p>
             <AnimatedAmount
               units={remaining === 0n ? invoice.amount : invoice.remaining}
               className="tabular mt-1 block whitespace-nowrap font-display font-semibold tracking-tight"
               style={amountFit(remaining === 0n ? invoice.amount : invoice.remaining, 2.25)}
             />
-            <p className="mt-1 text-sm text-fg-3">
-              of {formatUsd(BigInt(invoice.amount))} · due <span suppressHydrationWarning>{formatDate(invoice.dueAt)}</span>
-            </p>
+            <p className="mt-1 text-sm text-fg-3">{rich(P.ofTotalDue, { date: (c) => <span suppressHydrationWarning>{c}</span> }, { total: formatUsd(BigInt(invoice.amount)), date: date(invoice.dueAt) })}</p>
           </div>
         </div>
 
@@ -93,11 +95,11 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
 
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium">Payments</p>
+            <p className="text-sm font-medium">{P.payments}</p>
             <LiveSync scope={{ invoice: invoice.id }} />
           </div>
           {payments.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-veil/10 px-4 py-5 text-center text-sm text-fg-3">No payments yet.</p>
+            <p className="rounded-xl border border-dashed border-veil/10 px-4 py-5 text-center text-sm text-fg-3">{P.noPayments}</p>
           ) : (
             <ul className="space-y-2">
               <AnimatePresence initial={false}>
@@ -116,12 +118,12 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
                       <p className="tabular text-sm font-medium">{formatUsd(BigInt(p.amount))}</p>
                       <p className="truncate text-xs text-fg-3">
                         {BigInt(p.appliedHere) < BigInt(p.amount)
-                          ? `${formatUsd(BigInt(p.appliedHere))} applied · ${formatUsd(BigInt(p.amount) - BigInt(p.appliedHere))} held for your decision`
-                          : "Applied to this invoice"}
+                          ? t(P.partlyApplied, { applied: formatUsd(BigInt(p.appliedHere)), held: formatUsd(BigInt(p.amount) - BigInt(p.appliedHere)) })
+                          : P.appliedHere}
                       </p>
                     </div>
                     {!config.simulated ? (
-                      <a href={explorerUrl("tx", p.signature, config.cluster)} target="_blank" rel="noreferrer" className="text-fg-3 hover:text-fg" aria-label="View on Solana Explorer">
+                      <a href={explorerUrl("tx", p.signature, config.cluster)} target="_blank" rel="noreferrer" className="text-fg-3 hover:text-fg" aria-label={P.viewOnExplorer}>
                         <ExternalLink className="size-4" />
                       </a>
                     ) : (
@@ -140,14 +142,14 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
           {phase === "done" && lastPaid ? (
             <motion.div key="done" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center py-8 text-center">
               <SuccessMark />
-              <h2 className="mt-6 font-display text-2xl font-semibold">Payment confirmed</h2>
+              <h2 className="mt-6 font-display text-2xl font-semibold">{P.done.title}</h2>
               <p className="mt-2 max-w-sm text-sm text-fg-2">
-                {formatUsd(tryToUnits(lastPaid.amount) ?? 0n)} reached {business.name}.{" "}
-                {remaining === 0n && BigInt(invoice.applied) > 0n ? "This invoice is settled." : `${formatUsd(remaining)} remains on this invoice.`}
+                {t(P.done.reached, { amount: formatUsd(tryToUnits(lastPaid.amount) ?? 0n), business: business.name })}{" "}
+                {remaining === 0n && BigInt(invoice.applied) > 0n ? P.done.settled : t(P.done.remains, { amount: formatUsd(remaining) })}
               </p>
               {!config.simulated && (
                 <a href={explorerUrl("tx", lastPaid.signature, config.cluster)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-sm text-violet hover:underline">
-                  View on Solana Explorer <ExternalLink className="size-3.5" />
+                  {P.viewOnExplorer} <ExternalLink className="size-3.5" />
                 </a>
               )}
               <Button
@@ -158,22 +160,22 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
                   setAmount(remaining > 0n ? fromUnits(remaining) : "");
                 }}
               >
-                Make another payment
+                {P.done.another}
               </Button>
             </motion.div>
           ) : (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h2 className="font-display text-xl font-semibold">Pay with {config.tokenLabel}</h2>
-              <p className="mt-1 text-sm text-fg-3">Settles in seconds on Solana. No card fees, no chargebacks.</p>
+              <h2 className="font-display text-xl font-semibold">{t(P.form.title, { token: config.tokenLabel })}</h2>
+              <p className="mt-1 text-sm text-fg-3">{P.form.subtitle}</p>
 
               {methods.length > 1 && (
-                <div className="mt-5 grid grid-flow-col gap-1 rounded-xl border border-veil/[0.07] bg-ink-950/50 p-1">
-                  {methods.map((m) => (
-                    <button key={m} onClick={() => setMethod(m)} className={cn("relative rounded-lg px-3 py-2 text-sm transition", method === m ? "text-fg" : "text-fg-3 hover:text-fg-2")}>
-                      {method === m && <motion.span layoutId="pay-method" className="absolute inset-0 rounded-lg bg-veil/[0.08]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
-                      <span className="relative inline-flex items-center gap-1.5">
-                        {m === "demo" ? <Sparkles className="size-3.5" /> : m === "wallet" ? <Wallet className="size-3.5" /> : <QrCode className="size-3.5" />}
-                        {m === "demo" ? "Demo wallet" : m === "wallet" ? "Browser wallet" : "Scan QR"}
+                <div className="mt-5 grid auto-cols-fr grid-flow-col gap-1 rounded-xl border border-veil/[0.07] bg-ink-950/50 p-1">
+                  {methods.map((opt) => (
+                    <button key={opt} onClick={() => setMethod(opt)} className={cn("relative rounded-lg px-2 py-2 text-[13px] leading-tight transition sm:px-3 sm:text-sm", method === opt ? "text-fg" : "text-fg-3 hover:text-fg-2")}>
+                      {method === opt && <motion.span layoutId="pay-method" className="absolute inset-0 rounded-lg bg-veil/[0.08]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+                      <span className="relative flex flex-col items-center justify-center gap-1 text-center sm:flex-row sm:gap-1.5">
+                        {opt === "demo" ? <Sparkles className="size-3.5" /> : opt === "wallet" ? <Wallet className="size-3.5" /> : <QrCode className="size-3.5" />}
+                        {P.form.methods[opt]}
                       </span>
                     </button>
                   ))}
@@ -181,7 +183,7 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
               )}
 
               <div className="mt-5">
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">{P.form.amount}</Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-display text-lg text-fg-3">$</span>
                   <Input id="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} className="h-14 pl-8 font-display text-2xl font-semibold tabular" />
@@ -189,8 +191,8 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
                 <AnimatePresence>
                   {over > 0n && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                      <Alert tone="amber" className="mt-3" title={`That’s ${formatUsd(over)} more than the balance`}>
-                        The extra won’t be kept silently. You’ll get a link to choose: apply it to another invoice, keep it as credit, or get it back.
+                      <Alert tone="amber" className="mt-3" title={t(P.form.overTitle, { amount: formatUsd(over) })}>
+                        {P.form.overBody}
                       </Alert>
                     </motion.div>
                   )}
@@ -203,13 +205,13 @@ export function PayPanel({ config, invoice, business, customerName, payments }: 
                     <Button size="lg" className="w-full" onClick={payDemo} disabled={pending || !units || units <= 0n}>
                       {phase === "paying" ? (
                         <>
-                          <LogoSpinner size={20} /> Confirming on {config.simulated ? "the simulated chain" : config.cluster}…
+                          <LogoSpinner size={20} /> {config.simulated ? P.form.confirmingSimulated : t(P.form.confirmingOn, { cluster: config.cluster })}
                         </>
                       ) : (
-                        <>Pay {units ? formatUsd(units) : ""} from demo wallet</>
+                        <>{units ? t(P.form.payFromDemo, { amount: formatUsd(units) }) : P.form.payFromDemoNoAmount}</>
                       )}
                     </Button>
-                    <p className="mt-3 text-center text-xs text-fg-3">Signs with a server-held demo customer wallet. Test tokens only.</p>
+                    <p className="mt-3 text-center text-xs text-fg-3">{P.form.demoNote}</p>
                   </div>
                 )}
                 {method === "wallet" && <WalletPay invoiceId={invoice.id} amount={units} business={business} config={config} onPaid={onPaid} onError={setError} />}
@@ -231,8 +233,10 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const [busy, setBusy] = useState(false);
+  const { m, t } = useI18n();
+  const W = m.pay.wallet;
 
-  if (!publicKey) return <WalletButton className="w-full" size="lg" label="Connect wallet to pay" />;
+  if (!publicKey) return <WalletButton className="w-full" size="lg" label={W.connect} />;
 
   const pay = async () => {
     if (!amount || amount <= 0n || !config.mint) return;
@@ -245,9 +249,7 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
         .then((r) => BigInt(r.value.amount))
         .catch(() => 0n);
       if (held < amount) {
-        onError(
-          `This wallet holds ${formatUsd(held)} ${config.tokenLabel}, which isn’t enough for ${formatUsd(amount)}. Pay a smaller amount${config.demoMode ? " or use the faucet below to get test USD" : ""}.`,
-        );
+        onError(t(config.demoMode ? W.insufficientFaucet : W.insufficient, { held: formatUsd(held), token: config.tokenLabel, amount: formatUsd(amount) }));
         return;
       }
       const req = await createPaymentRequestAction(invoiceId, fromUnits(amount));
@@ -268,7 +270,7 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
       await fetch(`/api/sync?b=${encodeURIComponent(business.id)}`, { method: "POST" });
       onPaid(signature);
     } catch (e) {
-      onError(walletErrorMessage(e));
+      onError(walletErrorMessage(e, m.pay.errors));
     } finally {
       setBusy(false);
     }
@@ -279,10 +281,10 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
       <Button size="lg" className="w-full" onClick={pay} disabled={busy || !amount || amount <= 0n}>
         {busy ? (
           <>
-            <LogoSpinner size={20} /> Waiting for your wallet…
+            <LogoSpinner size={20} /> {W.waiting}
           </>
         ) : (
-          <>Pay {amount ? formatUsd(amount) : ""}</>
+          <>{amount ? t(W.pay, { amount: formatUsd(amount) }) : W.payNoAmount}</>
         )}
       </Button>
       <div className="flex justify-center">
@@ -293,13 +295,13 @@ function WalletPay({ invoiceId, amount, business, config, onPaid, onError }: { i
 }
 
 /** Plain-language versions of the errors wallets and RPCs throw. */
-function walletErrorMessage(e: unknown): string {
+function walletErrorMessage(e: unknown, E: Messages["pay"]["errors"]): string {
   const msg = e instanceof Error ? e.message : String(e);
-  if (/reject|denied|cancel/i.test(msg)) return "You cancelled the payment in your wallet. Nothing was sent.";
-  if (/insufficient|0x1\b|debit an account/i.test(msg)) return "The wallet doesn’t have enough test USD or SOL for this payment. Nothing was sent.";
-  if (/blockhash|expired|timed? ?out/i.test(msg)) return "The network took too long to confirm. Check the payments list in a moment before trying again.";
-  if (/network|cluster|devnet/i.test(msg)) return "Switch your wallet to Solana devnet, then try again.";
-  return "The payment didn’t go through. Nothing was charged — try again.";
+  if (/reject|denied|cancel/i.test(msg)) return E.cancelled;
+  if (/insufficient|0x1\b|debit an account/i.test(msg)) return E.insufficient;
+  if (/blockhash|expired|timed? ?out/i.test(msg)) return E.timeout;
+  if (/network|cluster|devnet/i.test(msg)) return E.network;
+  return E.generic;
 }
 
 function QrPay({ invoiceId, amount, config }: { invoiceId: string; amount: string; config: PublicConfig }) {
@@ -307,6 +309,7 @@ function QrPay({ invoiceId, amount, config }: { invoiceId: string; amount: strin
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const key = useMemo(() => `${invoiceId}:${amount}`, [invoiceId, amount]);
+  const { m, t } = useI18n();
 
   useEffect(() => {
     let live = true;
@@ -333,11 +336,11 @@ function QrPay({ invoiceId, amount, config }: { invoiceId: string; amount: strin
         </span>
       </div>
       <p className="mt-4 text-center text-sm text-fg-2">
-        Scan with Phantom or Solflare{config.mainnet ? "" : ` on ${config.cluster}`}. This page updates by itself when the payment lands.
+        {config.mainnet ? m.pay.qr.scan : t(m.pay.qr.scanOn, { cluster: config.cluster })}
       </p>
       {url && (
         <a href={url} className="mt-2 text-xs text-violet hover:underline">
-          Open in wallet app
+          {m.pay.qr.openInWallet}
         </a>
       )}
       {error && <p className="mt-2 text-sm text-rose">{error}</p>}
@@ -349,11 +352,13 @@ function QrPay({ invoiceId, amount, config }: { invoiceId: string; amount: strin
 function useFaucet() {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const { m, t } = useI18n();
+  const F = m.pay.faucet;
   const request = async (address: string) => {
     setBusy(true);
     const res = await faucetAction(address);
     setBusy(false);
-    toast.push(res.ok ? { tone: "success", title: "2,000 test USD sent", body: "It shows in the wallet within a few seconds." } : { tone: "error", title: "No test USD sent", body: res.error });
+    toast.push(res.ok ? { tone: "success", title: t(F.sentTitle, { amount: 2000 }), body: F.sentBody } : { tone: "error", title: F.failedTitle, body: res.error });
     return res.ok;
   };
   return { busy, request };
@@ -362,6 +367,7 @@ function useFaucet() {
 function FaucetHint() {
   const { publicKey } = useWallet();
   const { busy, request } = useFaucet();
+  const { m, t } = useI18n();
   if (!publicKey) return null;
   return (
     <button
@@ -369,7 +375,7 @@ function FaucetHint() {
       disabled={busy}
       className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-veil/10 py-2.5 text-xs text-fg-3 transition hover:border-violet/40 hover:text-fg"
     >
-      <Droplets className="size-3.5" /> {busy ? "Sending test USD…" : "Need test USD? Get 2,000 from the devnet faucet"}
+      <Droplets className="size-3.5" /> {busy ? m.pay.faucet.sending : t(m.pay.faucet.hint, { amount: 2000 })}
     </button>
   );
 }
@@ -379,13 +385,15 @@ function PhoneFaucet() {
   const [open, setOpen] = useState(false);
   const [address, setAddress] = useState("");
   const { busy, request } = useFaucet();
+  const { m } = useI18n();
+  const F = m.pay.faucet;
   if (!open)
     return (
       <button
         onClick={() => setOpen(true)}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-veil/10 py-2.5 text-xs text-fg-3 transition hover:border-violet/40 hover:text-fg"
       >
-        <Droplets className="size-3.5" /> Paying from a phone wallet? Get test USD first
+        <Droplets className="size-3.5" /> {F.phoneHint}
       </button>
     );
   return (
@@ -397,14 +405,14 @@ function PhoneFaucet() {
       }}
     >
       <ol className="list-decimal space-y-1 pl-4">
-        <li>In Phantom: Settings → Developer Settings → turn on Testnet Mode and pick Solana Devnet.</li>
-        <li>Copy your wallet address and paste it below.</li>
-        <li>After the test USD arrives, scan the code above.</li>
+        <li>{F.stepTestnet}</li>
+        <li>{F.stepCopy}</li>
+        <li>{F.stepScan}</li>
       </ol>
       <div className="flex gap-2">
-        <Input value={address} onChange={(e) => setAddress(e.target.value.trim())} placeholder="Your wallet address" className="h-9 font-mono text-xs" aria-label="Your wallet address" />
+        <Input value={address} onChange={(e) => setAddress(e.target.value.trim())} placeholder={F.addressPlaceholder} className="h-9 font-mono text-xs" aria-label={F.addressPlaceholder} />
         <Button type="submit" size="sm" disabled={busy || address.length < 32}>
-          {busy ? <LogoSpinner size={14} /> : <Droplets className="size-3.5" />} Send
+          {busy ? <LogoSpinner size={14} /> : <Droplets className="size-3.5" />} {F.send}
         </Button>
       </div>
     </form>

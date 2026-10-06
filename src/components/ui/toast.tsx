@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n/client";
 
 type Toast = { id: number; tone: "success" | "error" | "info"; title: string; body?: string };
 type Ctx = { push: (t: Omit<Toast, "id">) => void };
@@ -15,6 +16,7 @@ export const useToast = () => useContext(ToastContext);
 let nextId = 1;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { m } = useI18n();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
   const push = useCallback(
@@ -52,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <p className="text-sm font-medium text-fg">{t.title}</p>
                   {t.body && <p className="mt-0.5 text-[13px] text-fg-2">{t.body}</p>}
                 </div>
-                <button onClick={() => dismiss(t.id)} className="text-fg-3 transition hover:text-fg" aria-label="Dismiss">
+                <button onClick={() => dismiss(t.id)} className="text-fg-3 transition hover:text-fg" aria-label={m.ui.toast.dismiss}>
                   <X className="size-4" />
                 </button>
               </motion.div>

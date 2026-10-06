@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/cn";
 
 /** What the page already holds that entitles it to sync: a member's company, a pay link's invoice, or a resolution link. */
@@ -14,6 +15,7 @@ export type SyncScope = { b: string } | { invoice: string } | { link: string };
 export function LiveSync({ scope, interval = 4000, label = true, className }: { scope: SyncScope; interval?: number; label?: boolean; className?: string }) {
   const query = new URLSearchParams(scope).toString();
   const router = useRouter();
+  const { m } = useI18n();
   const version = useRef<number | null>(null);
   const [state, setState] = useState<"live" | "syncing" | "offline">("live");
 
@@ -44,12 +46,12 @@ export function LiveSync({ scope, interval = 4000, label = true, className }: { 
   }, [interval, router, query]);
 
   return (
-    <span className={cn("inline-flex items-center gap-2 text-xs text-fg-3", className)} title="PayFix checks the chain every few seconds">
+    <span className={cn("inline-flex items-center gap-2 text-xs text-fg-3", className)} title={m.app.liveSync.title}>
       <span className="relative flex size-2">
         {state !== "offline" && <span className="absolute inset-0 animate-pulse-ring rounded-full bg-mint" />}
         <span className={cn("relative size-2 rounded-full", state === "offline" ? "bg-rose" : "bg-mint")} />
       </span>
-      {label && <span className="hidden sm:inline">{state === "offline" ? "Reconnecting…" : "Live"}</span>}
+      {label && <span className="hidden sm:inline">{state === "offline" ? m.app.liveSync.reconnecting : m.app.liveSync.live}</span>}
     </span>
   );
 }

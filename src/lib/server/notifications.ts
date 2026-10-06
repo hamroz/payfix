@@ -2,6 +2,7 @@ import { and, count, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { Db, Executor } from "@/lib/db/client";
 import { events, memberships, notificationReads } from "@/lib/db/schema";
 import { categoryOf, enabledTypes, isCategoryId, type CategoryId } from "@/lib/domain/notifications";
+import { eventDisplayData } from "@/lib/i18n/english";
 import { InputError } from "./invoices";
 
 /**
@@ -14,7 +15,9 @@ export type NotificationRow = {
   type: string;
   category: CategoryId;
   actor: string;
+  /** English sentence; render with `renderEvent(i18n, row)`, which uses `data` for the viewer's language. */
   message: string;
+  data: Record<string, unknown> | null;
   createdAt: string;
   href: string;
   read: boolean;
@@ -27,7 +30,7 @@ async function membership(db: Executor, p: Viewer) {
     .select({ id: memberships.id, muted: memberships.notificationMuted })
     .from(memberships)
     .where(and(eq(memberships.businessId, p.businessId), eq(memberships.userId, p.userId)));
-  if (!m) throw new InputError("You're not a member of this company.");
+  if (!m) throw new InputError("notMemberOfThisCompany");
   return m;
 }
 
@@ -65,6 +68,7 @@ export async function listNotifications(db: Executor, p: Viewer & { limit?: numb
       category,
       actor: e.actor,
       message: e.message,
+      data: eventDisplayData(e.type, e.message, e.data ?? null),
       createdAt: e.createdAt.toISOString(),
       href: hrefFor(e, category),
       read: readId !== null || covered,
@@ -94,7 +98,7 @@ export async function unreadCount(db: Executor, p: Viewer): Promise<number> {
 export async function markRead(db: Executor, p: Viewer & { eventId: string }) {
   await membership(db, p);
   const [e] = await db.select({ id: events.id }).from(events).where(and(eq(events.id, p.eventId), eq(events.businessId, p.businessId)));
-  if (!e) throw new InputError("Notification not found.");
+  if (!e) throw new InputError("notificationNotFound");
   await db.insert(notificationReads).values({ userId: p.userId, eventId: e.id }).onConflictDoNothing();
 }
 
@@ -120,7 +124,7 @@ export async function getMuted(db: Executor, p: Viewer): Promise<CategoryId[]> {
 
 export async function setMuted(db: Executor, p: Viewer & { muted: string[] }) {
   const unknown = p.muted.filter((c) => !isCategoryId(c));
-  if (unknown.length) throw new InputError(`Unknown notification category: ${unknown.join(", ")}`);
+  if (unknown.length) throw new InputError("unknownNotificationCategory", { categories: unknown.join(", ") });
   const m = await membership(db, p);
   await db.update(memberships).set({ notificationMuted: [...new Set(p.muted)] }).where(eq(memberships.id, m.id));
 }
