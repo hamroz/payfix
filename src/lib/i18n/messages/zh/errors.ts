@@ -11,7 +11,6 @@ const errors: Messages["errors"] = {
   companySuspended: "这家公司已被停用。",
   companyUnavailable: "这家公司的 PayFix 账号目前不可用。",
   faucetBlocked: "此钱包已被禁止使用水龙头。",
-  cannotModerateAdmin: "无法在这里停用或封禁管理员。请改为将其从 ADMIN_EMAILS 中移除。",
   reasonRequired: "请简要写明原因（最多 500 个字符），它会记入审计日志。",
   adminTargetMissing: "该账号或公司已不存在。",
   codeExpired: "验证码已过期，请重新发送。",

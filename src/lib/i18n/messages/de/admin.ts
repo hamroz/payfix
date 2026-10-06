@@ -175,7 +175,7 @@ const admin: Messages["admin"] = {
     title: "Aktionen",
     reasonLabel: "Grund (wird im Audit-Protokoll gespeichert)",
     reasonPlaceholder: "Was haben Sie wo bemerkt?",
-    adminNote: "Dies ist ein Admin-Konto. Admins werden über ADMIN_EMAILS verwaltet, nicht hier.",
+    adminNote: "Diese Adresse steht auch auf der Admin-Liste. Diese Aktionen betreffen nur ihr Unternehmenskonto; der Admin-Zugang wird über ADMIN_EMAILS verwaltet.",
     inFlight: {
       one: "{count} Rückerstattung läuft noch. Niemand kann sie signieren, bis Sie das Unternehmen wiederherstellen, und ihr Status wird aktualisiert, sobald es wiederhergestellt ist.",
       other: "{count} Rückerstattungen laufen noch. Niemand kann sie signieren, bis Sie das Unternehmen wiederherstellen, und ihr Status wird aktualisiert, sobald es wiederhergestellt ist.",

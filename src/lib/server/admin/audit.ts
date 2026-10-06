@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import type { Executor } from "@/lib/db/client";
 import { adminAudit, type AdminAction } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
@@ -19,6 +19,26 @@ export async function audit(
     reason: e.reason ?? null,
     data: e.data ?? null,
   });
+}
+
+const VIEW_WINDOW_MS = 10 * 60 * 1000;
+
+/** Records that an admin opened a user or company page, at most once per admin and page every 10 minutes. */
+export async function auditView(db: Executor, adminEmail: string, targetType: "user" | "business", targetId: string) {
+  const action = targetType === "user" ? "user.view" : "business.view";
+  const [recent] = await db
+    .select({ id: adminAudit.id })
+    .from(adminAudit)
+    .where(
+      and(
+        eq(adminAudit.adminEmail, adminEmail),
+        eq(adminAudit.action, action),
+        eq(adminAudit.targetId, targetId),
+        gte(adminAudit.createdAt, new Date(Date.now() - VIEW_WINDOW_MS)),
+      ),
+    )
+    .limit(1);
+  if (!recent) await audit(db, { adminEmail, action, targetType, targetId });
 }
 
 export type AuditRow = Omit<typeof adminAudit.$inferSelect, "createdAt"> & { createdAt: string };

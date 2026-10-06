@@ -15,7 +15,11 @@ const DAY = 864e5;
 /** `search` as a literal substring (its % and _ don't act as wildcards). */
 const contains = (search: string) => `%${search.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 const n = sql<number>`count(*)`.mapWith(Number);
-const page = (q: DirectoryQuery) => Math.max(1, Math.floor(q.page ?? 1));
+/** 1-based page, clamped so odd input (NaN, 1e20) is never an out-of-range database offset. */
+const page = (q: DirectoryQuery) => {
+  const n = Math.floor(Number(q.page ?? 1));
+  return Number.isFinite(n) ? Math.min(Math.max(1, n), 10_000) : 1;
+};
 
 export type UserRow = { id: string; email: string; createdAt: string; companies: number; suspended: boolean; codes24h: number; admin: boolean };
 

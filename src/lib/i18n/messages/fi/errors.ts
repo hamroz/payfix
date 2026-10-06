@@ -11,7 +11,6 @@ const errors: Messages["errors"] = {
   companySuspended: "Tämä yritys on jäädytetty.",
   companyUnavailable: "Tämän yrityksen PayFix-tili ei ole juuri nyt käytettävissä.",
   faucetBlocked: "Faucet on estetty tälle lompakolle.",
-  cannotModerateAdmin: "Ylläpitäjiä ei voi jäädyttää eikä estää täältä. Poista heidät sen sijaan ADMIN_EMAILS-listalta.",
   reasonRequired: "Kirjoita lyhyt syy (enintään 500 merkkiä). Se tallentuu ylläpitolokiin.",
   adminTargetMissing: "Tiliä tai yritystä ei ole enää olemassa.",
   codeExpired: "Koodi on vanhentunut. Pyydä uusi koodi.",

@@ -173,7 +173,7 @@ const admin = {
     title: "Actions",
     reasonLabel: "Reason (saved in the audit log)",
     reasonPlaceholder: "What did you see, and where?",
-    adminNote: "This is an admin account. Admins are managed through ADMIN_EMAILS, not from here.",
+    adminNote: "This address is also on the admin list. These actions only affect its business account; admin access is managed through ADMIN_EMAILS.",
     inFlight: {
       one: "{count} refund is in progress. Nobody can sign it until you restore the company, and its status updates once the company is restored.",
       other: "{count} refunds are in progress. Nobody can sign them until you restore the company, and their status updates once the company is restored.",

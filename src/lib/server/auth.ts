@@ -87,7 +87,8 @@ export async function verifyCode(db: Db, p: { purpose: SessionKind; subjectId: s
     .limit(1);
   if (!otp) return { ok: false as const, error: "codeExpired" as const };
   if (otp.attempts >= MAX_ATTEMPTS) return { ok: false as const, error: "codeTooManyAttempts" as const };
-  // A code sent before the account was suspended must not open a session after it.
+  // A code sent before the address was blocked, or the account suspended, must not open a session after it.
+  if (await activeBlock(db, "sign_in", otp.email)) return { ok: false as const, error: "signInBlocked" as const };
   if (p.purpose === "business" && (await userSuspended(db, p.subjectId))) return { ok: false as const, error: "accountSuspended" as const };
 
   const expected = Buffer.from(otp.codeHash, "hex");

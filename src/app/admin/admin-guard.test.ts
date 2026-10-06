@@ -21,3 +21,10 @@ describe("admin console pages", () => {
     for (const file of found) expect(readFileSync(file, "utf8"), path.relative(CONSOLE, file)).toMatch(/await requireAdmin\(\)/);
   });
 });
+
+describe("the public sign-in form", () => {
+  it("doesn't carry admin actions to every visitor", () => {
+    const form = readFileSync(path.join(process.cwd(), "src/app/login/login-form.tsx"), "utf8");
+    expect(form).not.toMatch(/admin-auth|AdminCode/);
+  });
+});

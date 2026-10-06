@@ -174,7 +174,7 @@ const admin: Messages["admin"] = {
     title: "Acciones",
     reasonLabel: "Motivo (se guarda en el registro de auditoría)",
     reasonPlaceholder: "¿Qué has visto y dónde?",
-    adminNote: "Esta es una cuenta de administrador. Los administradores se gestionan con ADMIN_EMAILS, no desde aquí.",
+    adminNote: "Esta dirección también está en la lista de administradores. Estas acciones solo afectan a su cuenta de empresa; el acceso de administrador se gestiona con ADMIN_EMAILS.",
     inFlight: { one: "Hay {count} reembolso en curso. Nadie podrá firmarlo hasta que reactives la empresa, y su estado se actualizará cuando esté reactivada.", other: "Hay {count} reembolsos en curso. Nadie podrá firmarlos hasta que reactives la empresa, y su estado se actualizará cuando esté reactivada." },
     suspendUser: {
       button: "Suspender cuenta",

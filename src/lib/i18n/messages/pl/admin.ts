@@ -185,7 +185,7 @@ const admin: Messages["admin"] = {
     title: "Działania",
     reasonLabel: "Powód (zapisywany w dzienniku audytu)",
     reasonPlaceholder: "Co zauważono i gdzie?",
-    adminNote: "To konto administratora. Administratorami zarządza się przez ADMIN_EMAILS, a nie tutaj.",
+    adminNote: "Ten adres jest też na liście administratorów. Te działania dotyczą tylko jego konta firmowego; dostępem administratora zarządza się przez ADMIN_EMAILS.",
     inFlight: {
       one: "{count} zwrot jest w toku. Nikt nie może go podpisać, dopóki nie przywrócisz firmy, a jego status zaktualizuje się po jej przywróceniu.",
       few: "{count} zwroty są w toku. Nikt nie może ich podpisać, dopóki nie przywrócisz firmy, a ich status zaktualizuje się po jej przywróceniu.",
