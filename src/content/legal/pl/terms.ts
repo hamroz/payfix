@@ -3,7 +3,7 @@ import type { LegalDoc } from "../types";
 const terms: LegalDoc = {
   title: "Regulamin",
   description: "Zasady korzystania z PayFix: prototyp wyłącznie do testów, który nie jest usługą finansową i jest udostępniany bez gwarancji.",
-  updated: "2026-10-05",
+  updated: "2026-10-06",
   intro: [
     "Ten regulamin obowiązuje, gdy korzystasz z usługi PayFix — jako firma, członek zespołu lub klient, który otrzymał link do rozwiązania sprawy. W tym regulaminie „my” oznacza operatora tej usługi PayFix, a „Ty” — osobę, która z niej korzysta. Korzystając z PayFix, akceptujesz ten regulamin. Jeśli go nie akceptujesz, nie korzystaj z usługi.",
   ],
@@ -141,7 +141,7 @@ const terms: LegalDoc = {
       heading: "Zakończenie korzystania",
       blocks: [
         "Możesz w każdej chwili przestać korzystać z PayFix i poprosić nas o usunięcie Twoich danych zgodnie z naszą Polityką prywatności.",
-        "Możemy zawiesić lub zakończyć Twój dostęp, jeśli naruszysz ten regulamin, jeśli sposób, w jaki korzystasz z usługi, stwarza ryzyko dla innych użytkowników lub dla usługi, albo jeśli zakończymy świadczenie usługi. Postanowienia dotyczące portfeli, braku gwarancji i ograniczenia naszej odpowiedzialności obowiązują również po zakończeniu Twojego dostępu.",
+        "Możemy zawiesić lub zakończyć Twój dostęp albo zawiesić firmę, jeśli naruszysz ten regulamin, jeśli zauważymy oznaki oszustwa lub nadużyć, jeśli sposób, w jaki korzystasz z usługi, stwarza ryzyko dla innych użytkowników lub dla usługi, albo jeśli zakończymy świadczenie usługi. Postanowienia dotyczące portfeli, braku gwarancji i ograniczenia naszej odpowiedzialności obowiązują również po zakończeniu Twojego dostępu.",
       ],
     },
     {

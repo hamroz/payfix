@@ -3,7 +3,7 @@ import type { LegalDoc } from "../types";
 const terms: LegalDoc = {
   title: "Käyttöehdot",
   description: "PayFixin käyttöä koskevat säännöt: pelkästään testikäyttöön tarkoitettu prototyyppi, ei rahoituspalvelu, tarjotaan ilman takuuta.",
-  updated: "2026-10-05",
+  updated: "2026-10-06",
   intro: [
     "Näitä ehtoja sovelletaan, kun käytät PayFix-palvelua yrityksenä, tiimin jäsenenä tai asiakkaana, joka on saanut ratkaisulinkin. Näissä ehdoissa ”me” tarkoittaa tämän PayFix-palvelun ylläpitäjää ja ”sinä” palvelun käyttäjää. Käyttämällä PayFixia hyväksyt nämä ehdot. Jos et hyväksy niitä, älä käytä palvelua.",
   ],
@@ -141,7 +141,7 @@ const terms: LegalDoc = {
       heading: "Käytön päättyminen",
       blocks: [
         "Voit lopettaa PayFixin käytön milloin tahansa ja pyytää meitä poistamaan tietosi tietosuojaselosteessamme kuvatulla tavalla.",
-        "Voimme keskeyttää tai lopettaa pääsysi, jos rikot näitä ehtoja, jos käyttösi vaarantaa muita käyttäjiä tai palvelua tai jos lopetamme palvelun. Lompakoita, takuun puuttumista ja vastuumme rajoituksia koskevia kohtia sovelletaan myös pääsysi päättymisen jälkeen.",
+        "Voimme keskeyttää tai lopettaa pääsysi tai jäädyttää yrityksen, jos rikot näitä ehtoja, jos havaitsemme merkkejä petoksesta tai väärinkäytöstä, jos käyttösi vaarantaa muita käyttäjiä tai palvelua tai jos lopetamme palvelun. Lompakoita, takuun puuttumista ja vastuumme rajoituksia koskevia kohtia sovelletaan myös pääsysi päättymisen jälkeen.",
       ],
     },
     {
