@@ -187,10 +187,10 @@ const admin: Messages["admin"] = {
     reasonPlaceholder: "Co zauważono i gdzie?",
     adminNote: "To konto administratora. Administratorami zarządza się przez ADMIN_EMAILS, a nie tutaj.",
     inFlight: {
-      one: "{count} zwrot jest w toku. PayFix nadal będzie go śledzić, ale nikt nie podpisze nowych zwrotów, dopóki nie przywrócisz firmy.",
-      few: "{count} zwroty są w toku. PayFix nadal będzie je śledzić, ale nikt nie podpisze nowych zwrotów, dopóki nie przywrócisz firmy.",
-      many: "{count} zwrotów jest w toku. PayFix nadal będzie je śledzić, ale nikt nie podpisze nowych zwrotów, dopóki nie przywrócisz firmy.",
-      other: "{count} zwrotu jest w toku. PayFix nadal będzie je śledzić, ale nikt nie podpisze nowych zwrotów, dopóki nie przywrócisz firmy.",
+      one: "{count} zwrot jest w toku. Nikt nie może go podpisać, dopóki nie przywrócisz firmy, a jego status zaktualizuje się po jej przywróceniu.",
+      few: "{count} zwroty są w toku. Nikt nie może ich podpisać, dopóki nie przywrócisz firmy, a ich status zaktualizuje się po jej przywróceniu.",
+      many: "{count} zwrotów jest w toku. Nikt nie może ich podpisać, dopóki nie przywrócisz firmy, a ich status zaktualizuje się po jej przywróceniu.",
+      other: "{count} zwrotu jest w toku. Nikt nie może ich podpisać, dopóki nie przywrócisz firmy, a ich status zaktualizuje się po jej przywróceniu.",
     },
     suspendUser: {
       button: "Zawieś konto",
@@ -208,7 +208,7 @@ const admin: Messages["admin"] = {
     suspendCompany: {
       button: "Zawieś firmę",
       title: "Zawiesić tę firmę?",
-      body: "Członkowie nie będą mogli jej otworzyć, a jej linki do płatności i do rozwiązania sprawy przestaną działać. Płatności, które mimo to wpłyną, zostaną zarejestrowane, a w jej danych nic się nie zmieni.",
+      body: "Członkowie nie będą mogli jej otworzyć, a jej linki do płatności i do rozwiązania sprawy przestaną działać. W jej danych nic się nie zmieni; płatności, które mimo to wpłyną, zostaną zarejestrowane po jej przywróceniu.",
       confirm: "Zawieś",
     },
     restoreCompany: {

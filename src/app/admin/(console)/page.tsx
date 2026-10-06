@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { getI18n } from "@/lib/i18n/server";
 import { formatUsd } from "@/lib/money";
 import { FUNNEL_STEPS, overviewStats, parseRange } from "@/lib/server/admin/stats";
-import { deps } from "@/lib/server/context";
+import { deps, requireAdmin } from "@/lib/server/context";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { m } = await getI18n();
@@ -14,6 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AdminOverview({ searchParams }: PageProps<"/admin">) {
+  await requireAdmin();
   const range = parseRange((await searchParams).range);
   const { db } = await deps();
   const o = await overviewStats(db, range);

@@ -177,8 +177,8 @@ const admin: Messages["admin"] = {
     reasonPlaceholder: "Was haben Sie wo bemerkt?",
     adminNote: "Dies ist ein Admin-Konto. Admins werden über ADMIN_EMAILS verwaltet, nicht hier.",
     inFlight: {
-      one: "{count} Rückerstattung läuft noch. PayFix verfolgt sie weiter, aber niemand kann neue Rückerstattungen signieren, bis Sie das Unternehmen wiederherstellen.",
-      other: "{count} Rückerstattungen laufen noch. PayFix verfolgt sie weiter, aber niemand kann neue Rückerstattungen signieren, bis Sie das Unternehmen wiederherstellen.",
+      one: "{count} Rückerstattung läuft noch. Niemand kann sie signieren, bis Sie das Unternehmen wiederherstellen, und ihr Status wird aktualisiert, sobald es wiederhergestellt ist.",
+      other: "{count} Rückerstattungen laufen noch. Niemand kann sie signieren, bis Sie das Unternehmen wiederherstellen, und ihr Status wird aktualisiert, sobald es wiederhergestellt ist.",
     },
     suspendUser: {
       button: "Konto sperren",
@@ -196,7 +196,7 @@ const admin: Messages["admin"] = {
     suspendCompany: {
       button: "Unternehmen sperren",
       title: "Dieses Unternehmen sperren?",
-      body: "Mitglieder können es nicht mehr öffnen, und seine Zahlungs- und Klärungslinks funktionieren nicht mehr. Zahlungen, die trotzdem eingehen, werden erfasst, und an seinen Daten wird nichts geändert.",
+      body: "Mitglieder können es nicht mehr öffnen, und seine Zahlungs- und Klärungslinks funktionieren nicht mehr. An seinen Daten wird nichts geändert; Zahlungen, die trotzdem eingehen, werden erfasst, sobald es wiederhergestellt ist.",
       confirm: "Sperren",
     },
     restoreCompany: {

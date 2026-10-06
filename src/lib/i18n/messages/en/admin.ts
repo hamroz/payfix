@@ -174,7 +174,10 @@ const admin = {
     reasonLabel: "Reason (saved in the audit log)",
     reasonPlaceholder: "What did you see, and where?",
     adminNote: "This is an admin account. Admins are managed through ADMIN_EMAILS, not from here.",
-    inFlight: { one: "{count} refund is in progress. It will keep reconciling, but nobody can sign new refunds until you restore the company.", other: "{count} refunds are in progress. They will keep reconciling, but nobody can sign new refunds until you restore the company." },
+    inFlight: {
+      one: "{count} refund is in progress. Nobody can sign it until you restore the company, and its status updates once the company is restored.",
+      other: "{count} refunds are in progress. Nobody can sign them until you restore the company, and their status updates once the company is restored.",
+    },
     suspendUser: {
       button: "Suspend account",
       title: "Suspend this account?",
@@ -191,7 +194,7 @@ const admin = {
     suspendCompany: {
       button: "Suspend company",
       title: "Suspend this company?",
-      body: "Members can’t open it, and its payment and resolution links stop working. Payments that still arrive are recorded, and nothing in its records is changed.",
+      body: "Members can’t open it, and its payment and resolution links stop working. Nothing in its records is changed; payments that still arrive are recorded once it is restored.",
       confirm: "Suspend",
     },
     restoreCompany: { button: "Restore company", title: "Restore this company?", body: "Members, payment links, and resolution links work again.", confirm: "Restore" },

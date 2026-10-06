@@ -5,7 +5,7 @@ import { AddBlockForm } from "@/components/admin/add-block-form";
 import { ModerateButton } from "@/components/admin/moderate-button";
 import { getI18n } from "@/lib/i18n/server";
 import { listBlocks, topCodeRequesters } from "@/lib/server/admin/moderation";
-import { deps } from "@/lib/server/context";
+import { deps, requireAdmin } from "@/lib/server/context";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { m } = await getI18n();
@@ -13,6 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AdminModeration() {
+  await requireAdmin();
   const { db } = await deps();
   const top = await topCodeRequesters(db, 24);
   const active = await listBlocks(db, { active: true });

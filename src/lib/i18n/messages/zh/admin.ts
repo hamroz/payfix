@@ -175,7 +175,7 @@ const admin: Messages["admin"] = {
     reasonLabel: "原因（会记入审计日志）",
     reasonPlaceholder: "你看到了什么？在哪里看到的？",
     adminNote: "这是管理员账号。管理员通过 ADMIN_EMAILS 管理，无法在这里操作。",
-    inFlight: { other: "有 {count} 笔退款正在处理中。它们会继续对账，但在你恢复这家公司之前，任何人都无法签署新的退款。" },
+    inFlight: { other: "有 {count} 笔退款正在处理中。在你恢复这家公司之前，任何人都无法签署这些退款；公司恢复后，它们的状态才会更新。" },
     suspendUser: {
       button: "停用账号",
       title: "停用这个账号？",
@@ -192,7 +192,7 @@ const admin: Messages["admin"] = {
     suspendCompany: {
       button: "停用公司",
       title: "停用这家公司？",
-      body: "成员将无法打开它，它的付款链接和处理链接也会失效。之后仍到账的付款会照常记录，公司的记录不会有任何改动。",
+      body: "成员将无法打开它，它的付款链接和处理链接也会失效。公司的记录不会有任何改动；之后仍到账的付款会在公司恢复后记录。",
       confirm: "停用",
     },
     restoreCompany: { button: "恢复公司", title: "恢复这家公司？", body: "成员、付款链接和处理链接都会恢复正常。", confirm: "恢复" },

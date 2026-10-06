@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { blocks, businesses, otpCodes, sessions, users, type BlockKind } from "@/lib/db/schema";
 import { newId } from "@/lib/ids";
@@ -63,7 +63,8 @@ export async function signOutUser(db: Db, admin: string, userId: string, reason:
 
 /**
  * Members are sent to /suspended, and customer and payment links stop. Nothing on the ledger
- * changes: payments that still arrive are recorded and in-flight refunds keep reconciling.
+ * changes. Nothing polls a suspended company, so payments that still arrive and refunds already
+ * submitted are reconciled on the first sync after it is restored.
  */
 export async function suspendCompany(db: Db, admin: string, businessId: string, reason: string) {
   const r = reasonOf(reason);
@@ -117,13 +118,16 @@ export async function listBlocks(db: Db, opts: { active: boolean }): Promise<Blo
   return rows.map((b) => ({ id: b.id, kind: b.kind, target: b.target, reason: b.reason, createdBy: b.createdBy, createdAt: b.createdAt.toISOString() }));
 }
 
-/** Addresses that asked for the most sign-in codes recently (admin codes excluded), with their account if one exists. */
+/**
+ * Business accounts that asked for the most sign-in codes recently. Customer codes go to a
+ * company's customer on file, so their addresses stay out of admin views (privacy line).
+ */
 export async function topCodeRequesters(db: Db, hours = 24) {
   const count = sql<number>`count(*)`.mapWith(Number);
   const rows = await db
     .select({ email: otpCodes.email, count, userId: sql<string | null>`(select u.id from users u where u.email = "otp_codes"."email")` })
     .from(otpCodes)
-    .where(and(gte(otpCodes.createdAt, new Date(Date.now() - hours * 3600_000)), ne(otpCodes.purpose, "admin")))
+    .where(and(gte(otpCodes.createdAt, new Date(Date.now() - hours * 3600_000)), eq(otpCodes.purpose, "business")))
     .groupBy(otpCodes.email)
     .orderBy(desc(count))
     .limit(20);
