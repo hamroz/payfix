@@ -43,6 +43,13 @@
       "when": 1791210281012,
       "tag": "0005_notifications_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791252684539,
+      "tag": "0006_admin",
+      "breakpoints": true
     }
   ]
 }

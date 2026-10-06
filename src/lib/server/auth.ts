@@ -9,7 +9,7 @@ import { deliverOutbox, emailFailed, emailI18n, queueEmail } from "./email";
 import { InputError } from "./invoices";
 import { consume, DAY, MINUTE, rateKey } from "./ratelimit";
 
-export type SessionKind = "business" | "customer";
+export type SessionKind = "business" | "customer" | "admin";
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;

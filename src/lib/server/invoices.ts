@@ -33,7 +33,10 @@ export async function createCustomer(db: Db, p: { businessId: string; name: stri
   return id;
 }
 
-export async function createInvoice(db: Db, p: { businessId: string; customerId: string; title: string; amount: bigint; dueAt: Date; actorUserId?: string }) {
+export async function createInvoice(
+  db: Db,
+  p: { businessId: string; customerId: string; title: string; amount: bigint; dueAt: Date; actorUserId?: string; sample?: boolean },
+) {
   if (p.amount <= 0n) throw new InputError("invoiceAmountPositive");
   if (!p.title.trim()) throw new InputError("invoiceTitleRequired");
   return db.transaction(async (t) => {
@@ -42,7 +45,7 @@ export async function createInvoice(db: Db, p: { businessId: string; customerId:
     const [{ n }] = await t.select({ n: count() }).from(invoices).where(eq(invoices.businessId, p.businessId));
     const id = newId("inv");
     const number = `INV-${String(n + 1).padStart(4, "0")}`;
-    await t.insert(invoices).values({ id, businessId: p.businessId, customerId: cust.id, number, title: p.title.trim(), amount: p.amount, dueAt: p.dueAt });
+    await t.insert(invoices).values({ id, businessId: p.businessId, customerId: cust.id, number, title: p.title.trim(), amount: p.amount, dueAt: p.dueAt, sample: p.sample ?? false });
     await logEvent(t, {
       businessId: p.businessId,
       invoiceId: id,
