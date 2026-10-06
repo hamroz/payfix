@@ -12,6 +12,12 @@ const { newId, newToken } = await import("@/lib/ids");
 const { sessionSubject } = await import("./auth");
 const { adminFromToken, isAdminEmail, requestAdminCode, verifyAdminCode } = await import("./admin/access");
 const { createHash } = await import("node:crypto");
+const { Keypair } = await import("@solana/web3.js");
+const { toUnits } = await import("@/lib/money");
+const { overviewStats } = await import("./admin/stats");
+const { audit, listAudit } = await import("./admin/audit");
+const { runDemoScenario } = await import("./test-scenario");
+const { createWorkspace, findOrCreateUser, seedSampleData } = await import("./workspaces");
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -86,5 +92,56 @@ describe("admin sign-in", () => {
     expect(await adminFromToken(db, res.token)).toBeNull();
     const [s] = await db.select().from(sessions).where(and(eq(sessions.kind, "admin"), eq(sessions.tokenHash, sha256(res.token))));
     expect(s).toBeDefined(); // the row stays; the allowlist is what grants access
+  });
+});
+
+describe("platform statistics", () => {
+  let db: Db;
+  const $ = (s: string) => toUnits(s);
+  beforeAll(async () => {
+    db = await openPglite();
+    await runDemoScenario(db);
+  });
+
+  it("adds up the demo scenario", async () => {
+    const o = await overviewStats(db, "30d");
+    expect(o.tiles.users).toEqual({ total: 1, inRange: 1 });
+    expect(o.tiles.companies).toEqual({ total: 1, inRange: 1 });
+    expect(o.tiles.activeCompanies).toBe(1);
+    expect(o.tiles.invoices.total).toBe(2);
+    expect(o.tiles.payments.total).toBe(2);
+    expect(o.tiles.openCases).toBe(0);
+    expect(o.money.received).toBe($("1100").toString());
+    expect(o.money.invoice).toBe($("1060").toString());
+    expect(o.money.refunded).toBe($("40").toString());
+    expect(o.money.refundPending).toBe("0");
+    expect(o.money.unresolved).toBe("0");
+    expect(o.funnel).toEqual({ signedUp: 1, inCompany: 1, invoiced: 1, paid: 1, resolved: 1, refunded: 1 });
+    expect(o.refunds.confirmed).toBe(1);
+    expect(o.approvals).toEqual({ total: 2, invalidated: 1 });
+    expect(o.cases.byStatus.resolved).toBe(1);
+    expect(o.cases.byKind.overpayment).toBe(1);
+    expect(o.cases.medianMinutesToResolve).not.toBeNull();
+    expect(o.growth.length).toBe(30);
+    expect(o.growth.at(-1)).toMatchObject({ users: 1, companies: 1 });
+  });
+
+  it("counts seeded sample invoices apart from real ones", async () => {
+    const u = await findOrCreateUser(db, "sampler@x.test");
+    const biz = await createWorkspace(db, { userId: u.id, email: u.email, name: "Sampler", wallet: { address: Keypair.generate().publicKey.toBase58(), label: "Main" } });
+    await seedSampleData(db, biz);
+    const o = await overviewStats(db, "all");
+    expect(o.tiles.invoices.total).toBe(2);
+    expect(o.tiles.sampleInvoices).toBe(2);
+    expect(o.funnel.inCompany).toBe(2);
+    expect(o.funnel.invoiced).toBe(1); // sample invoices alone aren't activation
+  });
+
+  it("writes and lists audit rows", async () => {
+    await audit(db, { adminEmail: "boss@payfix.test", action: "user.view", targetType: "user", targetId: "usr_1" });
+    await audit(db, { adminEmail: "boss@payfix.test", action: "export", targetType: "export", data: { kind: "users" } });
+    const all = await listAudit(db, {});
+    expect(all.map((a) => a.action)).toEqual(["export", "user.view"]);
+    expect(await listAudit(db, { targetType: "user", targetId: "usr_1" })).toHaveLength(1);
   });
 });
