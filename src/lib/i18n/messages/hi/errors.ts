@@ -5,6 +5,7 @@ const errors: Messages["errors"] = {
   signInFirst: "पहले साइन इन करें।",
   invalidEmail: "सही ईमेल पता डालें।",
   emailSendFailed: "अभी ईमेल नहीं भेजा जा सका। एक मिनट बाद फिर से कोशिश करें।",
+  adminEmailUnavailable: "एडमिन साइन इन के लिए असली ईमेल सर्विस चाहिए, और वह इस डिप्लॉयमेंट में सेट नहीं है।",
   codeExpired: "यह कोड एक्सपायर हो गया है। नया कोड मँगवाएँ।",
   codeTooManyAttempts: "बहुत ज़्यादा कोशिशें हो गईं। नया कोड मँगवाएँ।",
   codeWrong: "यह कोड सही नहीं है। जाँचकर फिर से कोशिश करें।",
@@ -124,6 +125,9 @@ const errors: Messages["errors"] = {
   rateFaucetWalletDay: "यह वॉलेट आज की टेस्ट USD सीमा तक पहुँच गया है।",
   rateFaucetNetwork: "इस नेटवर्क से फ़ॉसेट के बहुत ज़्यादा अनुरोध आए हैं। एक घंटे बाद फिर से कोशिश करें।",
   rateFaucetGlobal: "फ़ॉसेट अभी व्यस्त है। कुछ मिनट बाद फिर से कोशिश करें।",
+  feedbackInvalid: "कृपया अपने जवाब जाँचें: कुछ छूट गए हैं या बहुत लंबे हैं।",
+  rateFeedback: "आज इस नेटवर्क से बहुत ज़्यादा जवाब आ चुके हैं। धन्यवाद, हमारे पास काफ़ी जवाब हैं!",
+  rateFeedbackGlobal: "इस समय बहुत सारे जवाब आ रहे हैं। कुछ मिनट बाद फिर से कोशिश करें।",
 
   // Statuses named inside the messages above ({status})
   statuses: {

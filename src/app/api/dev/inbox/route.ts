@@ -23,6 +23,7 @@ export async function GET() {
     ...(scope.email ? [and(eq(outbox.to, scope.email), scope.businessId ? or(isNull(outbox.businessId), eq(outbox.businessId, scope.businessId)) : isNull(outbox.businessId))] : []),
   ];
   if (!visible.length) return Response.json([]);
-  const rows = await db.select().from(outbox).where(or(...visible)).orderBy(desc(outbox.createdAt)).limit(12);
+  // Only demo mail: admin codes are really emailed (status pending/sent) and must never show here.
+  const rows = await db.select().from(outbox).where(and(eq(outbox.status, "demo"), or(...visible))).orderBy(desc(outbox.createdAt)).limit(12);
   return Response.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Check, ChevronRight, Sparkles } from "lucide-react";
+import { Check, ChevronRight, MessageSquareHeart, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/cn";
@@ -85,6 +85,18 @@ export function GuidedDemo({ state }: { state: State }) {
           );
         })}
       </ol>
+      {doneCount === steps.length && (
+        <Link
+          href="/feedback?c=guided-demo"
+          target="_blank"
+          className="group flex items-center justify-between gap-3 border-t border-veil/[0.06] px-5 py-3.5 text-sm font-medium text-violet transition hover:bg-veil/[0.03]"
+        >
+          <span className="inline-flex items-center gap-2">
+            <MessageSquareHeart className="size-4" /> {m.feedback.guidedDemoLink}
+          </span>
+          <ChevronRight className="size-4 transition group-hover:translate-x-0.5" />
+        </Link>
+      )}
     </div>
   );
 }

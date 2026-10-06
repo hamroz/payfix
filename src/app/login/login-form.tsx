@@ -3,15 +3,20 @@
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import { useState, useTransition } from "react";
+import { requestAdminCodeAction, verifyAdminCodeAction } from "@/app/actions/admin-auth";
 import { requestBusinessCode, verifyBusinessCode } from "@/app/actions/auth";
 import { LogoSpinner } from "@/components/brand/logo";
 import { Button, Input, Label } from "@/components/ui/primitives";
 import { OtpInput } from "@/components/ui/otp-input";
 import { useI18n } from "@/lib/i18n/client";
 
-export function LoginForm({ defaultEmail, demo }: { defaultEmail: string; demo: boolean }) {
+/** Business sign-in, or with `admin` the platform admin sign-in (same code flow, different actions and copy). */
+export function LoginForm({ defaultEmail, demo, admin = false }: { defaultEmail: string; demo: boolean; admin?: boolean }) {
   const { m, rich } = useI18n();
   const a = m.auth;
+  const copy = admin ? m.admin.login : a.email;
+  const requestCode = admin ? requestAdminCodeAction : requestBusinessCode;
+  const verifyCode = admin ? verifyAdminCodeAction : verifyBusinessCode;
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState(defaultEmail);
   const [masked, setMasked] = useState("");
@@ -22,7 +27,7 @@ export function LoginForm({ defaultEmail, demo }: { defaultEmail: string; demo: 
   const sendCode = () =>
     start(async () => {
       setError(null);
-      const res = await requestBusinessCode(email);
+      const res = await requestCode(email);
       if (!res.ok) return setError(res.error);
       setMasked(res.maskedEmail);
       setStep("code");
@@ -31,7 +36,7 @@ export function LoginForm({ defaultEmail, demo }: { defaultEmail: string; demo: 
   const verify = (c: string) =>
     start(async () => {
       setError(null);
-      const res = await verifyBusinessCode(email, c);
+      const res = await verifyCode(email, c);
       if (res && !res.ok) {
         setError(res.error);
         setCode("");
@@ -52,20 +57,20 @@ export function LoginForm({ defaultEmail, demo }: { defaultEmail: string; demo: 
               sendCode();
             }}
           >
-            <h1 className="font-display text-2xl font-semibold tracking-tight">{a.email.title}</h1>
-            <p className="mt-1.5 text-sm text-fg-2">{a.email.subtitle}</p>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">{copy.title}</h1>
+            <p className="mt-1.5 text-sm text-fg-2">{copy.subtitle}</p>
             <div className="mt-6">
-              <Label htmlFor="email">{a.email.label}</Label>
+              <Label htmlFor="email">{copy.label}</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-3" />
-                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" placeholder={a.email.placeholder} />
+                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" placeholder={copy.placeholder} />
               </div>
             </div>
             {error && <p className="mt-3 text-sm text-rose">{error}</p>}
             <Button type="submit" size="lg" className="mt-6 w-full" disabled={pending || !email}>
               {pending ? <LogoSpinner size={20} /> : <>{m.common.continue} <ArrowRight className="size-4" /></>}
             </Button>
-            {demo && (
+            {demo && !admin && (
               <p className="mt-5 rounded-xl border border-violet/20 bg-violet/[0.07] px-3.5 py-2.5 text-[13px] text-fg-2">
                 {rich(a.email.demo, { b: (c) => <span className="font-medium text-violet">{c}</span> })}
               </p>

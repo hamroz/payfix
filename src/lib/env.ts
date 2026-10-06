@@ -32,6 +32,11 @@ const schema = z.object({
   DEMO_URL: z.string().optional().transform((v) => v || undefined),
   // Shown on the legal pages for privacy requests and security reports. Unset = a generic contact sentence.
   CONTACT_EMAIL: z.string().optional().transform((v) => v?.trim() || undefined),
+  // Platform admins (comma-separated). Checked on every admin request, so removing an address revokes access.
+  ADMIN_EMAILS: z
+    .string()
+    .optional()
+    .transform((v) => (v ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)),
 });
 
 export type Env = Omit<z.infer<typeof schema>, "SOLANA_CLUSTER" | "SOLANA_RPC_URL" | "PAYFIX_TOKEN_LABEL"> & {
@@ -54,6 +59,11 @@ const RPC_DEFAULTS = {
   localnet: "http://127.0.0.1:8899",
   simulated: "https://api.devnet.solana.com",
 } as const;
+
+/** Tests only: forget the parsed environment so the next `env()` re-reads `process.env`. */
+export function resetEnvForTests() {
+  cached = undefined;
+}
 
 export function env(): Env {
   if (cached) return cached;

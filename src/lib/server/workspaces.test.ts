@@ -10,7 +10,7 @@ import { can } from "@/lib/roles";
 import { destinationProofMessage } from "@/lib/solana/proof";
 import { applyCredit } from "./credit";
 import { syncBusiness } from "./ingest";
-import { createPaymentRequest } from "./invoices";
+import { createInvoice, createPaymentRequest } from "./invoices";
 import { businessBalances, caseAvailable, customerCredit, invoiceWithBalance } from "./queries";
 import { approveProposal, executePlan, requestChanges, submitProposal } from "./resolution";
 import { SimChain } from "./sim-chain";
@@ -163,5 +163,13 @@ describe("companies, members, and isolation", () => {
     expect((await listMembers(db, bizA)).length).toBe(1); // team survives a reset
     await syncBusiness({ db, chain }, bizA); // old chain history isn't re-ingested
     expect(await db.select().from(transfers).where(eq(transfers.businessId, bizA))).toHaveLength(0);
+  });
+
+  it("marks seeded invoices as sample data, and only those", async () => {
+    const seeded = await db.select().from(invoices).where(eq(invoices.businessId, bizB));
+    expect(seeded.map((i) => i.sample)).toEqual([true, true]);
+    const own = await createInvoice(db, { businessId: bizB, customerId: seeded[0].customerId, title: "Real work", amount: $("10"), dueAt: new Date() });
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, own.id));
+    expect(row.sample).toBe(false);
   });
 });
