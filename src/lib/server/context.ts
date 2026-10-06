@@ -17,7 +17,7 @@ export async function deps() {
   return { db: await getDb(), chain: chain() };
 }
 
-export const COOKIES: Record<SessionKind, string> = { business: "pf_b", customer: "pf_c" };
+export const COOKIES: Record<SessionKind, string> = { business: "pf_b", customer: "pf_c", admin: "pf_a" };
 const WORKSPACE_COOKIE = "pf_ws";
 /** Demo mode: the email this browser asked a sign-in code for, so the demo inbox can show it. */
 export const DEMO_INBOX_COOKIE = "pf_inbox";

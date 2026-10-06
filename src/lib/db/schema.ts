@@ -25,12 +25,18 @@ export const businesses = pgTable("businesses", {
   ownerEmail: text("owner_email").notNull(),
   walletAddress: text("wallet_address").notNull(),
   mint: text("mint").notNull(),
+  /** Set by a platform admin. Members are sent to /suspended; customer links and payment links stop. */
+  suspendedAt: ts("suspended_at"),
+  suspendedReason: text("suspended_reason"),
   createdAt: createdAt(),
 });
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
+  /** Set by a platform admin. A suspended user can't sign in and has no sessions. */
+  suspendedAt: ts("suspended_at"),
+  suspendedReason: text("suspended_reason"),
   createdAt: createdAt(),
 });
 
@@ -95,6 +101,8 @@ export const invoices = pgTable(
     title: text("title").notNull(),
     amount: units("amount").notNull(),
     dueAt: ts("due_at").notNull(),
+    /** Seeded by "Add the demo customer and invoices", so statistics can tell them from invoices people created. */
+    sample: boolean("sample").notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("invoices_business_number").on(t.businessId, t.number)],
@@ -363,7 +371,7 @@ export const notificationReads = pgTable(
 export const otpCodes = pgTable("otp_codes", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),
-  purpose: text("purpose", { enum: ["business", "customer"] }).notNull(),
+  purpose: text("purpose", { enum: ["business", "customer", "admin"] }).notNull(),
   subjectId: text("subject_id").notNull(),
   codeHash: text("code_hash").notNull(),
   attempts: integer("attempts").notNull().default(0),
@@ -374,7 +382,8 @@ export const otpCodes = pgTable("otp_codes", {
 
 export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
-  kind: text("kind", { enum: ["business", "customer"] }).notNull(),
+  /** For admin sessions the subject is the admin's email (admins are an allowlist, not users). */
+  kind: text("kind", { enum: ["business", "customer", "admin"] }).notNull(),
   subjectId: text("subject_id").notNull(),
   tokenHash: text("token_hash").notNull().unique(),
   expiresAt: ts("expires_at").notNull(),
@@ -415,4 +424,84 @@ export const rateEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("rate_events_key_time").on(t.key, t.createdAt)],
+);
+
+// ── Platform admin and feedback ────────────────────────────────────────────
+
+export type FeedbackCompleted = "unaided" | "aided" | "no";
+export type FeedbackDevice = "phone" | "tablet" | "computer";
+export type FeedbackAnswers = {
+  happened?: string;
+  hesitated?: string;
+  voidedApproval?: string;
+  currentProcess?: string;
+  receiptTrust?: string;
+  blockers?: string;
+};
+
+/** One tester survey response from /feedback. Anonymous unless the tester chose to attach their account. */
+export const feedbackResponses = pgTable(
+  "feedback_responses",
+  {
+    id: text("id").primaryKey(),
+    cohort: text("cohort"),
+    locale: text("locale").notNull(),
+    completed: text("completed").$type<FeedbackCompleted>().notNull(),
+    minutes: integer("minutes"),
+    ease: integer("ease").notNull(),
+    nps: integer("nps").notNull(),
+    answers: jsonb("answers").$type<FeedbackAnswers>().notNull(),
+    about: text("about"),
+    device: text("device").$type<FeedbackDevice>(),
+    quoteOk: boolean("quote_ok").notNull().default(false),
+    userId: text("user_id").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("feedback_created").on(t.createdAt)],
+);
+
+export type BlockKind = "sign_in" | "faucet";
+
+/** An admin's block on one email (sign-in codes) or one wallet (test-token faucet). One active block per kind and target. */
+export const blocks = pgTable(
+  "blocks",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").$type<BlockKind>().notNull(),
+    target: text("target").notNull(),
+    reason: text("reason").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: createdAt(),
+    liftedAt: ts("lifted_at"),
+    liftedBy: text("lifted_by"),
+  },
+  (t) => [uniqueIndex("blocks_one_active").on(t.kind, t.target).where(sql`lifted_at is null`)],
+);
+
+export type AdminAction =
+  | "user.view"
+  | "business.view"
+  | "user.suspend"
+  | "user.restore"
+  | "user.sign_out"
+  | "business.suspend"
+  | "business.restore"
+  | "block.add"
+  | "block.lift"
+  | "export";
+
+/** Everything a platform admin did or opened, with who and why. */
+export const adminAudit = pgTable(
+  "admin_audit",
+  {
+    id: text("id").primaryKey(),
+    adminEmail: text("admin_email").notNull(),
+    action: text("action").$type<AdminAction>().notNull(),
+    targetType: text("target_type").$type<"user" | "business" | "block" | "export">(),
+    targetId: text("target_id"),
+    reason: text("reason"),
+    data: jsonb("data").$type<Record<string, unknown>>(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("admin_audit_created").on(t.createdAt), index("admin_audit_target").on(t.targetType, t.targetId)],
 );
