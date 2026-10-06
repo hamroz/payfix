@@ -121,6 +121,9 @@ const errors = {
   rateFaucetWalletDay: "This wallet has reached today’s test USD limit.",
   rateFaucetNetwork: "Too many faucet requests from this network. Try again in an hour.",
   rateFaucetGlobal: "The faucet is busy. Try again in a few minutes.",
+  feedbackInvalid: "Please check your answers: some are missing or too long.",
+  rateFeedback: "Too many responses from this network today. Thank you, we have plenty!",
+  rateFeedbackGlobal: "We’re getting a lot of responses right now. Try again in a few minutes.",
 
   // Statuses named inside the messages above ({status})
   statuses: {

@@ -194,3 +194,15 @@ export async function overviewStats(db: Db, range: Range): Promise<Overview> {
     system: { emailPending: mail?.pending ?? 0, emailFailed: mail?.failed ?? 0, codes24h: codes, faucet24h: faucet, cluster: env().SOLANA_CLUSTER },
   };
 }
+
+/** The last funnel step one user has reached (for feedback from an attached account). */
+export async function furthestStep(db: Db, userId: string): Promise<keyof Funnel> {
+  const companies = sql`(select business_id from memberships where user_id = ${userId})`;
+  const has = async (q: SQL) => ((await db.execute<{ ok: boolean }>(sql`select exists (${q}) as ok`)).rows[0]?.ok ?? false) as boolean;
+  if (await has(sql`select 1 from refunds where status = 'confirmed' and business_id in ${companies}`)) return "refunded";
+  if (await has(sql`select 1 from cases where status = 'resolved' and business_id in ${companies}`)) return "resolved";
+  if (await has(sql`select 1 from transfers where direction = 'in' and business_id in ${companies}`)) return "paid";
+  if (await has(sql`select 1 from invoices where sample = false and business_id in ${companies}`)) return "invoiced";
+  if (await has(sql`select 1 from memberships where user_id = ${userId}`)) return "inCompany";
+  return "signedUp";
+}
