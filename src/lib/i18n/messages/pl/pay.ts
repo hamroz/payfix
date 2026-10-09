@@ -20,6 +20,10 @@ const pay: Messages["pay"] = {
     remains: "Na tej fakturze pozostało {amount}.",
     another: "Wykonaj kolejną płatność",
   },
+  settled: {
+    title: "Ta faktura jest opłacona",
+    body: "Firma {business} otrzymała całą kwotę {total}. Płatności na tej stronie są zamknięte, więc nie musisz już nic wysyłać.",
+  },
   form: {
     title: "Zapłać w {token}",
     subtitle: "Rozliczenie w kilka sekund w sieci Solana. Bez prowizji kartowych i chargebacków.",

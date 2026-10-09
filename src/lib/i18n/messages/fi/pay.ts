@@ -20,6 +20,10 @@ const pay: Messages["pay"] = {
     remains: "Tällä laskulla on vielä avoinna {amount}.",
     another: "Tee uusi maksu",
   },
+  settled: {
+    title: "Tämä lasku on maksettu",
+    body: "{business} on saanut koko summan, {total}. Maksut tällä sivulla on suljettu, joten sinun ei tarvitse lähettää enempää.",
+  },
   form: {
     title: "Maksa tokenilla {token}",
     subtitle: "Perillä sekunneissa Solanassa. Ei korttimaksuja, ei takaisinperintöjä.",

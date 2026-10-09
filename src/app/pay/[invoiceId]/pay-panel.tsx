@@ -156,16 +156,25 @@ export function PayPanel({ config, invoice, business, customerName, payments, in
                   {P.viewOnExplorer} <ExternalLink className="size-3.5" />
                 </a>
               )}
-              <Button
-                variant="secondary"
-                className="mt-6"
-                onClick={() => {
-                  setPhase("idle");
-                  setAmount(remaining > 0n ? fromUnits(remaining) : "");
-                }}
-              >
-                {P.done.another}
-              </Button>
+              {remaining > 0n && (
+                <Button
+                  variant="secondary"
+                  className="mt-6"
+                  onClick={() => {
+                    setPhase("idle");
+                    setAmount(fromUnits(remaining));
+                  }}
+                >
+                  {P.done.another}
+                </Button>
+              )}
+            </motion.div>
+          ) : remaining === 0n ? (
+            // Settled: no wallet, QR, or demo payment, so an old link can't keep collecting money.
+            <motion.div key="settled" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center py-8 text-center">
+              <SuccessMark />
+              <h2 className="mt-6 font-display text-2xl font-semibold">{P.settled.title}</h2>
+              <p className="mt-2 max-w-sm text-sm text-fg-2">{t(P.settled.body, { business: business.name, total: formatUsd(BigInt(invoice.amount)) })}</p>
             </motion.div>
           ) : (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>

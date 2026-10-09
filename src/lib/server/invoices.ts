@@ -76,6 +76,8 @@ export async function createPaymentRequest(db: Db, p: { invoiceId: string; amoun
   const inv = await invoiceWithBalance(db, p.invoiceId);
   if (!inv) throw new InputError("invoiceNotFound");
   if (await companySuspended(db, inv.businessId)) throw new InputError("companyUnavailable");
+  // A settled invoice takes no more money: an old pay link or QR must not keep collecting.
+  if (inv.remaining === 0n) throw new InputError("invoiceAlreadyPaid");
   if (p.amount !== null && p.amount <= 0n) throw new InputError("paymentAmountPositive");
   const [biz] = await db.select().from(businesses).where(eq(businesses.id, inv.businessId));
   const reference = Keypair.generate().publicKey.toBase58();
@@ -122,6 +124,8 @@ export async function buildRequestedPayment(deps: { db: Executor; chain: ChainCl
   if (!found || found.req.amount === null) throw new InputError("paymentCodeInvalid");
   if (!isWalletAddress(p.account)) throw new InputError("invalidWalletAddress");
   const { req, inv, biz } = found;
+  // The code may have been shown before the invoice was settled; check again at scan time.
+  if ((await invoiceWithBalance(deps.db, inv.id))?.remaining === 0n) throw new InputError("invoiceAlreadyPaid");
   const { blockhash, lastValidBlockHeight } = await deps.chain.getLatestBlockhash();
   const tx = buildPaymentTransaction({
     payer: new PublicKey(p.account),

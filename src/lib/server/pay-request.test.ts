@@ -5,6 +5,7 @@ import { openPglite, type Db } from "@/lib/db/client";
 import { businesses } from "@/lib/db/schema";
 import { toUnits } from "@/lib/money";
 import { ata } from "@/lib/solana/tx";
+import { syncBusiness } from "./ingest";
 import { SimChain } from "./sim-chain";
 import { buildRequestedPayment, createCustomer, createInvoice, createPaymentRequest, paymentRequestLabel } from "./invoices";
 
@@ -67,5 +68,20 @@ describe("payment QR transaction requests", () => {
     await expect(buildRequestedPayment({ db, chain }, { reference: open.reference, account })).rejects.toThrow(/isn't valid/);
     const req = await createPaymentRequest(db, { invoiceId, amount: toUnits("1"), appUrl });
     await expect(buildRequestedPayment({ db, chain }, { reference: req.reference, account: "not-a-wallet" })).rejects.toThrow(/wallet address/);
+  });
+
+  it("stops taking payments once the invoice is paid in full, including codes issued earlier", async () => {
+    const customerId = await createCustomer(db, { businessId: "biz_qr", name: "Kite Labs", email: "ap@kite.test" });
+    const id = (await createInvoice(db, { businessId: "biz_qr", customerId, title: "Logo refresh", amount: toUnits("200"), dueAt: new Date(Date.now() + 864e5) })).id;
+    const stale = await createPaymentRequest(db, { invoiceId: id, amount: toUnits("200"), appUrl });
+
+    chain.fund(payer.toBase58(), toUnits("200"));
+    const paid = await createPaymentRequest(db, { invoiceId: id, amount: null, appUrl });
+    chain.transfer({ from: payer.toBase58(), to: merchant.toBase58(), amount: toUnits("200"), reference: paid.reference });
+    await syncBusiness({ db, chain }, "biz_qr");
+
+    await expect(createPaymentRequest(db, { invoiceId: id, amount: toUnits("50"), appUrl })).rejects.toThrow(/already paid/);
+    await expect(createPaymentRequest(db, { invoiceId: id, amount: null, appUrl })).rejects.toThrow(/already paid/);
+    await expect(buildRequestedPayment({ db, chain }, { reference: stale.reference, account: payer.toBase58() })).rejects.toThrow(/already paid/);
   });
 });

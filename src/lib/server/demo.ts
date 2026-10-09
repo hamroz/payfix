@@ -12,6 +12,7 @@ import { ata, buildPaymentTransaction } from "@/lib/solana/tx";
 import { chain, connection, isSimulated, sim } from "./chain";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { createPaymentRequest, InputError } from "./invoices";
+import { invoiceWithBalance } from "./queries";
 import { simulatedKeys } from "./sim-keys";
 import { companySuspended } from "./suspension";
 
@@ -120,6 +121,7 @@ export async function demoPay(db: Db, p: { invoiceId: string; amount: bigint }) 
   // Refuse a suspended company before minting anything into the demo customer's wallet.
   const [owner] = await db.select({ businessId: invoices.businessId }).from(invoices).where(eq(invoices.id, p.invoiceId));
   if (owner && (await companySuspended(db, owner.businessId))) throw new InputError("companyUnavailable");
+  if ((await invoiceWithBalance(db, p.invoiceId))?.remaining === 0n) throw new InputError("invoiceAlreadyPaid");
   const customer = keys.customer.publicKey.toBase58();
   let balance = await tokenBalance(customer);
   if (balance < p.amount && p.amount <= DEMO_TOP_UP_LIMIT) {
