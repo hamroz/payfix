@@ -19,6 +19,10 @@ const pay = {
     remains: "{amount} remains on this invoice.",
     another: "Make another payment",
   },
+  settled: {
+    title: "This invoice is paid",
+    body: "{business} has received the full {total}. Payments on this page are closed, so there’s nothing more to send.",
+  },
   form: {
     title: "Pay with {token}",
     subtitle: "Settles in seconds on Solana. No card fees, no chargebacks.",

@@ -20,6 +20,10 @@ const pay: Messages["pay"] = {
     remains: "这张账单还剩 {amount} 未付。",
     another: "再付一笔",
   },
+  settled: {
+    title: "此账单已付清",
+    body: "{business} 已收到全部 {total}。此页面已停止收款，无需再支付。",
+  },
   form: {
     title: "使用 {token} 支付",
     subtitle: "在 Solana 上几秒到账。没有刷卡手续费，也没有拒付。",

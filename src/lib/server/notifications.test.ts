@@ -59,10 +59,12 @@ describe("notifications", () => {
       (e) => (!where.invoiceId || e.invoiceId === where.invoiceId) && e.businessId === (where.businessId ?? a.businessId),
     );
   const acme = async () => (await db.select().from(customers).where(and(eq(customers.businessId, a.businessId), eq(customers.email, "ap@acme.test"))))[0];
-  const pay = async (invoiceId: string, amount: string) => {
-    const req = await createPaymentRequest(db, { invoiceId, amount: null });
-    chain.transfer({ from: payer.publicKey.toBase58(), to: a.wallet.publicKey.toBase58(), amount: $(amount), reference: req.reference });
+  /** Pays against a fresh pay request, or replays an earlier reference (a settled invoice issues no new ones). */
+  const pay = async (invoiceId: string, amount: string, reference?: string) => {
+    reference ??= (await createPaymentRequest(db, { invoiceId, amount: null })).reference;
+    chain.transfer({ from: payer.publicKey.toBase58(), to: a.wallet.publicKey.toBase58(), amount: $(amount), reference });
     await syncBusiness({ db, chain }, a.businessId);
+    return reference;
   };
 
   it("logs invoice.paid once, on the payment that settles the invoice", async () => {
@@ -80,9 +82,9 @@ describe("notifications", () => {
 
   it("doesn't call a duplicate payment 'paid in full' for an invoice settled before notifications existed", async () => {
     const inv = await createInvoice(db, { businessId: a.businessId, customerId: (await acme()).id, title: "Settled long ago", amount: $("30"), dueAt: new Date(Date.now() + 864e5) });
-    await pay(inv.id, "30");
+    const reference = await pay(inv.id, "30");
     await db.delete(events).where(and(eq(events.type, "invoice.paid"), eq(events.invoiceId, inv.id))); // as if paid before this release
-    await pay(inv.id, "30");
+    await pay(inv.id, "30", reference);
     expect(await ofType("invoice.paid", { invoiceId: inv.id })).toHaveLength(0);
   });
 

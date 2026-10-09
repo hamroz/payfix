@@ -20,6 +20,10 @@ const pay: Messages["pay"] = {
     remains: "Auf dieser Rechnung sind noch {amount} offen.",
     another: "Weitere Zahlung leisten",
   },
+  settled: {
+    title: "Diese Rechnung ist bezahlt",
+    body: "{business} hat die vollen {total} erhalten. Zahlungen auf dieser Seite sind geschlossen, Sie müssen nichts mehr senden.",
+  },
   form: {
     title: "Mit {token} bezahlen",
     subtitle: "In Sekunden auf Solana abgewickelt. Keine Kartengebühren, keine Rückbuchungen.",

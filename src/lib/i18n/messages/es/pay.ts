@@ -20,6 +20,10 @@ const pay: Messages["pay"] = {
     remains: "Quedan {amount} pendientes en esta factura.",
     another: "Hacer otro pago",
   },
+  settled: {
+    title: "Esta factura está pagada",
+    body: "{business} ha recibido los {total} completos. Los pagos en esta página están cerrados, así que no tienes que enviar nada más.",
+  },
   form: {
     title: "Pagar con {token}",
     subtitle: "Se liquida en segundos en Solana. Sin comisiones de tarjeta ni contracargos.",
