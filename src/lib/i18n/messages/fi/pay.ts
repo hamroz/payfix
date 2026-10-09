@@ -56,6 +56,13 @@ const pay: Messages["pay"] = {
     scan: "Skannaa Phantomilla tai Solflarella. Sivu päivittyy itsestään, kun maksu saapuu.",
     scanOn: "Skannaa Phantomilla tai Solflarella ({cluster}). Sivu päivittyy itsestään, kun maksu saapuu.",
     openInWallet: "Avaa lompakkosovelluksessa",
+    chooser: {
+      title: "Valitse lompakkosovellus",
+      body: "Tämä sivu avautuu lompakon omassa selaimessa. Maksa siellä kohdasta ”{method}”.",
+      opensIn: "Avaa tämän sivun sovelluksessa {wallet}",
+      another: "Muu lompakkosovellus",
+      anotherNote: "Lähettää maksupyynnön puhelimen oletusarvoiselle Solana-lompakolle",
+    },
   },
   faucet: {
     sentTitle: "{amount} testi-USD:tä lähetetty",

@@ -48,8 +48,10 @@ export function LogoMark({ size = 28, animate = false, className, delay = 0 }: M
 }
 
 export function Logo({ size = 28, animate = false, className }: MarkProps) {
+  // Block-level flex, not inline-flex: an inline box sits on the text baseline and picks up
+  // descender space below it, which pushes the logo above center in a flex row like a header.
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
+    <span className={cn("flex items-center gap-2", className)}>
       <LogoMark size={size} animate={animate} />
       <span className="font-display font-semibold tracking-tight" style={{ fontSize: size * 0.72 }}>
         <span className="text-fg">pay</span>

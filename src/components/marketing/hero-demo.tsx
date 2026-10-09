@@ -31,15 +31,17 @@ export function HeroDemo() {
     { key: "x", label: h.unresolved, amount: stage >= 3 ? "$0" : "$100", pct: 9.09, tone: "from-amber to-[#FCD34D]", show: stage >= 1 && stage < 3 },
   ];
 
+  // Every changing line is single-line (truncate/nowrap) inside min-w-0 boxes, so the card's
+  // size never depends on which stage is showing and the layout around it stays still.
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <div className="absolute -inset-8 -z-10 rounded-[40px] bg-[radial-gradient(closest-side,rgba(99,102,241,0.25),transparent)] blur-2xl" />
       <div className="glass overflow-hidden rounded-3xl p-5 sm:p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-fg-3">
-            <FileText className="size-3.5" /> Acme Robotics · {p(h.invoiceCount, 2)}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-xs text-fg-3">
+            <FileText className="size-3.5 shrink-0" /> <span className="truncate">Acme Robotics · {p(h.invoiceCount, 2)}</span>
           </div>
-          <span className="rounded-full border border-veil/10 bg-veil/[0.04] px-2 py-0.5 text-[11px] text-fg-3">{m.common.testMoney}</span>
+          <span className="shrink-0 whitespace-nowrap rounded-full border border-veil/10 bg-veil/[0.04] px-2 py-0.5 text-[11px] text-fg-3">{m.common.testMoney}</span>
         </div>
 
         <div className="mt-5 space-y-2">
@@ -66,15 +68,15 @@ export function HeroDemo() {
         </div>
 
         <div className="mt-6">
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-xs uppercase tracking-[0.14em] text-fg-3">{t(h.received, { amount: "$1,100" })}</span>
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate text-xs uppercase tracking-[0.14em] text-fg-3">{t(h.received, { amount: "$1,100" })}</span>
             <AnimatePresence mode="wait">
               <motion.span
                 key={stage >= 3 ? "ok" : "no"}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className={cn("text-xs font-medium", stage >= 3 ? "text-mint" : "text-amber")}
+                className={cn("shrink-0 whitespace-nowrap text-xs font-medium", stage >= 3 ? "text-mint" : "text-amber")}
               >
                 {stage >= 3 ? h.reconciled : stage >= 1 ? t(h.needsResolution, { amount: "$100" }) : h.verifying}
               </motion.span>
@@ -120,12 +122,12 @@ export function HeroDemo() {
           <div className="min-w-0 flex-1">
             <AnimatePresence mode="wait">
               <motion.div key={stage} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
-                <div className="text-sm font-medium text-fg">{t(h.stages[STAGES[stage].key].title, STAGES[stage].vars)}</div>
+                <div className="truncate text-sm font-medium text-fg">{t(h.stages[STAGES[stage].key].title, STAGES[stage].vars)}</div>
                 <div className="truncate text-xs text-fg-3">{t(h.stages[STAGES[stage].key].note, STAGES[stage].vars)}</div>
               </motion.div>
             </AnimatePresence>
           </div>
-          <div className="flex gap-1">
+          <div className="flex shrink-0 gap-1">
             {STAGES.map((_, i) => (
               <motion.span key={i} className={cn("h-1.5 rounded-full transition-colors duration-300", i <= stage ? "bg-violet" : "bg-veil/20")} animate={{ width: i === stage ? 16 : 6 }} />
             ))}

@@ -22,8 +22,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: m.pay.title };
 }
 
-export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">) {
+export default async function PayPage({ params, searchParams }: PageProps<"/pay/[invoiceId]">) {
   const { invoiceId } = await params;
+  // Set by the QR tab's wallet chooser when it reopens this page inside a wallet app's browser.
+  const { method, amount } = await searchParams;
   const { db } = await deps();
   const inv = await invoiceWithBalance(db, invoiceId);
   if (!inv) notFound();
@@ -62,6 +64,7 @@ export default async function PayPage({ params }: PageProps<"/pay/[invoiceId]">)
               }}
               business={{ id: biz.id, name: biz.name, wallet: biz.walletAddress }}
               customerName={cust?.name ?? m.common.customer}
+              initial={{ method: typeof method === "string" ? method : undefined, amount: typeof amount === "string" ? amount : undefined }}
               payments={payments}
             />
           )}
