@@ -56,6 +56,13 @@ const pay: Messages["pay"] = {
     scan: "用 Phantom 或 Solflare 扫码。付款到账后，本页面会自动更新。",
     scanOn: "在 {cluster} 上用 Phantom 或 Solflare 扫码。付款到账后，本页面会自动更新。",
     openInWallet: "在钱包 App 中打开",
+    chooser: {
+      title: "选择钱包 App",
+      body: "本页面会在钱包的内置浏览器中打开，在那里选择“{method}”付款。",
+      opensIn: "在 {wallet} 中打开本页面",
+      another: "其他钱包 App",
+      anotherNote: "把付款请求交给手机默认的 Solana 钱包",
+    },
   },
   faucet: {
     sentTitle: "已发送 {amount} 测试 USD",

@@ -56,6 +56,13 @@ const pay: Messages["pay"] = {
     scan: "Phantom या Solflare से स्कैन करें। पेमेंट आते ही यह पेज अपने-आप अपडेट हो जाएगा।",
     scanOn: "{cluster} पर Phantom या Solflare से स्कैन करें। पेमेंट आते ही यह पेज अपने-आप अपडेट हो जाएगा।",
     openInWallet: "वॉलेट ऐप में खोलें",
+    chooser: {
+      title: "अपना वॉलेट ऐप चुनें",
+      body: "यह पेज वॉलेट के अपने ब्राउज़र में खुलेगा। वहाँ “{method}” से पेमेंट करें।",
+      opensIn: "यह पेज {wallet} में खोलता है",
+      another: "कोई दूसरा वॉलेट ऐप",
+      anotherNote: "पेमेंट रिक्वेस्ट आपके फ़ोन के डिफ़ॉल्ट Solana वॉलेट को भेजता है",
+    },
   },
   faucet: {
     sentTitle: "{amount} टेस्ट USD भेज दिए गए",

@@ -56,6 +56,13 @@ const pay: Messages["pay"] = {
     scan: "Mit Phantom oder Solflare scannen. Diese Seite aktualisiert sich automatisch, sobald die Zahlung eingeht.",
     scanOn: "Mit Phantom oder Solflare auf {cluster} scannen. Diese Seite aktualisiert sich automatisch, sobald die Zahlung eingeht.",
     openInWallet: "In Wallet-App öffnen",
+    chooser: {
+      title: "Wallet-App auswählen",
+      body: "Diese Seite öffnet sich im integrierten Browser des Wallets. Bezahlen Sie dort mit „{method}“.",
+      opensIn: "Öffnet diese Seite in {wallet}",
+      another: "Andere Wallet-App",
+      anotherNote: "Übergibt die Zahlungsanfrage an das Standard-Solana-Wallet Ihres Telefons",
+    },
   },
   faucet: {
     sentTitle: "{amount} Test-USD gesendet",

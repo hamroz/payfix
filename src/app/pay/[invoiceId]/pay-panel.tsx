@@ -3,7 +3,7 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownLeft, Check, Droplets, ExternalLink, QrCode, Sparkles, Wallet } from "lucide-react";
+import { ArrowDownLeft, Check, ChevronRight, Droplets, ExternalLink, QrCode, Smartphone, Sparkles, Wallet, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -12,6 +12,7 @@ import { faucetAction } from "@/app/actions/business";
 import { LogoMark, LogoSpinner } from "@/components/brand/logo";
 import { LiveSync } from "@/components/app/live-sync";
 import { AnimatedAmount } from "@/components/ui/motion";
+import { BodyPortal } from "@/components/ui/portal";
 import { Alert, Button, Card, Input, Label } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { WalletButton } from "@/components/wallet/wallet-button";
@@ -27,11 +28,14 @@ import type { Messages } from "@/lib/i18n/messages";
 type Invoice = { id: string; number: string; title: string; amount: string; applied: string; remaining: string; dueAt: string };
 type Method = "demo" | "wallet" | "qr";
 
-export function PayPanel({ config, invoice, business, customerName, payments }: { config: PublicConfig; invoice: Invoice; business: { id: string; name: string; wallet: string }; customerName: string; payments: TransferRow[] }) {
+export function PayPanel({ config, invoice, business, customerName, payments, initial }: { config: PublicConfig; invoice: Invoice; business: { id: string; name: string; wallet: string }; customerName: string; payments: TransferRow[]; initial?: { method?: string; amount?: string } }) {
   const remaining = BigInt(invoice.remaining);
-  const [amount, setAmount] = useState(remaining > 0n ? fromUnits(remaining) : "");
+  const [amount, setAmount] = useState(() => {
+    const given = initial?.amount ? tryToUnits(initial.amount) : null;
+    return given !== null && given > 0n ? fromUnits(given) : remaining > 0n ? fromUnits(remaining) : "";
+  });
   const methods: Method[] = config.simulated ? ["demo"] : config.demoMode ? ["demo", "wallet", "qr"] : ["wallet", "qr"];
-  const [method, setMethod] = useState<Method>(methods[0]);
+  const [method, setMethod] = useState<Method>(() => methods.find((x) => x === initial?.method) ?? methods[0]);
   const [phase, setPhase] = useState<"idle" | "paying" | "done">("idle");
   const [lastPaid, setLastPaid] = useState<{ amount: string; signature: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -308,6 +312,7 @@ function QrPay({ invoiceId, amount, config }: { invoiceId: string; amount: strin
   const [svg, setSvg] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
   const key = useMemo(() => `${invoiceId}:${amount}`, [invoiceId, amount]);
   const { m, t } = useI18n();
 
@@ -339,12 +344,94 @@ function QrPay({ invoiceId, amount, config }: { invoiceId: string; amount: strin
         {config.mainnet ? m.pay.qr.scan : t(m.pay.qr.scanOn, { cluster: config.cluster })}
       </p>
       {url && (
-        <a href={url} className="mt-2 text-xs text-violet hover:underline">
+        <button type="button" onClick={() => setChoosing(true)} className="mt-2 text-xs text-violet hover:underline">
           {m.pay.qr.openInWallet}
-        </a>
+        </button>
       )}
+      {url && <WalletAppChooser open={choosing} onClose={() => setChoosing(false)} requestUrl={url} amount={amount} />}
       {error && <p className="mt-2 text-sm text-rose">{error}</p>}
     </div>
+  );
+}
+
+// Wallets' documented "browse" universal links: open a URL in the app's built-in browser,
+// where the wallet is injected and the Browser wallet tab works. Each goes to the app's
+// download page when it isn't installed.
+const WALLET_APPS = [
+  { name: "Phantom", tile: "bg-[#AB9FF2] text-[#1C1C1C]", browse: (url: string, ref: string) => `https://phantom.app/ul/browse/${url}?ref=${ref}` },
+  { name: "Solflare", tile: "bg-[#FFEF46] text-[#0B0F1A]", browse: (url: string, ref: string) => `https://solflare.com/ul/v1/browse/${url}?ref=${ref}` },
+  { name: "Backpack", tile: "bg-[#E33E3F] text-white", browse: (url: string, ref: string) => `https://backpack.app/ul/v1/browse/${url}?ref=${ref}` },
+] as const;
+
+/**
+ * A plain solana: link opens whichever app the phone picked as its handler. This lets the
+ * customer choose: a known wallet opens this page in its browser on the Browser wallet tab
+ * with the amount filled in; "another wallet" keeps the solana: payment request.
+ */
+function WalletAppChooser({ open, onClose, requestUrl, amount }: { open: boolean; onClose: () => void; requestUrl: string; amount: string }) {
+  const { m, t } = useI18n();
+  const C = m.pay.qr.chooser;
+  const link = (browse: (url: string, ref: string) => string) => {
+    const page = new URL(window.location.pathname, window.location.origin);
+    page.searchParams.set("method", "wallet");
+    const units = tryToUnits(amount || "0");
+    if (units !== null && units > 0n) page.searchParams.set("amount", fromUnits(units));
+    return browse(encodeURIComponent(page.toString()), encodeURIComponent(window.location.origin));
+  };
+  const row = "flex w-full items-center gap-3 rounded-2xl border border-veil/[0.07] bg-veil/[0.03] px-4 py-3 text-left transition hover:border-violet/40 hover:bg-veil/[0.06]";
+
+  return (
+    <BodyPortal>
+      <AnimatePresence>
+        {open && (
+          <motion.div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="wallet-app-title"
+              initial={{ y: 30, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              className="glass w-full max-w-sm rounded-3xl bg-ink-850/95 p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h3 id="wallet-app-title" className="font-display text-lg font-semibold">
+                  {C.title}
+                </h3>
+                <button onClick={onClose} className="text-fg-3 hover:text-fg" aria-label={m.common.close}>
+                  <X className="size-5" />
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-fg-3">{t(C.body, { method: m.pay.form.methods.wallet })}</p>
+              <div className="mt-4 space-y-2">
+                {WALLET_APPS.map((w) => (
+                  <a key={w.name} href={link(w.browse)} onClick={onClose} className={row}>
+                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg font-display text-sm font-semibold", w.tile)}>{w.name[0]}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium">{w.name}</span>
+                      <span className="block truncate text-xs text-fg-3">{t(C.opensIn, { wallet: w.name })}</span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-fg-3" />
+                  </a>
+                ))}
+                <a href={requestUrl} onClick={onClose} className={row}>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-veil/[0.08] text-fg-2">
+                    <Smartphone className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">{C.another}</span>
+                    <span className="block text-xs text-fg-3">{C.anotherNote}</span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-fg-3" />
+                </a>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </BodyPortal>
   );
 }
 

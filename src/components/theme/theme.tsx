@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Smartphone, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/lib/i18n/client";
@@ -80,7 +80,15 @@ export function ThemeToggle({ className }: { className?: string }) {
           exit={{ y: -10, opacity: 0, rotate: 45 }}
           transition={{ duration: 0.2 }}
         >
-          <Icon className="size-4" />
+          {Icon === Monitor ? (
+            // "System" means the device's own setting: a phone on touch screens, a monitor elsewhere.
+            <>
+              <Monitor className="size-4 pointer-coarse:hidden" />
+              <Smartphone className="hidden size-4 pointer-coarse:block" />
+            </>
+          ) : (
+            <Icon className="size-4" />
+          )}
         </motion.span>
       </AnimatePresence>
     </button>

@@ -122,8 +122,12 @@
     /* Always reserve the scrollbar's width so centered layouts don't shift
        between pages that scroll and pages that don't. */
     scrollbar-gutter: stable;
+    /* No pull-to-refresh: in Chrome and other mobile browsers a downward drag near the top
+       reloads the page instead of scrolling back to the header. Pages sync themselves live. */
+    overscroll-behavior-y: none;
   }
   body {
+    overscroll-behavior-y: none;
     background: var(--color-ink-900);
     color: var(--color-fg);
     font-family: var(--font-sans);

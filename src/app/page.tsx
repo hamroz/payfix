@@ -56,7 +56,7 @@ export default async function Home() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-10 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:pt-16">
+        <section className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-12 px-5 pb-20 pt-10 sm:px-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:pt-16">
           <div>
             <FadeIn>
               <span className="inline-flex items-center gap-2 rounded-full border border-veil/10 bg-veil/[0.04] py-1 pl-1.5 pr-3 text-xs text-fg-2">

@@ -56,6 +56,13 @@ const pay: Messages["pay"] = {
     scan: "Zeskanuj w Phantom lub Solflare. Strona sama się zaktualizuje, gdy płatność dotrze.",
     scanOn: "Zeskanuj w Phantom lub Solflare w sieci {cluster}. Strona sama się zaktualizuje, gdy płatność dotrze.",
     openInWallet: "Otwórz w aplikacji portfela",
+    chooser: {
+      title: "Wybierz aplikację portfela",
+      body: "Ta strona otworzy się we wbudowanej przeglądarce portfela. Zapłać tam przez „{method}”.",
+      opensIn: "Otwiera tę stronę w {wallet}",
+      another: "Inna aplikacja portfela",
+      anotherNote: "Przekazuje żądanie płatności do domyślnego portfela Solana na telefonie",
+    },
   },
   faucet: {
     sentTitle: "Wysłano {amount} testowych USD",

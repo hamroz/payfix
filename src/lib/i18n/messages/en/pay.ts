@@ -55,6 +55,13 @@ const pay = {
     scan: "Scan with Phantom or Solflare. This page updates by itself when the payment lands.",
     scanOn: "Scan with Phantom or Solflare on {cluster}. This page updates by itself when the payment lands.",
     openInWallet: "Open in wallet app",
+    chooser: {
+      title: "Choose your wallet app",
+      body: "It opens this page in the wallet’s own browser. Pay there with “{method}”.",
+      opensIn: "Opens this page in {wallet}",
+      another: "Another wallet app",
+      anotherNote: "Sends the payment request to your phone’s default Solana wallet",
+    },
   },
   faucet: {
     sentTitle: "{amount} test USD sent",
